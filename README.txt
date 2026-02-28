@@ -1,17 +1,17 @@
 ========================================================================
-👨‍💻 PROJETO: PORTFOLIO ARTACHO.DEV (v1.0.1)
+👨‍💻 PROJETO: PORTFOLIO ARTACHO.DEV (v1.0.3)
 ========================================================================
 
 1. 📝 DESCRIÇÃO E EVOLUÇÃO
 ------------------------------------------------------------------------
 Portfólio profissional e cartão de visitas digital de Bruno Artacho. 
-A versão 1.0.1 consolida a arquitetura "Static-First" (sem APIs externas), 
+A versão 1.0.3 consolida a arquitetura "Static-First" (sem APIs externas), 
 focando em performance extrema, Clean Code e acessibilidade (A11y). 
 O sistema garante carregamento instantâneo e estabilidade absoluta.
 
 LINK OFICIAL: https://brartacho.github.io/
 
-🚧 STATUS DO PROJETO: v1.0.1 - ESTÁVEL
+🚧 STATUS DO PROJETO: v1.0.3 - ESTÁVEL
 - HTML5 (Semântica, SEO & Meta Tags): ✅ Concluído
 - CSS3 (Scroll Nativo, Blur & Layout): ✅ Concluído
 - JavaScript (UI Control & UX): ✅ Concluído
