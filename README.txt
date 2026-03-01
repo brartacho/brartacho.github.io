@@ -57,7 +57,7 @@ brartacho.github.io/ (Raiz do Projeto)
           * CSS: Separação total de regras de :hover (Desktop) e :active (Mobile).
           * UX: Correção do bug de "Sticky Hover" em botões e cards no mobile.
           * Content: Inclusão do DBeaver e reclassificação do Figma.
-          * Refinamento de descrições dos projetos (Pet e Padaria).
+          * Microcopy: Remoção de hífens em "Padaria do Bairro" e ajuste de descrições dos projetos.
           
 - v1.0.3: Ajuste de Microcopy e UX.
           * Redução da descrição para evitar truncamento em dispositivos móveis.
