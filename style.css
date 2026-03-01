@@ -144,19 +144,6 @@ h2 {
     font-size: 1.50rem;
 }
 
-/* Efeitos Hover (Aplicados apenas onde há cursor preciso/mouse) */
-@media (hover: hover) and (pointer: fine) {
-    .logo:hover {
-        color: var(--accent) !important;
-        text-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
-        transform: translateY(-2px);
-    }
-
-    .logo:hover span {
-        color: var(--text);
-    }
-}
-
 .nav-links {
     display: flex;
     list-style: none;
@@ -172,19 +159,10 @@ h2 {
     font-size: 0.95rem;
 }
 
-.nav-links a:hover {
-    color: var(--accent);
-}
-
 .nav-github-header {
     color: var(--dim);
     font-size: 1.6rem;
     transition: 0.3s;
-}
-
-.nav-github-header:hover {
-    color: var(--accent);
-    transform: scale(1.1);
 }
 
 /* --- Botão Hamburguer (Oculto no Desktop) --- */
@@ -279,14 +257,6 @@ h2 {
     box-shadow: 0 0 30px rgba(34, 211, 238, 0.2);
 }
 
-@media (hover: hover) {
-    .profile-img.loaded:hover {
-        transform: scale(1.05);
-        cursor: crosshair;
-        box-shadow: 0 0 40px var(--accent);
-    }
-}
-
 .bio {
     color: var(--dim);
     max-width: 800px;
@@ -346,11 +316,6 @@ h2 {
     transition: 0.3s;
 }
 
-.skill-category:hover {
-    border-color: var(--accent);
-    transform: translateY(-8px);
-}
-
 .icon-main {
     font-size: 2rem;
     color: var(--accent);
@@ -375,14 +340,6 @@ h2 {
 .tech-icons i {
     transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     cursor: help;
-}
-
-@media (hover: hover) {
-    .tech-icons i:hover {
-        color: var(--accent);
-        transform: scale(1.3) rotate(5deg);
-        filter: drop-shadow(0 0 8px var(--accent));
-    }
 }
 
 .json-label {
@@ -424,11 +381,6 @@ h2 {
     transition: 0.4s;
 }
 
-.card:hover {
-    border-color: var(--accent);
-    transform: translateY(-10px);
-}
-
 /* Trick para link englobar o card inteiro respeitando botões internos (z-index) */
 .card-main-link {
     position: absolute;
@@ -458,8 +410,6 @@ h2 {
 .card-banner img.img-pos-top {
     object-position: top center;
 }
-
-/* Você também pode refinar, ex: 'top left', 'bottom right', ou até porcentagem '25% 75%' */
 
 .card-info {
     padding: 30px;
@@ -504,11 +454,6 @@ h2 {
     border-radius: 8px;
     background: rgba(34, 211, 238, 0.1);
     transition: 0.3s;
-}
-
-.btn-git:hover {
-    background: var(--accent);
-    color: var(--bg);
 }
 
 /* --- CONTATO --- */
@@ -557,12 +502,6 @@ h2 {
     letter-spacing: 1px;
 }
 
-.contact-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-10px);
-    background: rgba(34, 211, 238, 0.05);
-}
-
 /* ==========================================================================
    8. FOOTER
    ========================================================================== */
@@ -581,6 +520,12 @@ h2 {
 .footer-sep {
     margin: 0 15px;
     color: var(--accent);
+}
+
+.location-tag {
+    border-top: 1px solid rgba(30, 41, 59, 0.5);
+    padding-top: 6px;
+    display: inline-block;
 }
 
 /* ==========================================================================
@@ -609,7 +554,11 @@ h2 {
     }
 
     .nav-links a {
-        font-size: 1.25rem;
+        font-size: 1.4rem;
+    }
+
+    .fa-github:before {
+        font-size: 2rem;
     }
 
     .nav-links.active {
@@ -653,57 +602,138 @@ h2 {
         padding: 30px 0;
     }
 
-    /* ======================================================================
+}
+
+/* ======================================================================
        EFEITO IMERSIVO DO MENU MOBILE (TRANSPARÊNCIA E BLUR)
        ====================================================================== */
 
-    /* Quando ativo, a barra de navegação fica transparente */
-    body.menu-open .main-nav {
-        background: transparent;
-        backdrop-filter: none;
-        border-bottom-color: transparent;
-    }
+/* Quando ativo, a barra de navegação fica transparente */
+body.menu-open .main-nav {
+    background: transparent;
+    backdrop-filter: none;
+    border-bottom-color: transparent;
+}
 
-    /* A logo embaça sutilmente para que o menu tome o foco principal */
-    body.menu-open .logo {
-        filter: blur(4px);
-        opacity: 0.2;
-        pointer-events: none;
-        /* Desabilita cliques na logo durante o estado aberto */
-    }
+/* A logo embaça sutilmente para que o menu tome o foco principal */
+body.menu-open .logo {
+    filter: blur(4px);
+    opacity: 0.2;
+    pointer-events: none;
+    /* Desabilita cliques na logo durante o estado aberto */
+}
 
-    /* ======================================================================
+/* ======================================================================
        ACESSIBILIDADE MOBILE: LEGENDAS NA STACK
        ====================================================================== */
-    
-    /* Aumenta o espaçamento vertical para caber o texto embaixo do ícone */
-    .tech-icons {
-        gap: 25px 15px; 
+
+/* Aumenta o espaçamento vertical para caber o texto embaixo do ícone */
+.tech-icons {
+    gap: 25px 15px;
+}
+
+/* Transforma o próprio ícone em um container Flexbox */
+.tech-icons i {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Puxa o texto do atributo 'title' do HTML e cria uma legenda */
+.tech-icons i::after {
+    content: attr(title);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.60rem;
+    font-weight: 600;
+    color: var(--dim);
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-align: center;
+
+    /* ⚙️ BLINDAGEM CONTRA TEXTOS LONGOS */
+    max-width: 70px;
+    white-space: normal;
+    line-height: 1.2;
+    word-wrap: break-word;
+}
+
+/* ==========================================================================
+   10. OTIMIZAÇÃO GLOBAL PARA DESKTOP (MOUSE APENAS)
+   Todas as regras de :hover ficam aqui. O mobile vai ignorar isso tudo.
+   ========================================================================== */
+@media (hover: hover) and (pointer: fine) {
+
+    /* Navegação */
+    .logo:hover {
+        color: var(--accent) !important;
+        text-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
+        transform: translateY(-2px);
     }
 
-    /* Transforma o próprio ícone em um container Flexbox */
-    .tech-icons i {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+    .logo:hover span {
+        color: var(--text);
     }
 
-    /* Puxa o texto do atributo 'title' do HTML e cria uma legenda */
-    .tech-icons i::after {
-        content: attr(title); 
-        font-family: 'Inter', sans-serif;
-        font-size: 0.60rem; /* Reduzimos um pentelhésimo para caber melhor */
-        font-weight: 600;
-        color: var(--dim);
-        margin-top: 8px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        text-align: center;
-        
-        /* ⚙️ BLINDAGEM CONTRA TEXTOS LONGOS */
-        max-width: 70px;         /* Define um "muro" invisível limitando a largura  => ALTEREI para 70 para caber a palavra "PostgreSQL" SEM QUEBRA DE LINHA */ 
-        white-space: normal;     /* Permite que o texto quebre para a linha de baixo */
-        line-height: 1.2;        /* Deixa as duas linhas de texto bem baixinhas e unidas */
-        word-wrap: break-word;   /* Se uma palavra única for gigantesca, ele a corta */
+    .nav-links a:hover {
+        color: var(--accent);
     }
+
+    .nav-github-header:hover {
+        color: var(--accent);
+        transform: scale(1.1);
+    }
+
+    /* Foto de Perfil */
+    .profile-img.loaded:hover {
+        transform: scale(1.05);
+        cursor: crosshair;
+        box-shadow: 0 0 40px var(--accent);
+    }
+
+    /* Skills e Ícones */
+    .skill-category:hover {
+        border-color: var(--accent);
+        transform: translateY(-8px);
+    }
+
+    .tech-icons i:hover {
+        color: var(--accent);
+        transform: scale(1.3) rotate(5deg);
+        filter: drop-shadow(0 0 8px var(--accent));
+    }
+
+    /* Cards (Projetos e Contato) */
+    .card:hover {
+        border-color: var(--accent);
+        transform: translateY(-10px);
+    }
+
+    .contact-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-10px);
+        background: rgba(34, 211, 238, 0.05);
+    }
+
+    /* Botões */
+    .btn-git:hover {
+        background: var(--accent);
+        color: var(--bg);
+        transform: translateY(-2px);
+    }
+}
+
+/* ==========================================================================
+   11. FEEDBACK TÁTIL (ACTIVE)
+   Efeitos de clique para Mobile e Desktop
+   ========================================================================== */
+.nav-links a:active,
+.btn-git:active,
+.card:active,
+.contact-card:active,
+.skill-category:active {
+    transform: scale(0.98);
+    /* Leve encolhimento ao clicar */
+    transition: 0.1s;
+    opacity: 0.8;
 }
