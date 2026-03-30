@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudo de caso profissional</title>
+    <meta name="description"
+        content="Estudo de caso profissional sobre validação de regra de negócio em pagamentos, impacto em resultados online, regressão e reteste em contexto de QA.">
+    <link rel="icon" type="image/svg+xml" href="imagens/favicon-artacho.svg">
+    <link rel="alternate icon" type="image/png" href="imagens/logo_artacho.dev_001.png">
+    <link rel="apple-touch-icon" href="imagens/logo_artacho.dev_001.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+
+<body class="case-page">
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <nav class="main-nav" aria-label="Navegação principal">
+        <div class="container nav-flex">
+            <a href="index.html#home" class="logo">ARTACHO<span>.</span>dev</a>
+
+            <button class="hamburger" id="hamburger" aria-label="Abrir menu" aria-expanded="false"
+                aria-controls="navLinks">
+                <span></span><span></span><span></span>
+            </button>
+
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html#home">Home</a></li>
+                <li><a href="index.html#sobre">Sobre</a></li>
+                <li><a href="index.html#skills">Stack</a></li>
+                <li><a href="index.html#projetos">Projetos</a></li>
+                <li><a href="index.html#contato">Contato</a></li>
+                <li>
+                    <a href="https://github.com/brartacho" target="_blank" class="nav-github-header"
+                        title="Acessar meu GitHub" rel="noreferrer">
+                        <i class="fa-brands fa-github"></i>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content-wrapper">
+        <section class="case-hero">
+            <div class="container case-hero-grid">
+                <div class="case-hero-copy">
+                    <div class="case-hero-top">
+                        <a href="index.html#projetos" class="case-back-link" aria-label="Voltar para projetos">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </a>
+                        <span class="card-badge">Estudo de caso profissional</span>
+                    </div>
+
+                    <h1>Pagamentos, regressão e regra de negócio</h1>
+
+                    <p>
+                        Em sistemas com regras financeiras acopladas ao atendimento, validar uma data de pagamento
+                        significa proteger a operação, a experiência do paciente e a coerência da liberação
+                        de resultados. Este caso demonstra como aplicar análise funcional, regressão e
+                        documentação de forma integrada.
+                    </p>
+
+                    <div class="case-chip-row">
+                        <span class="case-chip">Regra de negócio</span>
+                        <span class="case-chip">Pagamento pix</span>
+                        <span class="case-chip">Resultado online</span>
+                        <span class="case-chip">Regressão</span>
+                        <span class="case-chip">Reteste</span>
+                    </div>
+                </div>
+
+                <aside class="case-hero-side">
+                    <ul class="case-side-list">
+                        <li>
+                            <strong>Objetivo do caso</strong>
+                            <span>Validar uma correção ligada à data de pagamento e garantir coerência entre regra financeira, operação e visualização de resultados.</span>
+                        </li>
+                        <li>
+                            <strong>Risco envolvido</strong>
+                            <span>Um bloqueio indevido pode afetar a rotina do laboratório e gerar comportamento incorreto para o paciente em canais digitais.</span>
+                        </li>
+                        <li>
+                            <strong>Abordagem aplicada</strong>
+                            <span>Combinar cenário principal, comparação entre datas, regressão em comportamentos próximos e reteste antes da aprovação.</span>
+                        </li>
+                    </ul>
+                </aside>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Visão rápida do caso</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="metrics-grid">
+                    <article class="metric-card">
+                        <i class="fa-solid fa-bullseye"></i>
+                        <div class="metric-topline">
+                            <span class="metric-number">1</span>
+                            <span class="metric-title">Regra central</span>
+                        </div>
+                        <p>Pagamentos não podem ter data anterior ao cadastro da requisição, mas devem aceitar a mesma data e datas posteriores.</p>
+                    </article>
+
+                    <article class="metric-card">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="metric-topline">
+                            <span class="metric-number">2</span>
+                            <span class="metric-title">Frentes de impacto</span>
+                        </div>
+                        <p>Controle financeiro do atendimento e possível bloqueio indevido da visualização de resultados online.</p>
+                    </article>
+
+                    <article class="metric-card">
+                        <i class="fa-solid fa-rotate"></i>
+                        <div class="metric-topline">
+                            <span class="metric-number">1</span>
+                            <span class="metric-title">Achado em regressão</span>
+                        </div>
+                        <p>Durante a ampliação da cobertura, surge uma inconsistência adicional na validação de cartão com vencimento no mês corrente.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Resumo executivo</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="case-summary-grid">
+                    <article class="case-summary-card">
+                        <i class="fa-solid fa-bullseye"></i>
+                        <h3>Objetivo do teste</h3>
+                        <p>Confirmar se a correção respeita a regra de negócio sem bloquear cenários operacionais válidos.</p>
+                    </article>
+
+                    <article class="case-summary-card">
+                        <i class="fa-solid fa-shield-heart"></i>
+                        <h3>Risco do problema</h3>
+                        <p>Uma regra mal validada pode afetar faturamento, atendimento e a liberação correta de resultados online.</p>
+                    </article>
+
+                    <article class="case-summary-card">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                        <h3>Resultado da validação</h3>
+                        <p>Conduzir validação inicial, ampliar regressão, retornar para ajuste quando necessário e aprovar somente após reteste completo.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Contexto do problema</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="rule-box">
+                    <h3>Por que essa validação é sensível</h3>
+                    <p>
+                        O problema não está apenas em um campo de data. A regra de pagamento influencia a coerência do
+                        fluxo financeiro e também o comportamento de outros pontos do sistema relacionados ao atendimento.
+                    </p>
+                    <p>
+                        Quando uma requisição permanece pendente, o paciente não deve visualizar o resultado online.
+                        Por isso, a data do pagamento precisa bloquear apenas o que é realmente inválido e permitir o
+                        que faz sentido na operação.
+                    </p>
+
+                    <div class="rule-box-grid">
+                        <div class="rule-column">
+                            <h3>Comportamento esperado</h3>
+                            <ul class="rule-list success">
+                                <li><i class="fa-solid fa-check-circle"></i><span>Pagamento pix com data anterior ao cadastro da requisição: bloquear.</span></li>
+                                <li><i class="fa-solid fa-check-circle"></i><span>Pagamento pix na mesma data do cadastro: permitir.</span></li>
+                                <li><i class="fa-solid fa-check-circle"></i><span>Pagamento pix em data posterior ao cadastro: permitir.</span></li>
+                            </ul>
+                        </div>
+
+                        <div class="rule-column">
+                            <h3>Comportamento observado</h3>
+                            <ul class="rule-list danger">
+                                <li><i class="fa-solid fa-circle-xmark"></i><span>O sistema aceita o mesmo dia, mas bloqueia datas posteriores.</span></li>
+                                <li><i class="fa-solid fa-circle-xmark"></i><span>Isso invalida um cenário real de lançamento posterior do pagamento.</span></li>
+                                <li><i class="fa-solid fa-circle-xmark"></i><span>A correção exige regressão cuidadosa antes de seguir para aprovação.</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Como o fluxo funciona</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="timeline">
+                    <article class="timeline-item">
+                        <span class="timeline-step">1</span>
+                        <div>
+                            <h3>Cadastrar a requisição</h3>
+                            <p>Definir uma data base para orientar o comportamento do fluxo financeiro.</p>
+                        </div>
+                    </article>
+                    <article class="timeline-item">
+                        <span class="timeline-step">2</span>
+                        <div>
+                            <h3>Lançar o pagamento</h3>
+                            <p>Permitir pagamento no mesmo dia ou depois, desde que nunca ocorra antes do cadastro.</p>
+                        </div>
+                    </article>
+                    <article class="timeline-item">
+                        <span class="timeline-step">3</span>
+                        <div>
+                            <h3>Refletir no resultado online</h3>
+                            <p>Considerar que o status financeiro influencia a disponibilidade da visualização em canais digitais.</p>
+                        </div>
+                    </article>
+                    <article class="timeline-item">
+                        <span class="timeline-step">4</span>
+                        <div>
+                            <h3>Validar o ponto crítico de QA</h3>
+                            <p>Cobrir regra principal, cenários limítrofes, impacto funcional e possíveis efeitos colaterais.</p>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Cenários executados</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="scenario-grid">
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Pix com data anterior à requisição</h3></div>
+                            <span class="status-badge ok">Esperado bloquear</span>
+                        </div>
+                        <p>Executar cenário negativo para confirmar que a restrição principal continua protegendo o fluxo.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Negativo</span>
+                            <span class="case-mini-chip">Critério principal</span>
+                        </div>
+                    </article>
+
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Pix na mesma data da requisição</h3></div>
+                            <span class="status-badge ok">Esperado aceitar</span>
+                        </div>
+                        <p>Usar como base de comparação para garantir que a regra não fique mais restritiva do que deveria.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Válido</span>
+                            <span class="case-mini-chip">Limite</span>
+                        </div>
+                    </article>
+
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Pix com data posterior à requisição</h3></div>
+                            <span class="status-badge bug">Bug principal</span>
+                        </div>
+                        <p>Verificar que o sistema rejeita um cenário operacionalmente válido, revelando a inconsistência central do caso.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Positivo</span>
+                            <span class="case-mini-chip">Erro de regra</span>
+                        </div>
+                    </article>
+
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Cartão com vencimento no&nbsp;mês&nbsp;corrente</h3></div>
+                            <span class="status-badge bug">Bug de regressão</span>
+                        </div>
+                        <p>Ampliar a regressão e identificar rejeição indevida de cartões ainda válidos dentro do mês.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Regressão</span>
+                            <span class="case-mini-chip">Data limite</span>
+                        </div>
+                    </article>
+
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Reexecutar após correção</h3></div>
+                            <span class="status-badge ok">Reteste</span>
+                        </div>
+                        <p>Reexecutar cenários críticos para confirmar a correção principal e a ausência do efeito colateral.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Reteste</span>
+                            <span class="case-mini-chip">Aprovação</span>
+                        </div>
+                    </article>
+
+                    <article class="scenario-card">
+                        <div class="scenario-card-head">
+                            <div class="scenario-card-title"><h3>Aplicar cobertura orientada por risco</h3></div>
+                            <span class="status-badge">Estratégia</span>
+                        </div>
+                        <p>Conduzir a execução considerando impacto real do negócio, e não apenas a descrição inicial do bug.</p>
+                        <div class="case-mini-chips">
+                            <span class="case-mini-chip">Análise</span>
+                            <span class="case-mini-chip">Visão ponta a ponta</span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container" data-doc-tabs>
+                <div class="section-title">
+                    <h2>Documentação do caso</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="doc-tabs" role="tablist" aria-label="Documentação do caso">
+                    <button class="doc-tab-button active" type="button" role="tab" aria-selected="true" data-tab-target="visao-geral">Visão geral</button>
+                    <button class="doc-tab-button" type="button" role="tab" aria-selected="false" data-tab-target="caso-teste">Caso de teste</button>
+                    <button class="doc-tab-button" type="button" role="tab" aria-selected="false" data-tab-target="execucao">Execução</button>
+                    <button class="doc-tab-button" type="button" role="tab" aria-selected="false" data-tab-target="checkpoints">Leitura QA</button>
+                </div>
+
+                <div class="doc-tab-pane active" data-tab-pane="visao-geral">
+                    <div class="qa-doc-grid">
+                        <article class="doc-panel">
+                            <h3>Ficha resumida</h3>
+                            <div class="doc-table-like">
+                                <div class="doc-row"><strong>ID ilustrativo</strong><span>QA-PAG-01</span></div>
+                                <div class="doc-row"><strong>Módulo</strong><span>Financeiro / requisição / resultado online</span></div>
+                                <div class="doc-row"><strong>Tipo de teste</strong><span>Funcional, regra de negócio, regressão e reteste</span></div>
+                                <div class="doc-row"><strong>Prioridade</strong><span>Alta, por impacto direto em operação e experiência do paciente</span></div>
+                                <div class="doc-row"><strong>Critério central</strong><span>Bloquear datas anteriores e permitir datas iguais ou posteriores ao cadastro</span></div>
+                            </div>
+                        </article>
+
+                        <article class="doc-panel">
+                            <h3>Leitura profissional do caso</h3>
+                            <ul>
+                                <li>Deixar claro qual é o risco real da validação.</li>
+                                <li>Manter rastreabilidade entre contexto, cenário, execução e aprovação.</li>
+                                <li>Evidenciar uma abordagem prática de QA aplicada ao dia a dia.</li>
+                                <li>Traduzir um cenário corporativo para uma leitura acessível e objetiva.</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="doc-tab-pane" data-tab-pane="caso-teste">
+                    <article class="doc-panel">
+                        <h3>Caso de teste ilustrativo</h3>
+<pre class="code-block">Título:
+Validar lançamento de pagamento pix com data posterior ao cadastro da requisição
+
+Objetivo:
+Garantir que o sistema aceite pagamentos realizados após a data de cadastro da requisição,
+desde que a data do pagamento não seja anterior à criação do atendimento.
+
+Pré-condições:
+- Requisição cadastrada com data de criação válida
+- Usuário com permissão para lançar pagamento
+
+Dados de teste:
+- Data da requisição: 10/03/2026
+- Data do pagamento: 11/03/2026
+- Meio de pagamento: pix
+
+Passos:
+1. Acessar a requisição cadastrada em 10/03/2026
+2. Informar pagamento pix com data 11/03/2026
+3. Confirmar o lançamento
+4. Verificar a mensagem do sistema
+5. Validar status financeiro após a ação
+
+Resultado esperado:
+- O sistema deve aceitar o lançamento
+- O pagamento deve ser persistido corretamente
+- O status da requisição deve permanecer coerente com a regra de negócio
+
+Resultado observado:
+- O sistema bloqueia o lançamento, mesmo em um cenário válido</pre>
+                    </article>
+                </div>
+
+                <div class="doc-tab-pane" data-tab-pane="execucao">
+                    <div class="qa-doc-grid">
+                        <article class="doc-panel">
+                            <h3>Comparativo dos cenários</h3>
+<pre class="code-block">Cadastro da requisição: 10/03/2026
+
+09/03/2026  → bloquear
+10/03/2026  → aceitar
+11/03/2026  → deveria aceitar
+
+Bug principal:
+11/03/2026 é tratado como inválido</pre>
+                            <p>O bug principal aparece no terceiro cenário, que deveria ser aceito, mas é tratado como inválido.</p>
+                        </article>
+
+                        <article class="doc-panel">
+                            <h3>Achado adicional em regressão</h3>
+<pre class="code-block">Validade do cartão: 03/2026
+
+01/03/2026 até 31/03/2026  → aceitar
+
+Achado:
+cartão passa a ser tratado como vencido no início do mês</pre>
+                            <p>Durante a regressão, o sistema passa a interpretar o cartão como vencido logo no início do mês de validade.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="doc-tab-pane" data-tab-pane="checkpoints">
+                    <div class="checkpoint-grid">
+                        <article class="checkpoint-card">
+                            <i class="fa-solid fa-list-check"></i>
+                            <strong>Cobertura mínima</strong>
+                            <p>Validar mesmo dia, dia anterior, dia posterior, comportamento após ajuste e coerência do status financeiro.</p>
+                        </article>
+                        <article class="checkpoint-card">
+                            <i class="fa-solid fa-bug"></i>
+                            <strong>Achado complementar</strong>
+                            <p>Ampliar a regressão em cenários de data e vencimento para evitar aprovação prematura.</p>
+                        </article>
+                        <article class="checkpoint-card">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <strong>Reteste disciplinado</strong>
+                            <p>Reexecutar cenários com foco em correção principal e ausência de efeitos colaterais.</p>
+                        </article>
+                        <article class="checkpoint-card">
+                            <i class="fa-solid fa-file-circle-check"></i>
+                            <strong>Registro objetivo</strong>
+                            <p>Descrever com clareza o que testar, o que falhar, o que retornar para correção e o que aprovar.</p>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Evolução da validação</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="timeline">
+                    <article class="timeline-item"><span class="timeline-step">1</span><div><h3>Ler a regra</h3><p>Entender a lógica de negócio e definir quais datas aceitar ou bloquear.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">2</span><div><h3>Confirmar o bug principal</h3><p>Executar os cenários e evidenciar que a data posterior ainda é rejeitada indevidamente.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">3</span><div><h3>Ampliar a cobertura</h3><p>Expandir a regressão para cenários próximos, considerando o risco típico de lógicas de data.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">4</span><div><h3>Identificar o segundo problema</h3><p>Detectar a inconsistência relacionada ao vencimento do cartão no mês corrente.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">5</span><div><h3>Retornar para ajuste</h3><p>Evitar aprovação prematura e devolver o item quando o comportamento ainda exige correção adicional.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">6</span><div><h3>Retestar e aprovar</h3><p>Reexecutar os cenários e aprovar somente quando regra principal e regressão passam juntas.</p></div></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title">
+                    <h2>O que este caso demonstra</h2>
+                    <div class="line"></div>
+                </div>
+
+                <div class="result-grid">
+                    <article class="result-box"><i class="fa-solid fa-brain"></i><h3>Leitura de regra com impacto real</h3><p>O caso mostra análise além do campo ou da mensagem de erro, conectando regra, operação e experiência do usuário final.</p></article>
+                    <article class="result-box"><i class="fa-solid fa-rotate"></i><h3>Regressão orientada por risco</h3><p>Mostra maturidade para ampliar cobertura quando o tipo de correção indica possibilidade de efeito colateral.</p></article>
+                    <article class="result-box"><i class="fa-solid fa-clipboard-check"></i><h3>Documentação aplicada à prática</h3><p>O caso expõe, de forma objetiva, como teoria, raciocínio analítico e execução se conectam no dia a dia de QA.</p></article>
+                </div>
+
+                <div class="accordion" data-accordion-group>
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button">
+                            <span class="accordion-title">Boas práticas visíveis neste caso</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div class="accordion-content">
+                            <p>Definir objetivo, pré-condição, dado de teste, resultado esperado, resultado observado, impacto e decisão final torna a validação mais confiável e rastreável.</p>
+                        </div>
+                    </article>
+
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button">
+                            <span class="accordion-title">Por que a regressão é decisiva</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div class="accordion-content">
+                            <p>Porque a correção mexe com tratamento de datas. Em cenários assim, cobertura superficial costuma esconder efeitos colaterais em fluxos vizinhos.</p>
+                        </div>
+                    </article>
+
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button">
+                            <span class="accordion-title">Leitura profissional do caso</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div class="accordion-content">
+                            <p>Além de mostrar conhecimento técnico, o caso evidencia capacidade de explicar, organizar e comunicar uma validação de forma clara, objetiva e útil para análise profissional.</p>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="confidential-box">
+                    <p>Conteúdo estruturado a partir de experiência profissional anterior, com informações reorganizadas e anonimizadas para apresentação profissional.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="case-footer">
+        <div class="container">
+            <div class="footer-shell">
+                <div class="footer-grid">
+                    <div class="footer-meta">
+                        <a href="index.html#home" class="footer-brand">ARTACHO<span>.</span>dev</a>
+                        <p>© 2026 Bruno Artacho. Maringá, PR, Brasil.</p>
+                    </div>
+                    <a href="#content-wrapper" class="footer-top-link" aria-label="Voltar ao topo"><span>Voltar ao topo</span><i class="fa-solid fa-arrow-up"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

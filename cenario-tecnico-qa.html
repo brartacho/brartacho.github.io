@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cenário técnico profissional</title>
+    <meta name="description"
+        content="Cenário técnico profissional sobre testes de API, logs, banco de dados, mocks, integrações e validação ponta a ponta em contexto de QA.">
+    <link rel="icon" type="image/svg+xml" href="imagens/favicon-artacho.svg">
+    <link rel="alternate icon" type="image/png" href="imagens/logo_artacho.dev_001.png">
+    <link rel="apple-touch-icon" href="imagens/logo_artacho.dev_001.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+
+<body class="case-page">
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <nav class="main-nav" aria-label="Navegação principal">
+        <div class="container nav-flex">
+            <a href="index.html#home" class="logo">ARTACHO<span>.</span>dev</a>
+
+            <button class="hamburger" id="hamburger" aria-label="Abrir menu" aria-expanded="false"
+                aria-controls="navLinks">
+                <span></span><span></span><span></span>
+            </button>
+
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html#home">Home</a></li>
+                <li><a href="index.html#sobre">Sobre</a></li>
+                <li><a href="index.html#skills">Stack</a></li>
+                <li><a href="index.html#projetos">Projetos</a></li>
+                <li><a href="index.html#contato">Contato</a></li>
+                <li>
+                    <a href="https://github.com/brartacho" target="_blank" class="nav-github-header"
+                        title="Acessar meu GitHub" rel="noreferrer">
+                        <i class="fa-brands fa-github"></i>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content-wrapper">
+        <section class="case-hero">
+            <div class="container case-hero-grid">
+                <div class="case-hero-copy">
+                    <div class="case-hero-top">
+                        <a href="index.html#projetos" class="case-back-link" aria-label="Voltar para projetos">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </a>
+                        <span class="card-badge">Cenário técnico profissional</span>
+                    </div>
+
+                    <h1>APIs, integrações e consistência técnica</h1>
+
+                    <p>
+                        Em muitos fluxos críticos, validar apenas a interface não é suficiente. Este cenário mostra
+                        como conduzir uma abordagem de QA voltada à consistência ponta a ponta, cruzando interface,
+                        logs, banco de dados, APIs e respostas simuladas para confirmar se o comportamento do sistema
+                        realmente faz sentido.
+                    </p>
+
+                    <div class="case-chip-row">
+                        <span class="case-chip">Testes de API</span>
+                        <span class="case-chip">Banco de dados</span>
+                        <span class="case-chip">Logs</span>
+                        <span class="case-chip">Mocks</span>
+                        <span class="case-chip">Regressão</span>
+                    </div>
+                </div>
+
+                <aside class="case-hero-side">
+                    <ul class="case-side-list">
+                        <li><strong>Objetivo do cenário</strong><span>Demonstrar como uma validação técnica pode ir além da interface e se apoiar em evidências consistentes.</span></li>
+                        <li><strong>Foco da análise</strong><span>Confirmar coerência entre requisição, processamento, persistência, integração e resultado exibido ao usuário.</span></li>
+                        <li><strong>Leitura profissional do cenário</strong><span>O caso evidencia raciocínio analítico, domínio prático de QA técnico e capacidade de comunicação objetiva em contextos críticos.</span></li>
+                    </ul>
+                </aside>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Resumo executivo</h2><div class="line"></div></div>
+                <div class="case-summary-grid">
+                    <article class="case-summary-card"><i class="fa-solid fa-wrench"></i><h3>Ambiente de validação</h3><p>Validar em ambiente de QA envolvendo frontend, backend, banco de dados, histórico do item e integrações externas.</p></article>
+                    <article class="case-summary-card"><i class="fa-solid fa-magnifying-glass-chart"></i><h3>Método de investigação</h3><p>Cruzar comportamento em tela com logs, persistência, payloads, respostas e tratamento interno do sistema.</p></article>
+                    <article class="case-summary-card"><i class="fa-solid fa-shield-heart"></i><h3>Objetivo da validação</h3><p>Confirmar se correções e integrações permanecem coerentes ponta a ponta antes da liberação.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Perguntas que orientam a validação</h2><div class="line"></div></div>
+                <div class="flow-grid">
+                    <article class="flow-step"><strong>Pergunta 01</strong><h3>A interface reflete o que realmente acontece?</h3><p>Nem sempre uma tela aparentemente correta significa que o processamento, a persistência e a associação dos dados também estão corretos.</p></article>
+                    <article class="flow-step"><strong>Pergunta 02</strong><h3>A integração trafega o dado esperado?</h3><p>É necessário conferir endpoint, estrutura, resposta, tratamento de erro e consistência do retorno com a regra de negócio.</p></article>
+                    <article class="flow-step"><strong>Pergunta 03</strong><h3>O comportamento se sustenta em regressão?</h3><p>Correções técnicas podem resolver um ponto e gerar efeito colateral em outro caminho relacionado.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Como conduzir a validação</h2><div class="line"></div></div>
+                <div class="timeline">
+                    <article class="timeline-item"><span class="timeline-step">1</span><div><h3>Entender o item</h3><p>Ler a correção, o comportamento esperado e o impacto possível no fluxo.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">2</span><div><h3>Executar o fluxo funcional</h3><p>Reproduzir o cenário na interface para confirmar sintoma, jornada e comportamento visível.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">3</span><div><h3>Ler sinais do backend</h3><p>Consultar logs, mensagens de processamento e sinais de integração para esclarecer o que acontece além da tela.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">4</span><div><h3>Conferir banco e APIs</h3><p>Verificar persistência, resposta, associação correta de registros e coerência entre payload e resultado final.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">5</span><div><h3>Isolar com mocks</h3><p>Simular respostas quando a outra ponta não está disponível e manter a validação em andamento.</p></div></article>
+                    <article class="timeline-item"><span class="timeline-step">6</span><div><h3>Ampliar a regressão</h3><p>Expandir a execução para pontos vizinhos do fluxo e reduzir o risco de uma aprovação baseada em cobertura superficial.</p></div></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Frentes técnicas de teste</h2><div class="line"></div></div>
+                <div class="case-grid-2">
+                    <article class="case-grid-card"><i class="fa-solid fa-window-maximize"></i><h3>Validação funcional</h3><p>Verificar se a jornada faz sentido para o usuário e se o fluxo aparente permanece coerente na interface.</p></article>
+                    <article class="case-grid-card"><i class="fa-solid fa-file-waveform"></i><h3>Validação técnica</h3><p>Cruzar logs, sinais do backend e consistência do processamento para confirmar o que o sistema realmente executa.</p></article>
+                    <article class="case-grid-card"><i class="fa-solid fa-arrows-turn-to-dots"></i><h3>APIs e integrações</h3><p>Validar endpoint, payload, status code, retorno, associação dos dados e tratamento do que vem de sistemas terceiros.</p></article>
+                    <article class="case-grid-card"><i class="fa-solid fa-gauge"></i><h3>Robustez e regressão</h3><p>Ampliar a cobertura para bordas, dados inválidos, indisponibilidade de integração e cenários relacionados ao ponto corrigido.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Evidências que sustentam a análise</h2><div class="line"></div></div>
+                <div class="evidence-grid">
+                    <article class="evidence-card"><i class="fa-solid fa-desktop"></i><h3>Comportamento em tela</h3><p>Ajuda a reproduzir o fluxo, perceber sintoma, mensagens e comportamento percebido pelo usuário.</p></article>
+                    <article class="evidence-card"><i class="fa-solid fa-terminal"></i><h3>Logs e sinais de processamento</h3><p>Mostram o que o backend realmente tenta fazer, inclusive quando a falha ainda não está visível na interface.</p></article>
+                    <article class="evidence-card"><i class="fa-solid fa-database"></i><h3>Persistência em banco</h3><p>Confirma se o dado é salvo, associado e tratado da forma esperada, sem depender apenas do retorno visual.</p></article>
+                    <article class="evidence-card"><i class="fa-solid fa-plug-circle-check"></i><h3>Requisição e resposta de API</h3><p>Permitem validar formato, integridade do payload, status code e aderência do retorno à regra de negócio.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container" data-tab-group>
+                <div class="section-title"><h2>Exemplo visual de documentação técnica</h2><div class="line"></div></div>
+                <div class="case-tabs" role="tablist" aria-label="Visualizações técnicas">
+                    <button class="tab-button active" type="button" role="tab" aria-selected="true" data-tab-target="soapui">SoapUI</button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="thunder">Thunder Client</button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="banco">Banco / consistência</button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="mock">Mock / isolamento</button>
+                </div>
+
+                <div class="api-tab-pane active" data-tab-pane="soapui">
+                    <div class="api-grid">
+                        <article class="api-shell">
+                            <h3>Requisição ilustrativa</h3>
+<pre class="code-block">POST /api/integracoes/resultados/importar
+Content-Type: application/json
+Authorization: Bearer ****
+
+{
+  "requisicaoId": "REQ-10245",
+  "origem": "laboratorio_apoio",
+  "status": "concluido",
+  "resultados": [
+    {
+      "codigoExame": "EX-001",
+      "valor": "12.4",
+      "unidade": "mg/dL"
+    }
+  ]
+}</pre>
+                        </article>
+
+                        <article class="api-shell">
+                            <h3>Leitura de QA sobre a requisição</h3>
+                            <ul>
+                                <li>Confirmar se o endpoint correto é acionado.</li>
+                                <li>Validar estrutura e campos obrigatórios do payload.</li>
+                                <li>Relacionar requisição, retorno e comportamento final da aplicação.</li>
+                                <li>Facilitar rastreabilidade em discussões técnicas com desenvolvimento.</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="api-tab-pane" data-tab-pane="thunder">
+                    <div class="api-grid">
+                        <article class="api-shell">
+                            <h3>Consulta rápida de status</h3>
+<pre class="code-block">GET /api/requisicoes/10245/status
+
+Response 200
+{
+  "requisicaoId": "REQ-10245",
+  "statusPagamento": "pendente",
+  "statusResultado": "bloqueado"
+}</pre>
+                        </article>
+
+                        <article class="api-shell">
+                            <h3>Pontos observados</h3>
+                            <ul>
+                                <li>Conferir status code coerente com a situação esperada.</li>
+                                <li>Validar mensagem e estrutura da resposta.</li>
+                                <li>Confirmar aderência do retorno à regra de negócio.</li>
+                                <li>Manter consistência entre API, tela e estado do fluxo.</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="api-tab-pane" data-tab-pane="banco">
+                    <div class="api-grid">
+                        <article class="api-shell">
+                            <h3>Conferência ilustrativa em banco</h3>
+<pre class="code-block">SELECT requisicao_id, status_resultado, data_importacao, origem
+FROM resultados_integrados
+WHERE requisicao_id = 'REQ-10245';
+
+Verificações:
+- registro associado à requisição correta
+- status compatível com a resposta processada
+- data de importação persistida</pre>
+                        </article>
+
+                        <article class="api-shell">
+                            <h3>Leitura sobre consistência</h3>
+                            <p>Em validação técnica, o banco ajuda a provar se o sistema realmente processa o dado como deveria, mesmo quando a interface ainda parece correta.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="api-tab-pane" data-tab-pane="mock">
+                    <div class="api-grid">
+                        <article class="api-shell">
+                            <h3>Simulação de retorno externo</h3>
+<pre class="code-block">Mock Response
+
+{
+  "requisicaoId": "REQ-10245",
+  "origem": "apoio_externo",
+  "status": "concluido",
+  "resultados": [
+    {
+      "codigoExame": "EX-001",
+      "valor": "12.4"
+    }
+  ]
+}</pre>
+                        </article>
+
+                        <article class="api-shell">
+                            <h3>Quando o mock fortalece a validação</h3>
+                            <ul>
+                                <li>Quando o parceiro externo não está disponível em homologação.</li>
+                                <li>Quando é preciso reproduzir cenários raros de sucesso ou falha.</li>
+                                <li>Quando o objetivo é isolar o tratamento interno do sistema.</li>
+                                <li>Quando o teste não pode ficar bloqueado pela outra ponta.</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Matriz prática de validação</h2><div class="line"></div></div>
+                <div class="matrix-grid">
+                    <article class="matrix-card"><span class="matrix-label">Caso 01</span><i class="fa-solid fa-link"></i><h3>Importação concluída com sucesso</h3><p>Validar resposta 200, persistência correta, associação da requisição e atualização do comportamento em tela.</p></article>
+                    <article class="matrix-card"><span class="matrix-label">Caso 02</span><i class="fa-solid fa-file-circle-xmark"></i><h3>Payload inconsistente</h3><p>Enviar estrutura incompleta para observar tratamento do erro, mensagem retornada e resiliência do sistema.</p></article>
+                    <article class="matrix-card"><span class="matrix-label">Caso 03</span><i class="fa-solid fa-plug-circle-xmark"></i><h3>Serviço externo indisponível</h3><p>Simular indisponibilidade para verificar registro em log, fallback esperado e impacto no fluxo principal.</p></article>
+                    <article class="matrix-card"><span class="matrix-label">Caso 04</span><i class="fa-solid fa-copy"></i><h3>Reprocessamento ou duplicidade</h3><p>Garantir que reenvios não gerem associação incorreta, duplicação indevida ou inconsistência entre estados.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Ambiente e ferramentas</h2><div class="line"></div></div>
+                <div class="tech-check-grid">
+                    <article class="tech-check-card"><i class="fa-solid fa-flask"></i><h3>SoapUI e similares</h3><p>Úteis para montar chamadas mais completas, organizar requisições e simular retornos em integrações mais complexas.</p></article>
+                    <article class="tech-check-card"><i class="fa-solid fa-bolt"></i><h3>Thunder Client</h3><p>Agiliza checagens rápidas de status, respostas e testes objetivos durante a investigação.</p></article>
+                    <article class="tech-check-card"><i class="fa-solid fa-database"></i><h3>PostgreSQL / DBeaver</h3><p>Ajudam a conferir persistência, consistência de relacionamento e reflexo real da operação executada.</p></article>
+                    <article class="tech-check-card"><i class="fa-solid fa-code"></i><h3>IDE, console e histórico do item</h3><p>São apoio para leitura técnica, comparação de contexto, rastreabilidade e discussão fundamentada com o time.</p></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>Como estruturar a cobertura</h2><div class="line"></div></div>
+                <div class="accordion" data-accordion-group>
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button"><span class="accordion-title">Categorias de dados e limites</span><i class="fa-solid fa-chevron-down"></i></button>
+                        <div class="accordion-content"><p>Distribuir a cobertura entre sucesso, falha, ausência de valor, estrutura inválida, duplicidade, indisponibilidade externa e situações de borda ligadas ao fluxo.</p></div>
+                    </article>
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button"><span class="accordion-title">Regressão orientada por impacto</span><i class="fa-solid fa-chevron-down"></i></button>
+                        <div class="accordion-content"><p>Depois da correção principal, revisitar pontos próximos: importação, associação da requisição, exibição em tela, persistência, reprocessamento e mensagens de erro.</p></div>
+                    </article>
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button"><span class="accordion-title">Isolamento com mock</span><i class="fa-solid fa-chevron-down"></i></button>
+                        <div class="accordion-content"><p>Quando um parceiro externo não consegue responder em homologação, simular respostas para validar o comportamento interno sem bloquear o teste.</p></div>
+                    </article>
+                    <article class="accordion-item">
+                        <button class="accordion-trigger" type="button"><span class="accordion-title">Registro profissional do teste</span><i class="fa-solid fa-chevron-down"></i></button>
+                        <div class="accordion-content"><p>Conectar contexto, objetivo, evidência técnica, impacto do achado e critério de aprovação para tornar a validação útil para o time, rastreável para análise técnica e clara para decisão.</p></div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="case-section">
+            <div class="container">
+                <div class="section-title"><h2>O que este cenário demonstra</h2><div class="line"></div></div>
+                <div class="result-grid">
+                    <article class="result-box"><i class="fa-solid fa-binoculars"></i><h3>Investigação baseada em evidência</h3><p>Mostra capacidade de cruzar interface, logs, banco e APIs para sustentar decisões de QA com mais segurança.</p></article>
+                    <article class="result-box"><i class="fa-solid fa-arrows-split-up-and-left"></i><h3>Autonomia em integrações</h3><p>Demonstra familiaridade com simulação de respostas, validação de protocolos e continuidade do teste mesmo sem a outra ponta disponível.</p></article>
+                    <article class="result-box"><i class="fa-solid fa-shield"></i><h3>Rigor com clareza</h3><p>O conteúdo apresenta profundidade técnica de forma acessível, reforçando valor prático, objetividade e capacidade de comunicação em ambientes profissionais.</p></article>
+                </div>
+
+                <div class="confidential-box">
+                    <p>Conteúdo estruturado a partir de experiência profissional anterior, com informações reorganizadas e anonimizadas para apresentação profissional.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="case-footer">
+        <div class="container">
+            <div class="footer-shell">
+                <div class="footer-grid">
+                    <div class="footer-meta">
+                        <a href="index.html#home" class="footer-brand">ARTACHO<span>.</span>dev</a>
+                        <p>© 2026 Bruno Artacho. Maringá, PR, Brasil.</p>
+                    </div>
+                    <a href="#content-wrapper" class="footer-top-link" aria-label="Voltar ao topo"><span>Voltar ao topo</span><i class="fa-solid fa-arrow-up"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,101 +1,265 @@
-/**
- * Portfolio ARTACHO.dev - JS
- * Focado puramente em interações de interface e animações leves.
- */
-
 function init() {
     bindUIEvents();
     handleProfileImageLoad();
-
-    // Inicia o efeito typewriter buscando a string segura via data-text
-    const nameEl = document.getElementById('name-header');
-    if (nameEl) typeWriter(nameEl);
+    initTypeWriter();
+    initTabs();
+    initAccordions();
 }
 
-/**
- * Animação de digitação de texto
- * @param {HTMLElement} el - Elemento alvo (h1)
- */
-function typeWriter(el) {
-    const text = el.getAttribute('data-text') || el.textContent;
-    el.textContent = '';
+function initTypeWriter() {
+    const nameEl = document.getElementById("name-header");
+    if (!nameEl) return;
 
-    // Array.from garante que emojis ou caracteres compostos não quebrem
-    const chars = Array.from(text);
-    chars.forEach((c, i) => {
-        setTimeout(() => { el.textContent += c; }, i * 80);
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const text = nameEl.getAttribute("data-text") || nameEl.textContent || "";
+
+    if (prefersReducedMotion) {
+        nameEl.textContent = text;
+        return;
+    }
+
+    nameEl.textContent = "";
+
+    Array.from(text).forEach((char, index) => {
+        setTimeout(() => {
+            nameEl.textContent += char;
+        }, index * 55);
     });
 }
 
-/**
- * Gerencia a entrada suave (Fade/Blur-in) da imagem de perfil.
- * Evita o 'pulo' (FOUC) aguardando o carregamento completo na rede ou cache.
- */
 function handleProfileImageLoad() {
-    const img = document.querySelector('.profile-img');
+    const img = document.querySelector(".profile-img");
     if (!img) return;
 
     const triggerFadeIn = () => {
-        // Força o navegador a aplicar o CSS inicial antes de injetar a classe final
         requestAnimationFrame(() => {
-            img.classList.add('loaded');
+            img.classList.add("loaded");
         });
     };
 
-    // Se a imagem já estiver no cache, dispara imediatamente
     if (img.complete && img.naturalHeight !== 0) {
         triggerFadeIn();
     } else {
-        // Caso contrário, aguarda o download completo
-        img.addEventListener('load', triggerFadeIn);
-        img.addEventListener('error', triggerFadeIn); // Fallback em caso de erro
+        img.addEventListener("load", triggerFadeIn, { once: true });
+        img.addEventListener("error", triggerFadeIn, { once: true });
     }
 }
 
-/**
- * Central de Eventos: Focada APENAS em abrir/fechar o menu mobile.
- * O Scroll agora é 100% nativo e controlado pelo CSS (scroll-padding-top).
- */
 function bindUIEvents() {
-    const hamburger = document.getElementById('hamburger');
-    const navLinks = document.getElementById('navLinks');
-    const overlay = document.getElementById('menuOverlay');
+    const hamburger = document.getElementById("hamburger");
+    const navLinks = document.getElementById("navLinks");
+    const overlay = document.getElementById("menuOverlay");
 
-    // ⚙️ MANUTENÇÃO: Selecionamos tanto os links da lista quanto a Logo
-    const navItems = document.querySelectorAll('.nav-links a, .logo');
+    if (!hamburger || !navLinks || !overlay) return;
 
-    function closeMenu() {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('active');
-        overlay.classList.remove('active');
-        document.body.classList.remove('menu-open');
+    const navItems = document.querySelectorAll(".nav-links a, .logo");
+    const mobileQuery = window.matchMedia("(max-width: 767px)");
+
+    function setExpandedState(isExpanded) {
+        hamburger.setAttribute("aria-expanded", String(isExpanded));
     }
 
-    // Fecha o menu mobile ao clicar em qualquer link interno
-    navItems.forEach(link => {
-        link.addEventListener('click', () => {
-            // Verifica se está no mobile (se o hamburguer está visível)
-            const isMobile = window.getComputedStyle(hamburger).display !== 'none';
-            if (isMobile) {
+    function closeMenu() {
+        hamburger.classList.remove("active");
+        navLinks.classList.remove("active");
+        overlay.classList.remove("active");
+        document.body.classList.remove("menu-open");
+        setExpandedState(false);
+    }
+
+    function openMenu() {
+        hamburger.classList.add("active");
+        navLinks.classList.add("active");
+        overlay.classList.add("active");
+        document.body.classList.add("menu-open");
+        setExpandedState(true);
+    }
+
+    function toggleMenu(event) {
+        event.stopPropagation();
+        if (hamburger.classList.contains("active")) {
+            closeMenu();
+            return;
+        }
+        openMenu();
+    }
+
+    navItems.forEach((link) => {
+        link.addEventListener("click", () => {
+            if (mobileQuery.matches) {
                 closeMenu();
             }
-            // ⚠️ Importante: Sem 'e.preventDefault()' aqui!
-            // Deixamos o navegador fazer a rolagem usando a regra de scroll-padding do CSS.
         });
     });
 
-    // Toggle do menu mobile ao clicar no ícone Hamburguer
-    hamburger.addEventListener('click', (e) => {
-        e.stopPropagation(); // Impede propagação de clique que fecharia o menu acidentalmente
-        hamburger.classList.toggle('active');
-        navLinks.classList.toggle('active');
-        overlay.classList.toggle('active');
-        document.body.classList.toggle('menu-open');
+    hamburger.addEventListener("click", toggleMenu);
+    overlay.addEventListener("click", closeMenu);
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeMenu();
+        }
     });
 
-    // Permite fechar clicando na área escura de fundo (overlay)
-    overlay.addEventListener('click', closeMenu);
+    const handleMediaChange = (event) => {
+        if (!event.matches) {
+            closeMenu();
+        }
+    };
+
+    if (typeof mobileQuery.addEventListener === "function") {
+        mobileQuery.addEventListener("change", handleMediaChange);
+    } else if (typeof mobileQuery.addListener === "function") {
+        mobileQuery.addListener(handleMediaChange);
+    }
+
+    setExpandedState(false);
 }
 
-// Inicializa a aplicação
+function initTabs() {
+    const groups = document.querySelectorAll("[data-doc-tabs], [data-tab-group]");
+    if (!groups.length) return;
+
+    groups.forEach((group, groupIndex) => {
+        const buttons = group.querySelectorAll("[data-tab-target]");
+        const panes = group.querySelectorAll("[data-tab-pane]");
+
+        if (!buttons.length || !panes.length) return;
+
+        const activateTab = (button) => {
+            const target = button.getAttribute("data-tab-target");
+            if (!target) return;
+
+            buttons.forEach((item, buttonIndex) => {
+                const itemTarget = item.getAttribute("data-tab-target");
+                const tabId = `tab-${groupIndex}-${buttonIndex}`;
+                const panelId = `panel-${groupIndex}-${itemTarget}`;
+
+                item.classList.remove("active");
+                item.setAttribute("aria-selected", "false");
+                item.setAttribute("tabindex", "-1");
+                item.id = tabId;
+                item.setAttribute("aria-controls", panelId);
+            });
+
+            panes.forEach((pane) => {
+                pane.classList.remove("active");
+                pane.hidden = true;
+            });
+
+            button.classList.add("active");
+            button.setAttribute("aria-selected", "true");
+            button.setAttribute("tabindex", "0");
+
+            const pane = group.querySelector(`[data-tab-pane="${target}"]`);
+            if (pane) {
+                pane.classList.add("active");
+                pane.hidden = false;
+                pane.id = `panel-${groupIndex}-${target}`;
+                pane.setAttribute("aria-labelledby", button.id);
+            }
+        };
+
+        buttons.forEach((button) => {
+            button.setAttribute("tabindex", button.classList.contains("active") ? "0" : "-1");
+            button.addEventListener("click", () => {
+                activateTab(button);
+            });
+
+            button.addEventListener("keydown", (event) => {
+                const currentIndex = Array.from(buttons).indexOf(button);
+                if (currentIndex === -1) return;
+
+                if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                    event.preventDefault();
+                    const nextButton = buttons[(currentIndex + 1) % buttons.length];
+                    activateTab(nextButton);
+                    nextButton.focus();
+                }
+
+                if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                    event.preventDefault();
+                    const nextButton = buttons[(currentIndex - 1 + buttons.length) % buttons.length];
+                    activateTab(nextButton);
+                    nextButton.focus();
+                }
+
+                if (event.key === "Home") {
+                    event.preventDefault();
+                    activateTab(buttons[0]);
+                    buttons[0].focus();
+                }
+
+                if (event.key === "End") {
+                    event.preventDefault();
+                    const lastButton = buttons[buttons.length - 1];
+                    activateTab(lastButton);
+                    lastButton.focus();
+                }
+            });
+        });
+
+        panes.forEach((pane) => {
+            pane.hidden = !pane.classList.contains("active");
+        });
+
+        const activeButton = group.querySelector("[data-tab-target].active") || buttons[0];
+        activateTab(activeButton);
+    });
+}
+
+function initAccordions() {
+    const groups = document.querySelectorAll("[data-accordion-group]");
+    if (!groups.length) return;
+
+    groups.forEach((group, groupIndex) => {
+        const items = group.querySelectorAll(".accordion-item");
+
+        items.forEach((item, itemIndex) => {
+            const trigger = item.querySelector(".accordion-trigger");
+            const content = item.querySelector(".accordion-content");
+            if (!trigger) return;
+
+            const contentId = `accordion-panel-${groupIndex}-${itemIndex}`;
+            const triggerId = `accordion-trigger-${groupIndex}-${itemIndex}`;
+            const isActive = item.classList.contains("active");
+
+            trigger.id = triggerId;
+            trigger.setAttribute("aria-controls", contentId);
+            trigger.setAttribute("aria-expanded", String(isActive));
+
+            if (content) {
+                content.id = contentId;
+                content.setAttribute("aria-labelledby", triggerId);
+                content.hidden = !isActive;
+            }
+
+            trigger.addEventListener("click", () => {
+                const isActive = item.classList.contains("active");
+
+                items.forEach((entry) => {
+                    const entryTrigger = entry.querySelector(".accordion-trigger");
+                    const entryContent = entry.querySelector(".accordion-content");
+
+                    entry.classList.remove("active");
+                    if (entryTrigger) {
+                        entryTrigger.setAttribute("aria-expanded", "false");
+                    }
+                    if (entryContent) {
+                        entryContent.hidden = true;
+                    }
+                });
+
+                if (!isActive) {
+                    item.classList.add("active");
+                    trigger.setAttribute("aria-expanded", "true");
+                    if (content) {
+                        content.hidden = false;
+                    }
+                }
+            });
+        });
+    });
+}
+
 init();
