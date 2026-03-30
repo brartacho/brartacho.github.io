@@ -16,7 +16,7 @@ O projeto foi refinado para priorizar:
 
 - URL principal: `https://bruno-artacho.vercel.app`
 - domínio exibido no projeto: `ARTACHO.dev`
-- imagem social configurada para compartilhamento: `imagens/capa-portfolio.jpeg`
+- imagem social configurada para compartilhamento: `imagens/capa-portfolio.jpg`
 
 ## Páginas
 
@@ -73,7 +73,7 @@ A home está preparada para compartilhamento em redes sociais com:
 
 - `canonical` apontando para `https://bruno-artacho.vercel.app`
 - `og:url` e `twitter:url` apontando para o domínio publicado
-- `og:image` e `twitter:image` usando `imagens/capa-portfolio.jpeg`
+- `og:image` e `twitter:image` usando `imagens/capa-portfolio.jpg`
 - título, descrição e `alt` da imagem ajustados para apresentação profissional do portfólio
 
 ## Estrutura
@@ -101,5 +101,5 @@ portfolio/
 - O projeto é estático e não depende de backend.
 - O JavaScript controla menu mobile, tabs e accordions.
 - O conteúdo dos estudos de caso foi estruturado para leitura profissional, com informações reorganizadas e anonimizadas.
-- Para a prévia social funcionar corretamente, `imagens/capa-portfolio.jpeg` precisa estar publicada nesse mesmo caminho no domínio final.
+- Para a prévia social funcionar corretamente, `imagens/capa-portfolio.jpg` precisa estar publicada nesse mesmo caminho no domínio final.
 - O histórico antigo foi consolidado neste `README.md`; o `README.txt` pode permanecer apenas como referência local.
