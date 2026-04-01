@@ -17,6 +17,7 @@ O projeto foi refinado para priorizar:
 - URL principal: `https://bruno-artacho.vercel.app`
 - projeto complementar `Padaria do Bairro`: `https://padaria-do-bairro-premium.vercel.app`
 - imagem do card `Padaria do Bairro`: `imagens/capa_padaria_bairro_premium.jpg`
+- imagem mobile do card `Padaria do Bairro`: `imagens/capa_padaria_bairro_premium_mobile.png`
 - domínio exibido no projeto: `ARTACHO.dev`
 - imagem social configurada para compartilhamento: `imagens/capa-portfolio-ok.jpg`
 
