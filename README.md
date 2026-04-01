@@ -15,6 +15,8 @@ O projeto foi refinado para priorizar:
 ## Publicação
 
 - URL principal: `https://bruno-artacho.vercel.app`
+- projeto complementar `Padaria do Bairro`: `https://padaria-do-bairro-premium.vercel.app`
+- imagem do card `Padaria do Bairro`: `imagens/capa_padaria_bairro_premium.jpg`
 - domínio exibido no projeto: `ARTACHO.dev`
 - imagem social configurada para compartilhamento: `imagens/capa-portfolio-ok.jpg`
 
@@ -45,7 +47,7 @@ O projeto foi refinado para priorizar:
 - cards de stack com microespaçamento e alinhamento revisados
 - seção de projetos reorganizada, incluindo o próprio portfólio como projeto autoral
 - card do portfólio apontando para a URL publicada na Vercel
-- estudo complementar `Padaria do Bairro` integrado à mesma linguagem visual da grade
+- estudo complementar `Padaria do Bairro` integrado à mesma linguagem visual da grade e apontando para `https://padaria-do-bairro-premium.vercel.app`
 - páginas de caso com melhor leitura entre métricas, grids, accordions e footer
 - footers simplificados para uma solução mais minimalista e consistente
 - metadata social atualizada com `canonical`, `Open Graph` e `Twitter Card`
