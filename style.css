@@ -867,16 +867,6 @@ body.menu-open #content-wrapper {
     opacity: 0.88;
 }
 
-.card-banner picture {
-    display: block;
-    width: 100%;
-    height: 100%;
-}
-
-.card-banner picture img {
-    display: block;
-}
-
 .img-pos-top {
     object-position: top center;
 }
