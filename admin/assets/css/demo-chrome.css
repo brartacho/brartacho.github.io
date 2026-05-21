@@ -1,0 +1,77 @@
+/* ─── DEMO-SPECIFIC CHROME ──────────────────────────────────────────────────
+   Estilos exclusivos da versão demo: hero screen, gate de login, banner,
+   tour overlay. O restante vem de /admin/assets/css/admin.css (compartilhado).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Scroll-lock enquanto o heroScreen está visível */
+html.hero-active { overflow: hidden; height: 100%; }
+html.hero-active body { height: 100%; overflow: hidden; }
+
+/* ─── HERO SCREEN ─── */
+.hero-screen { height: 100dvh; padding: 0 24px; display: flex; flex-direction: column; overflow: hidden; }
+.hero-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
+.hero-back { display: inline-flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 0.85rem; font-weight: 500; }
+.hero-back:hover { color: var(--cyan); }
+.hero-breadcrumb { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); }
+.hero-breadcrumb span { color: var(--cyan); }
+
+.hero-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; max-width: 920px; width: 100%; margin: 0 auto; align-items: center; align-content: center; padding: 40px 0 48px; }
+@media (max-width: 680px) { .hero-body { grid-template-columns: 1fr; gap: 28px; padding: 32px 0 36px; } }
+
+.hero { padding: 0; text-align: left; max-width: none; margin: 0; }
+.hero-eyebrow { font-family: var(--font-mono); font-size: 0.75rem; color: var(--cyan); letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 18px; }
+.hero h1 { font-size: clamp(1.8rem, 4.5vw, 2.8rem); font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-bottom: 14px; }
+.hero h1 span { color: var(--cyan); }
+.hero-sub { color: var(--text-soft); font-size: 0.92rem; margin-bottom: 24px; max-width: 460px; }
+.hero-features { display: flex; flex-wrap: wrap; gap: 7px; }
+.hero-feature-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); font-size: 0.72rem; color: var(--text-soft); font-weight: 600; }
+.hero-feature-chip i { color: var(--cyan); font-size: 0.65rem; }
+
+/* ─── FORM GROUP (hero login only — prod usa .form-group-inline no app) ─── */
+.form-group { text-align: left; margin-bottom: 12px; }
+.form-group label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text-soft); margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
+.form-group input { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; color: var(--text); font-family: var(--font-display); font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+.form-group input:focus { border-color: var(--cyan); }
+
+/* ─── LOGIN BOX (demo hero) ─── */
+.login-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px; text-align: center; position: relative; overflow: hidden; transition: opacity 0.3s ease; }
+.login-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--violet), var(--cyan)); }
+.login-icon { width: 50px; height: 50px; background: var(--violet-soft); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 1.25rem; color: #a78bfa; }
+.login-box h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+.login-box p { font-size: 0.78rem; color: var(--text-soft); margin-bottom: 20px; }
+.input-wrap { position: relative; }
+.input-wrap input { padding-right: 40px; }
+.input-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); font-size: 0.85rem; padding: 2px; transition: color 0.2s; }
+.input-eye:hover { color: var(--text-soft); }
+.honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.login-error { margin-top: 10px; font-size: 0.78rem; color: var(--danger); min-height: 18px; text-align: center; }
+.btn-login { width: 100%; margin-top: 16px; padding: 11px; background: linear-gradient(135deg, var(--violet), #6d28d9); border: none; border-radius: 9px; color: white; font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; font-family: var(--font-display); cursor: pointer; }
+.btn-login:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+.btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.lgpd-note { display: flex; align-items: flex-start; gap: 8px; font-size: 0.7rem; color: var(--text-dim); text-align: left; margin-top: 16px; padding: 8px 10px; background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.15); border-radius: 7px; line-height: 1.5; }
+.lgpd-note i { color: var(--success); margin-top: 1px; }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+.shake { animation: shake 0.4s ease; }
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset !important; -webkit-text-fill-color: var(--text) !important; transition: background-color 5000s ease-in-out 0s; }
+
+/* ─── DEMO BANNER ─── */
+.demo-banner { background: linear-gradient(90deg, var(--violet-soft), var(--cyan-soft)); border-bottom: 1px solid var(--border); padding: 8px 16px; font-size: 0.78rem; color: var(--text-soft); text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.demo-banner-pill { font-family: var(--font-mono); font-size: 0.62rem; padding: 1px 6px; border-radius: 4px; background: var(--violet-soft); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+
+/* ─── TOUR OVERLAY ─── */
+.tour-overlay { position: fixed; inset: 0; z-index: 500; display: none; pointer-events: auto; }
+.tour-overlay.open { display: block; }
+.tour-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); transition: opacity 0.3s; pointer-events: none; }
+.tour-spotlight { position: absolute; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.72), 0 0 0 3px var(--cyan); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); pointer-events: none; }
+.tour-card { position: absolute; z-index: 2; width: 320px; max-width: calc(100vw - 40px); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--bg-elevated); border: 1px solid var(--cyan); border-radius: 12px; padding: 18px 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.6); transition: top 0.4s cubic-bezier(0.4,0,0.2,1), left 0.4s cubic-bezier(0.4,0,0.2,1); }
+.tour-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.tour-card .tour-emoji { font-size: 1.15rem; }
+.tour-card p { font-size: 0.82rem; color: var(--text-soft); line-height: 1.55; margin-bottom: 14px; }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.tour-counter { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); }
+.tour-btns { display: flex; gap: 5px; }
+.tour-replay-btn { position: fixed; bottom: 18px; right: 18px; width: 46px; height: 46px; border-radius: 50%; background: var(--violet); color: white; border: none; box-shadow: 0 4px 16px rgba(124,58,237,0.4); z-index: 100; font-size: 1.05rem; display: none; cursor: pointer; }
+.tour-replay-btn.visible { display: flex; align-items: center; justify-content: center; }
+.tour-replay-btn:hover { transform: scale(1.05); }

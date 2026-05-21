@@ -139,10 +139,10 @@ async function doLogin() {
     }
 }
 
-document.getElementById('loginUsername').addEventListener('keydown', e => {
+document.getElementById('loginUsername')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('loginPassword').focus();
 });
-document.getElementById('loginPassword').addEventListener('keydown', e => {
+document.getElementById('loginPassword')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
 });
 
@@ -266,7 +266,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Click no backdrop fecha (com proteção)
-document.getElementById('forgotModal').addEventListener('click', e => {
+document.getElementById('forgotModal')?.addEventListener('click', e => {
     if (e.target.id === 'forgotModal') safeCloseModal('forgotModal', closeForgot);
 });
 
@@ -1985,8 +1985,8 @@ function onFileSelect(input) {
 document.getElementById('cvFileName')?.addEventListener('input', updateFileNamePreview);
 
 const uploadZone = document.getElementById('uploadZone');
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone?.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
 uploadZone.addEventListener('drop', e => {
     e.preventDefault();
     uploadZone.classList.remove('drag-over');
