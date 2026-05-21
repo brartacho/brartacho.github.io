@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/admin/assets/fontawesome/css/all.min.css">
     <script src="/admin/assets/js/sortable.min.js"></script>
     <script src="/admin/assets/js/chart.umd.min.js"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <link rel="stylesheet" href="/admin/assets/css/admin.css">
 </head>
 <body>
@@ -48,7 +49,8 @@
                 </button>
             </div>
         </div>
-        <button class="btn btn-cyan" id="loginBtn" style="width:100%" onclick="doLogin()">
+        <div id="turnstileWrap" style="margin-top:14px;display:flex;justify-content:center;min-height:64px"></div>
+        <button class="btn btn-cyan" id="loginBtn" style="width:100%;margin-top:4px" onclick="doLogin()">
             <i class="fa-solid fa-unlock-keyhole"></i> Entrar
         </button>
         <p id="loginError" style="color:var(--danger);font-size:0.85rem;margin-top:12px;display:none;"></p>
@@ -96,6 +98,15 @@
         s.onload = res; s.onerror = rej;
         document.body.appendChild(s);
     });
+    // Carrega sitekey do Turnstile e inicializa o widget de login
+    try {
+        const cfg = await fetch("/api/admin/config", { credentials: "include" }).then(r => r.json());
+        if (cfg && cfg.turnstile_sitekey) {
+            window.ADMIN_CONFIG.turnstileSitekey = cfg.turnstile_sitekey;
+        }
+    } catch { /* sem sitekey — widget desativado em dev */ }
+    _initTurnstile();
+
     // INIT (produção): probe de cookie de sessão httpOnly
     try {
         const r = await fetch("/api/admin/cv-versions", { credentials: "include" });

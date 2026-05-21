@@ -40,7 +40,7 @@ function sanitizeApp(body) {
 }
 
 async function mutRateLimit(req, res) {
-    if (!['POST', 'PUT', 'DELETE'].includes(req.method)) return true;
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return true;
     const rl = await checkRateLimit({ req, scope: 'demo-mut', max: 60, windowMs: 60_000 });
     if (!rl.allowed) {
         res.setHeader('Retry-After', rl.retryAfterSec);
@@ -299,7 +299,7 @@ async function handleCvVersions(req, res, session_id) {
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(data);
     }
-    if (req.method === 'PUT') {
+    if (req.method === 'PUT' || req.method === 'PATCH') {
         if (!req.query.id) return res.status(400).json({ error: 'id obrigatório' });
         const body = req.body || {};
         const patch = {};
@@ -327,7 +327,15 @@ async function handleTokens(req, res, session_id) {
         const { data } = await supabase.from('demo_download_tokens')
             .select('*, cv_versions:demo_cv_versions(id, name, file_name, is_sample)')
             .eq('session_id', session_id).order('created_at', { ascending: false }).limit(100);
-        return res.json(data ?? []);
+        const now = new Date();
+        const enriched = (data ?? []).map(t => ({
+            ...t,
+            status: t.revoked ? 'revogado'
+                : new Date(t.expires_at) < now ? 'expirado'
+                : (t.max_uses !== null && t.use_count >= t.max_uses) ? 'esgotado'
+                : 'ativo',
+        }));
+        return res.json(enriched);
     }
     if (req.method === 'POST' && (req.body || {}).action === 'consume') {
         if (!req.query.id) return res.status(400).json({ error: 'id obrigatório' });
@@ -359,15 +367,27 @@ async function handleTokens(req, res, session_id) {
         if (qErr) return res.status(429).json({ error: qErr });
         const body = req.body || {};
         if (!body.cv_version_id) return res.status(400).json({ error: 'cv_version_id obrigatório' });
-        const hours = Math.max(1, Math.min(720, parseInt(body.hours) || 24));
+        // Aceita expires_at_date (data ISO) ou expires_in_hours/hours (horas a partir de agora)
+        let expiresAt;
+        if (body.expires_at_date) {
+            const d = new Date(body.expires_at_date);
+            if (!isNaN(d.getTime())) expiresAt = d.toISOString();
+        }
+        if (!expiresAt) {
+            const h = Math.max(1, Math.min(720, parseInt(body.expires_in_hours ?? body.hours) || 24));
+            expiresAt = new Date(Date.now() + h * 3_600_000).toISOString();
+        }
         const max_uses = (body.max_uses === null || body.max_uses === '') ? null : Math.max(1, Math.min(100, parseInt(body.max_uses) || 5));
+        const rawToken = genHash();
         const { data, error } = await supabase.from('demo_download_tokens')
-            .insert({ session_id, cv_version_id: body.cv_version_id, label: clean(body.label, 100) || 'Token sem label', hash: genHash(), expires_at: new Date(Date.now() + hours * 3_600_000).toISOString(), max_uses, use_count: 0, revoked: false })
+            .insert({ session_id, cv_version_id: body.cv_version_id, label: clean(body.label, 100) || 'Token sem label', hash: rawToken, expires_at: expiresAt, max_uses, use_count: 0, revoked: false })
             .select('*, cv_versions:demo_cv_versions(id, name)').single();
         if (error) return res.status(500).json({ error: error.message });
-        return res.status(201).json(data);
+        // Link sandbox: aponta para domínio demo, nunca serve arquivo do usuário real
+        const shareUrl = `https://demo.artacho.dev/cv?t=${rawToken}`;
+        return res.status(201).json({ ...data, token: rawToken, shareUrl });
     }
-    if (req.method === 'PUT') {
+    if (req.method === 'PUT' || req.method === 'PATCH') {
         if (!req.query.id) return res.status(400).json({ error: 'id obrigatório' });
         const body = req.body || {};
         const patch = {};
@@ -446,6 +466,97 @@ async function handleLogs(req, res, session_id) {
     return res.status(405).end();
 }
 
+async function handleCvStorageUrl(req, res, session_id) {
+    if (req.method === 'GET') {
+        // Demo não armazena PDFs reais — aponta para CV de amostra estático
+        const supabase = getSupabaseDemo();
+        const { data } = await supabase.from('demo_cv_versions')
+            .select('file_name').eq('id', req.query.id).eq('session_id', session_id).single();
+        return res.json({ signedUrl: '/admin/assets/cv-amostra-demo.pdf', file_name: data?.file_name || 'cv-demo.pdf' });
+    }
+    if (req.method === 'POST') {
+        // Upload real não existe no demo — interceptado client-side em demo-chrome.js (Fase 3b)
+        return res.json({ signedUrl: null, filePath: null, demo: true });
+    }
+    return res.status(405).end();
+}
+
+async function handleSendCvEmail(req, res) {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (!await mutRateLimit(req, res)) return;
+    // NUNCA envia e-mail real no demo
+    return res.json({ ok: true, demo: true, message: 'E-mail simulado. Nenhum e-mail real foi enviado.' });
+}
+
+async function handleLogShare(req, res, session_id) {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (!await mutRateLimit(req, res)) return;
+    const supabase = getSupabaseDemo();
+    const { data: qErr } = await supabase.rpc('demo_check_quota', { p_session_id: session_id, p_table: 'demo_download_logs' });
+    if (qErr) return res.status(429).json({ error: qErr });
+    const body = req.body || {};
+    const { data, error } = await supabase.from('demo_download_logs').insert({
+        session_id,
+        cv_version_id: body.cv_version_id || null,
+        cv_name_snapshot: clean(body.cv_name_snapshot, 200),
+        cv_id_snapshot: body.cv_id_snapshot || null,
+        token_id: body.token_id || null,
+        ip_address: 'admin-send-link',
+        user_agent: clean(body.user_agent, 500) || 'Demo · Link compartilhado',
+        empresa: clean(body.empresa, 200),
+        vaga: clean(body.vaga, 200),
+        notas: clean(body.notas, 500),
+    }).select('*').single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json(data);
+}
+
+async function handleMarkMyVisits(req, res) {
+    if (req.method !== 'POST') return res.status(405).end();
+    // No-op no demo — sem dados de visitas reais para marcar
+    return res.json({ ok: true, demo: true });
+}
+
+async function handleSessions(req, res, session_id) {
+    if (req.method === 'GET') {
+        return res.json([{
+            jti: `demo-${session_id.slice(0, 8)}`,
+            created_at: new Date(Date.now() - 3_600_000).toISOString(),
+            last_seen_at: new Date().toISOString(),
+            user_agent: 'Demo Browser',
+            ip_address: '127.0.0.1',
+            is_current: true,
+            revoked_at: null,
+        }]);
+    }
+    if (req.method === 'PATCH' || req.method === 'DELETE') {
+        return res.json({ ok: true, demo: true });
+    }
+    return res.status(405).end();
+}
+
+async function handleLoginAttempts(req, res) {
+    if (req.method !== 'GET') return res.status(405).end();
+    return res.json([
+        { attempted_at: new Date(Date.now() - 86_400_000).toISOString(), ip_address: '177.x.x.x', user_agent: 'Chrome/120 Windows', result: 'failed',  username_fragment: 'admin@', alerts: [] },
+        { attempted_at: new Date(Date.now() -  7_200_000).toISOString(), ip_address: '186.x.x.x', user_agent: 'Firefox/121 macOS',  result: 'success', username_fragment: 'adm*',   alerts: [] },
+    ]);
+}
+
+async function handleVisitorJourney(req, res) {
+    if (req.method !== 'GET') return res.status(405).end();
+    const hash7 = String(req.query.hash7 || '').slice(0, 20);
+    return res.json({
+        visitor: { hash7, country: 'BR', device: 'desktop', browser: 'Chrome' },
+        events: [
+            { occurred_at: new Date(Date.now() - 1_800_000).toISOString(), event_type: 'pageview',          path: '/'   },
+            { occurred_at: new Date(Date.now() - 1_500_000).toISOString(), event_type: 'engaged',           path: '/'   },
+            { occurred_at: new Date(Date.now() -   900_000).toISOString(), event_type: 'cv_download_click', path: '/'   },
+            { occurred_at: new Date(Date.now() -   600_000).toISOString(), event_type: 'cv_view',           path: '/cv' },
+        ],
+    });
+}
+
 // ─── Main dispatcher ─────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -469,12 +580,19 @@ export default async function handler(req, res) {
     const rlSes = await checkRateLimit({ req, scope: `demo-sess-${session_id}`, max: 200, windowMs: 3_600_000 });
     if (!rlSes.allowed) { res.setHeader('Retry-After', rlSes.retryAfterSec); return res.status(429).json({ error: 'Limite da sessão atingido. Aguarde ou recarregue.' }); }
 
-    if (resource === 'analytics')      return handleAnalytics(req, res);
-    if (resource === 'applications')   return handleApplications(req, res, session_id);
-    if (resource === 'cv-versions')    return handleCvVersions(req, res, session_id);
-    if (resource === 'tokens')         return handleTokens(req, res, session_id);
-    if (resource === 'logs')           return handleLogs(req, res, session_id);
-    if (resource === 'storage-stats')  return handleStorageStats(req, res, session_id);
+    if (resource === 'analytics')        return handleAnalytics(req, res);
+    if (resource === 'applications')     return handleApplications(req, res, session_id);
+    if (resource === 'cv-versions')      return handleCvVersions(req, res, session_id);
+    if (resource === 'tokens')           return handleTokens(req, res, session_id);
+    if (resource === 'logs')             return handleLogs(req, res, session_id);
+    if (resource === 'storage-stats')    return handleStorageStats(req, res, session_id);
+    if (resource === 'cv-storage-url')   return handleCvStorageUrl(req, res, session_id);
+    if (resource === 'send-cv-email')    return handleSendCvEmail(req, res);
+    if (resource === 'log-share')        return handleLogShare(req, res, session_id);
+    if (resource === 'mark-my-visits')   return handleMarkMyVisits(req, res);
+    if (resource === 'sessions')         return handleSessions(req, res, session_id);
+    if (resource === 'login-attempts')   return handleLoginAttempts(req, res);
+    if (resource === 'visitor-journey')  return handleVisitorJourney(req, res);
 
     return res.status(404).json({ error: 'Resource not found' });
 }

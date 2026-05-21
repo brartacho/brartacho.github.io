@@ -12,6 +12,7 @@ import {
     checkUserAgent,
     checkHoneypot,
     checkFillTime,
+    verifyTurnstile,
 } from '../_lib/bot-detection.js';
 
 function computeDfp(req) {
@@ -77,6 +78,14 @@ async function logAttempt(req, supabase, success, usernameHint) {
 export default async function handler(req, res) {
     cors(req, res);
     if (req.method === 'OPTIONS') return res.status(204).end();
+
+    // Config pública — roteado de /api/admin/config via rewrite
+    if (req.query.__h === 'config') {
+        if (req.method !== 'GET') return res.status(405).end();
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        return res.json({ turnstile_sitekey: process.env.TURNSTILE_SITE_KEY || null });
+    }
+
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     // Guards anti-bot (header-only, sem custo de DB). Falha = 401 genérico
@@ -123,6 +132,13 @@ export default async function handler(req, res) {
             const supabase = getSupabase();
             await logAttempt(req, supabase, false, (req.body && req.body.username) || 'bot');
         } catch { /* ignora */ }
+        return res.status(401).json({ error: GENERIC_AUTH_ERROR });
+    }
+
+    // Validação Turnstile (cf_token enviado pelo widget na tela de login)
+    const cfOk = await verifyTurnstile(req.body?.cf_token, clientIp(req));
+    if (!cfOk) {
+        await recordLoginFailure(req);
         return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
 

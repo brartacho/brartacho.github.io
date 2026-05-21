@@ -3,6 +3,36 @@ let selectedFile = null;
 let selectedFilePath = null;
 let currentExpiryHours = 24;
 
+// ─── TURNSTILE ───────────────────────────────────────────
+let _turnstileToken = null;
+let _turnstileWidgetId = null;
+
+function _initTurnstile() {
+    const wrap = document.getElementById('turnstileWrap');
+    if (!wrap) return;
+    const sitekey = (window.ADMIN_CONFIG && window.ADMIN_CONFIG.turnstileSitekey) || '';
+    if (!sitekey) {
+        wrap.innerHTML = '<div style="font-size:0.7rem;color:var(--text-dim);font-family:var(--font-mono);padding:8px 0">// captcha desativado (dev mode)</div>';
+        return;
+    }
+    if (!window.turnstile) { setTimeout(_initTurnstile, 200); return; }
+    if (_turnstileWidgetId !== null) return;
+    _turnstileWidgetId = window.turnstile.render('#turnstileWrap', {
+        sitekey,
+        theme: 'dark',
+        callback:          t  => { _turnstileToken = t; },
+        'error-callback':  () => { _turnstileToken = null; },
+        'expired-callback':() => { _turnstileToken = null; },
+    });
+}
+
+function _resetTurnstile() {
+    _turnstileToken = null;
+    if (window.turnstile && _turnstileWidgetId !== null) {
+        window.turnstile.reset(_turnstileWidgetId);
+    }
+}
+
 // ─── AUTH ─────────────────────────────────────────────────
 // JWT em cookie httpOnly — JS não acessa o token diretamente.
 // credentials:'include' no fetch garante envio automático do cookie.
@@ -89,6 +119,7 @@ async function doLogin() {
                 password: pw,
                 website: honeypot,
                 fillMs,
+                cf_token: _turnstileToken || '',
             }, false);
             // Cookie setado pelo servidor — sem token no body
             document.getElementById('loginScreen').style.display = 'none';
@@ -101,6 +132,7 @@ async function doLogin() {
     } catch (e) {
         errEl.textContent = e.message || 'Usuário ou senha incorretos.';
         errEl.style.display = 'block';
+        _resetTurnstile();
     } finally {
         // Reset timer para próximas tentativas (rate limit + backoff cuida do resto)
         _loginFormStartedAt = null;

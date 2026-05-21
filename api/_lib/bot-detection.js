@@ -57,6 +57,28 @@ export function checkFillTime(body, field = 'fillMs', min = MIN_HUMAN_FILL_MS, m
     return { ok: true };
 }
 
+/**
+ * Valida token Cloudflare Turnstile no backend.
+ * Retorna true se válido. Se TURNSTILE_SECRET não estiver setado (dev local), faz bypass.
+ */
+export async function verifyTurnstile(token, ip) {
+    if (!process.env.TURNSTILE_SECRET) return true;
+    if (!token) return false;
+    try {
+        const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                secret: process.env.TURNSTILE_SECRET,
+                response: token,
+                remoteip: ip || '',
+            }),
+        });
+        const json = await r.json();
+        return json.success === true;
+    } catch { return false; }
+}
+
 // Combina todas as heurísticas relevantes pro fluxo de login.
 // Retorna { ok, reason } — handler responde 400/403 com mensagem genérica.
 export function runLoginGuards(req) {
