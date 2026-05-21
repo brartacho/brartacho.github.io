@@ -587,48 +587,32 @@ tr.token-row-selected{outline:1px solid rgba(34,211,238,0.2)}
             </div>
         </section>
 
-        <div id="demoGate" class="demo-gate">
-
-            <!-- Turnstile oculto — renderiza em background -->
-            <div id="turnstileWrap" style="position:absolute;opacity:0;pointer-events:none;height:0;overflow:hidden"></div>
-            <!-- Honeypot -->
-            <input type="text" name="website" class="honeypot" id="hpWebsite" tabindex="-1" autocomplete="off" aria-hidden="true">
-
-            <!-- Estado: idle -->
-            <div id="gateIdle">
-                <div class="demo-gate-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>
-                <h3>Demonstração interativa</h3>
-                <p>Explore o painel real com dados fictícios isolados — sem afetar produção.</p>
-                <button class="btn-gate" id="gateBtn" onclick="openDemoAccess()">
-                    <i class="fa-solid fa-terminal" aria-hidden="true"></i> Acessar demo
+        <div class="login-box" style="width:100%;max-width:360px">
+            <div class="login-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>
+            <h2>Acesso restrito</h2>
+            <p>Este painel é de uso privado.<br>Disponível mediante solicitação.</p>
+            <form id="demoLoginForm" onsubmit="return _demoLoginSubmit(event)" autocomplete="off" novalidate>
+                <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <div class="form-group">
+                    <label for="demoUser">Usuário</label>
+                    <input type="text" id="demoUser" placeholder="usuario" autocomplete="username" spellcheck="false">
+                </div>
+                <div class="form-group">
+                    <label for="demoPass">Senha</label>
+                    <div class="input-wrap">
+                        <input type="password" id="demoPass" placeholder="••••••••" autocomplete="current-password" id="demoPassInput">
+                        <button type="button" class="input-eye" onclick="_toggleDemoPass()" aria-label="Mostrar senha"><i class="fa-solid fa-eye" id="demoEyeIcon"></i></button>
+                    </div>
+                </div>
+                <div class="login-error" id="demoLoginErr"></div>
+                <button type="submit" class="btn-login" id="demoLoginBtn">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
                 </button>
-                <div class="lgpd-note" style="margin-top:16px;text-align:left">
-                    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                    <span><b>Uso aceitável:</b> ambiente de demonstração isolado, sem dados reais. Destinado à avaliação do sistema. Nenhum IP real é armazenado (LGPD).</span>
-                </div>
+            </form>
+            <div class="lgpd-note" style="margin-top:16px">
+                <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                <span>Para solicitar acesso à demonstração, entre em contato: <b>br.artacho@gmail.com</b></span>
             </div>
-
-            <!-- Estado: loading -->
-            <div id="gateLoading" style="display:none">
-                <div class="demo-gate-icon" style="background:var(--violet-soft);color:#a78bfa">
-                    <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
-                </div>
-                <h3>Iniciando sessão…</h3>
-                <p>Preparando o ambiente de demonstração.</p>
-            </div>
-
-            <!-- Estado: erro -->
-            <div id="gateError" style="display:none">
-                <div class="demo-gate-icon" style="background:var(--danger-soft);color:var(--danger)">
-                    <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
-                </div>
-                <h3>Falha ao iniciar</h3>
-                <p id="gateErrorMsg">Tente novamente.</p>
-                <button class="btn-gate" onclick="retryGate()">
-                    <i class="fa-solid fa-rotate" aria-hidden="true"></i> Tentar novamente
-                </button>
-            </div>
-
         </div>
 
     </div>
@@ -1312,7 +1296,6 @@ function renderTurnstile() {
     });
 }
 document.documentElement.classList.add('hero-active');
-window.addEventListener('load', loadConfigAndRenderTurnstile);
 
 let pendingGateLogin = false;
 
@@ -1353,12 +1336,24 @@ async function proceedDemoLogin() {
     }
 }
 
-function retryGate() {
-    document.getElementById('gateError').style.display = 'none';
-    document.getElementById('gateIdle').style.display = '';
-    const btn = document.getElementById('gateBtn');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-terminal" aria-hidden="true"></i> Acessar demo';
+function _demoLoginSubmit(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('demoLoginErr');
+    const btn   = document.getElementById('demoLoginBtn');
+    const box   = btn.closest('.login-box');
+    errEl.textContent = 'Credenciais inválidas.';
+    box.classList.add('shake');
+    setTimeout(() => box.classList.remove('shake'), 400);
+    document.getElementById('demoPass').value = '';
+    return false;
+}
+
+function _toggleDemoPass() {
+    const inp = document.getElementById('demoPass');
+    const ic  = document.getElementById('demoEyeIcon');
+    const show = inp.type === 'password';
+    inp.type     = show ? 'text' : 'password';
+    ic.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
 }
 
 function togglePass() {
@@ -1427,7 +1422,6 @@ function revealApp() {
 }
 
 document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.getElementById('heroScreen').style.display !== 'none') openDemoAccess();
     if (e.key === 'Escape') { closeDrawer(); closeModal(); skipTour(); }
 });
 
