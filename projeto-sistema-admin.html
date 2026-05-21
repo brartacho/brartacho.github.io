@@ -1336,15 +1336,37 @@ async function proceedDemoLogin() {
     }
 }
 
-function _demoLoginSubmit(e) {
+async function _demoLoginSubmit(e) {
     e.preventDefault();
     const errEl = document.getElementById('demoLoginErr');
     const btn   = document.getElementById('demoLoginBtn');
     const box   = btn.closest('.login-box');
-    errEl.textContent = 'Credenciais inválidas.';
-    box.classList.add('shake');
-    setTimeout(() => box.classList.remove('shake'), 400);
-    document.getElementById('demoPass').value = '';
+    const user  = document.getElementById('demoUser').value.trim();
+    const pass  = document.getElementById('demoPass').value;
+
+    if (!user || !pass) {
+        errEl.textContent = 'Preencha usuário e senha.';
+        box.classList.add('shake');
+        setTimeout(() => box.classList.remove('shake'), 400);
+        return false;
+    }
+
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Autenticando…';
+
+    try {
+        await dapi('POST', '/api/demo/auth', { username: user, password: pass, website: '' });
+        sessionStorage.setItem(AUTH_KEY, '1');
+        revealApp();
+    } catch (err) {
+        errEl.textContent = err.message || 'Credenciais inválidas.';
+        box.classList.add('shake');
+        setTimeout(() => box.classList.remove('shake'), 400);
+        document.getElementById('demoPass').value = '';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar';
+    }
     return false;
 }
 

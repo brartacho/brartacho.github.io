@@ -78,6 +78,32 @@ async function handleInit(req, res) {
     return res.json({ ok: true, session_id });
 }
 
+async function handleAuth(req, res) {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (req.body?.website) return res.status(403).json({ error: 'forbidden' });
+
+    const rl = await checkRateLimit({ req, scope: 'demo-auth', max: 10, windowMs: 15 * 60 * 1000 });
+    if (!rl.allowed) {
+        res.setHeader('Retry-After', rl.retryAfterSec);
+        return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos.' });
+    }
+
+    const { username, password } = req.body || {};
+    const expectedUser = process.env.DEMO_ADMIN_USER;
+    const expectedPass = process.env.DEMO_ADMIN_PASS;
+
+    if (!expectedUser || !expectedPass) return res.status(503).json({ error: 'Demo não configurado.' });
+    if (String(username) !== expectedUser || String(password) !== expectedPass) {
+        return res.status(401).json({ error: 'Credenciais inválidas.' });
+    }
+
+    const session_id = getSessionId(req);
+    if (!session_id) return res.status(400).json({ error: 'session_id inválido' });
+    const { error } = await getSupabaseDemo().rpc('demo_seed', { p_session_id: session_id });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+}
+
 async function handleCleanup(req, res) {
     const auth = req.headers['authorization'];
     if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -430,6 +456,7 @@ export default async function handler(req, res) {
 
     // Public / cron / no session needed
     if (resource === 'config')  return handleConfig(req, res);
+    if (resource === 'auth')    return handleAuth(req, res);
     if (resource === 'init')    return handleInit(req, res);
     if (resource === 'cleanup') return handleCleanup(req, res);
     if (resource === 'health')  return handleHealth(req, res);
