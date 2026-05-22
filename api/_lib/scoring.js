@@ -38,7 +38,7 @@ function inferSeniority(text) {
 }
 
 /**
- * @param {object} vaga    { vaga, descricao, nivel, modalidade, tipo_contratacao, requires_cnh }
+ * @param {object} vaga    { vaga, descricao, nivel, modalidade, tipo_contratacao, requires_cnh: string|null }
  * @param {object} profile { nivel_alvo, skills_core[], skills_evolucao[], gaps[],
  *                           setores[], keywords[], modalidade_pref, contratacao_pref,
  *                           contratacao_prefs[], cnh }
