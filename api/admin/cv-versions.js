@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         const { id } = req.query;
         if (!id) return res.status(400).json({ error: 'ID obrigatório (query string)' });
 
-        const { name, description, active, file_name } = req.body || {};
+        const { name, description, active, file_name, target_role, search_keywords } = req.body || {};
         const patch = {};
         if (typeof name === 'string') {
             const trimmed = name.trim();
@@ -70,8 +70,10 @@ export default async function handler(req, res) {
         }
         if (typeof description === 'string') patch.description = description.trim() || null;
         if (typeof active === 'boolean') patch.active = active;
+        if (typeof target_role === 'string') patch.target_role = target_role.trim() || null;
+        if (Array.isArray(search_keywords)) patch.search_keywords = search_keywords.filter((k) => typeof k === 'string' && k.trim()).map((k) => k.trim());
         if (Object.keys(patch).length === 0) {
-            return res.status(400).json({ error: 'Nenhum campo válido para atualizar (name, file_name, description ou active)' });
+            return res.status(400).json({ error: 'Nenhum campo válido para atualizar (name, file_name, description, active, target_role ou search_keywords)' });
         }
 
         const { data, error } = await supabase
