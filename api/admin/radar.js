@@ -78,6 +78,8 @@ export default async function handler(req, res) {
         }
         if (req.method === 'PUT') {
             const b = req.body || {};
+            const CNH_CATS = ['A', 'B', 'C', 'D', 'E'];
+            const VALID_TIPOS_ARR = ['CLT', 'PJ', 'Freelancer', 'Cooperado', 'Temporário', 'Estágio', 'Autônomo'];
             const row = {
                 nivel_alvo: clean(b.nivel_alvo, TEXT_MAX.generic),
                 skills_core: jsonArr(b.skills_core),
@@ -91,6 +93,15 @@ export default async function handler(req, res) {
                 diferenciais: jsonArr(b.diferenciais),
                 updated_at: new Date().toISOString(),
             };
+            if (b.cnh && typeof b.cnh === 'object') {
+                row.cnh = { has: !!b.cnh.has, categories: Array.isArray(b.cnh.categories) ? b.cnh.categories.filter(c => CNH_CATS.includes(c)) : [] };
+            }
+            if (Array.isArray(b.contratacao_prefs)) {
+                row.contratacao_prefs = b.contratacao_prefs.filter(t => VALID_TIPOS_ARR.includes(t));
+            }
+            if (Array.isArray(b.search_platforms)) {
+                row.search_platforms = b.search_platforms;
+            }
             const existing = await loadProfile(supabase);
             let result;
             if (existing.id) {
@@ -201,10 +212,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PUT') {
-        const id = req.query.id;
-        if (!id) return res.status(400).json({ error: 'id obrigatório' });
-
-        // Ação: descartar múltiplos leads em lote
+        // Ação de lote: não requer ?id= individual
         if (req.query.action === 'bulk-discard') {
             const { ids, motivo_descarte } = req.body || {};
             if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids obrigatório (array)' });
@@ -216,6 +224,9 @@ export default async function handler(req, res) {
             if (error) return res.status(500).json({ error: error.message });
             return res.status(200).json({ ok: true, updated: data?.length ?? 0, ids: data?.map(r => r.id) ?? [] });
         }
+
+        const id = req.query.id;
+        if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
         // Ação: promover lead → cria candidatura em job_applications
         if (req.query.action === 'promote') {
