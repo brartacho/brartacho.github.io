@@ -36,6 +36,7 @@ Retorne SOMENTE um objeto JSON válido (sem markdown, sem comentários) com EXAT
   "summary": "resumo curto da vaga",
   "seniority_inferred": "junior|pleno|senior|especialista|indefinido",
   "fit_score": 0,                       // inteiro 0–10 de aderência ao perfil
+  "fit_analysis": "parágrafo 2–4 frases: pontos fortes do fit, principais gaps e avaliação honesta",
   "required_keywords": ["..."],         // requisitos obrigatórios
   "nice_to_have_keywords": ["..."],     // diferenciais
   "gaps": ["..."],                      // o que a vaga pede e o candidato não tem
@@ -77,6 +78,7 @@ export function parseAnalysisJson(input) {
         summary: typeof obj.summary === 'string' ? obj.summary.trim() : '',
         seniority_inferred: typeof obj.seniority_inferred === 'string' ? obj.seniority_inferred.trim() : '',
         fit_score: fit,
+        fit_analysis: typeof obj.fit_analysis === 'string' ? obj.fit_analysis.trim() : '',
         required_keywords: strArr(obj.required_keywords),
         nice_to_have_keywords: strArr(obj.nice_to_have_keywords),
         gaps: strArr(obj.gaps),
