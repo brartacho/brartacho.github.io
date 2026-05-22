@@ -104,9 +104,9 @@ server.registerTool('check_duplicate',
     { title: 'Verificar duplicata', description: 'Verifica se já existe um lead com esse link_vaga. Retorna o lead existente ou null.',
       inputSchema: { link_vaga: z.string() } },
     async ({ link_vaga }) => {
-        const { data } = await supabase.from('vaga_radar').select('id,empresa,vaga,status,fit_score')
+        const { data, error } = await supabase.from('vaga_radar').select('id,empresa,vaga,status,fit_score')
             .eq('link_vaga', link_vaga).maybeSingle();
-        return ok(data ?? null);
+        return error ? fail(error.message) : ok(data ?? null);
     });
 
 server.registerTool('create_lead',
