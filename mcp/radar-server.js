@@ -273,5 +273,92 @@ server.registerTool('cleanup_leads',
         return ok({ deleted, archived });
     });
 
+server.registerTool('get_cv_adaptation_prompt',
+    { title: 'Prompt de adaptação de CV',
+      description: 'Monta o prompt para Claude sugerir adaptações de apresentação do CV para uma vaga específica, sem inventar dados.',
+      inputSchema: { vaga_id: z.string(), cv_id: z.string() } },
+    async ({ vaga_id, cv_id }) => {
+        const { data: lead, error: e1 } = await supabase.from('vaga_radar').select('*').eq('id', vaga_id).single();
+        if (e1 || !lead) return fail('Vaga não encontrada');
+
+        const { data: cv, error: e2 } = await supabase.from('cv_versions')
+            .select('id, name, description, target_role, adaptation_notes')
+            .eq('id', cv_id).single();
+        if (e2 || !cv) return fail('CV não encontrado');
+
+        const prompt = `Você é um consultor de carreira. Sugira adaptações de APRESENTAÇÃO para este currículo se encaixar melhor nesta vaga.
+
+REGRAS IMPORTANTES:
+- Não invente skills, experiências, projetos ou certificações que não existam no currículo base
+- Não aumente a senioridade artificialmente
+- Apenas sugira: reordenar seções/itens, ajustar linguagem/framing, destacar experiências mais relevantes
+- As sugestões devem ser específicas e aplicáveis ao currículo base
+
+# Vaga
+Empresa: ${lead.empresa}
+Título: ${lead.vaga || '—'}
+Nível: ${lead.nivel || '—'} | Modalidade: ${lead.modalidade || '—'} | Contratação: ${lead.tipo_contratacao || '—'}
+Descrição:
+"""
+${(lead.descricao || '').slice(0, 4000)}
+"""
+Keywords identificadas: ${(lead.keywords_match || []).join(', ') || '—'}
+Gaps identificados: ${(lead.gaps || []).join(', ') || '—'}
+
+# Currículo Base
+Nome do modelo: ${cv.name}
+Descrição: ${cv.description || '—'}
+Perfil-alvo atual: ${cv.target_role || '—'}
+${cv.adaptation_notes ? `\nNotas anteriores de adaptação:\n${cv.adaptation_notes}` : ''}
+
+# Tarefa
+Retorne SOMENTE um objeto JSON válido com EXATAMENTE estas chaves:
+{
+  "adaptation_notes": "sugestões detalhadas de adaptação (texto livre, parágrafos)",
+  "suggested_target_role": "título ideal para este modelo adaptado",
+  "suggested_search_keywords": ["keyword1", "keyword2", ...]
+}
+
+Regras do JSON: adaptation_notes deve ser texto detalhado (não array); suggested_search_keywords devem ser extraídas da vaga e alinhadas ao perfil real do candidato.`;
+
+        return { content: [{ type: 'text', text: prompt }] };
+    });
+
+server.registerTool('save_cv_adaptation',
+    { title: 'Salvar adaptação de CV',
+      description: 'Cria nova cv_version baseada em um modelo existente com sugestões de adaptação para uma vaga. Vincula ao lead.',
+      inputSchema: {
+          vaga_id:                   z.string(),
+          base_cv_id:                z.string(),
+          name:                      z.string(),
+          adaptation_notes:          z.string().optional(),
+          suggested_target_role:     z.string().optional(),
+          suggested_search_keywords: z.array(z.string()).optional(),
+      } },
+    async (input) => {
+        const { data: base, error: e1 } = await supabase.from('cv_versions').select('*').eq('id', input.base_cv_id).single();
+        if (e1 || !base) return fail('CV base não encontrado');
+
+        const { data: newCv, error: e2 } = await supabase.from('cv_versions').insert({
+            name:             input.name,
+            description:      `Adaptado de "${base.name}" para vaga ${input.vaga_id}`,
+            file_path:        base.file_path,
+            file_name:        base.file_name,
+            active:           true,
+            target_role:      input.suggested_target_role || base.target_role || null,
+            search_keywords:  input.suggested_search_keywords || base.search_keywords || [],
+            source_vaga_id:   input.vaga_id,
+            adaptation_notes: input.adaptation_notes || null,
+        }).select().single();
+        if (e2 || !newCv) return fail(e2?.message ?? 'Erro ao criar CV');
+
+        const { error: e3 } = await supabase.from('vaga_radar')
+            .update({ adapted_cv_id: newCv.id, updated_at: new Date().toISOString() })
+            .eq('id', input.vaga_id);
+        if (e3) return fail(e3.message);
+
+        return ok(newCv);
+    });
+
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
