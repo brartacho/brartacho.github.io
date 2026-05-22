@@ -156,8 +156,8 @@ test.describe('Navegação — desktop/tablet (top tabs)', () => {
     await expect(page.locator('.mobile-bottom-nav')).toBeHidden();
   });
 
-  test('4 botões de aba no top nav', async ({ page }) => {
-    await expect(page.locator('.app-tabs .tab-btn')).toHaveCount(4);
+  test('5 botões de aba no top nav', async ({ page }) => {
+    await expect(page.locator('.app-tabs .tab-btn')).toHaveCount(5);
   });
 
   test('aba Currículos ativa por padrão', async ({ page }) => {

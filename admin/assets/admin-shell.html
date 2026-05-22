@@ -17,6 +17,7 @@
         <button class="tab-btn" data-tab="tokens" onclick="switchTab('tokens')"><i class="fa-solid fa-key"></i> Tokens</button>
         <button class="tab-btn" data-tab="logs" onclick="switchTab('logs')"><i class="fa-solid fa-chart-bar"></i> Logs</button>
         <button class="tab-btn" data-tab="vagas" onclick="switchTab('vagas')"><i class="fa-solid fa-briefcase"></i> Gestão de Vagas</button>
+        <button class="tab-btn" data-tab="radar" onclick="switchTab('radar')"><i class="fa-solid fa-satellite-dish"></i> Radar</button>
         <button class="tab-btn" data-tab="metricas" onclick="switchTab('metricas')"><i class="fa-solid fa-chart-line"></i> Métricas</button>
         <button class="tab-btn" data-tab="seguranca" onclick="switchTab('seguranca')"><i class="fa-solid fa-shield-halved"></i> Segurança</button>
     </nav>
@@ -548,6 +549,74 @@
 
         </div>
 
+        <!-- ─── TAB: RADAR DE VAGAS ──────────────────────────────────── -->
+        <div id="tab-radar" class="tab-panel">
+
+            <div class="radar-head">
+                <div>
+                    <h2 class="radar-title"><i class="fa-solid fa-satellite-dish"></i> Radar de Vagas</h2>
+                    <p class="radar-sub">Capte vagas, pontue a aderência ao seu perfil e promova as melhores para a Gestão de Vagas.</p>
+                </div>
+                <div class="radar-head-actions">
+                    <span class="radar-provider" id="radarProvider" title="Modo de análise por IA"></span>
+                    <button class="btn btn-sm" onclick="toggleRadarProfile()"><i class="fa-solid fa-user-gear"></i> Perfil</button>
+                </div>
+            </div>
+
+            <!-- Buscas rápidas (atalhos do método de busca) -->
+            <details class="radar-card radar-searches">
+                <summary><i class="fa-solid fa-magnifying-glass"></i> Buscas rápidas no LinkedIn</summary>
+                <div class="radar-search-grid" id="radarSearchGrid"></div>
+                <p class="radar-hint">Abrem o LinkedIn em nova aba com filtro de tempo, busca em publicações/gestores (mercado oculto) e strings booleanas do seu perfil.</p>
+            </details>
+
+            <!-- Editor de perfil (oculto por padrão) -->
+            <div class="radar-card radar-profile" id="radarProfileCard" hidden>
+                <h3>Perfil-base da pontuação</h3>
+                <div class="radar-profile-grid">
+                    <label>Nível-alvo<input type="text" id="rpNivel" placeholder="Pleno"></label>
+                    <label>Modalidade preferida<input type="text" id="rpModalidade" placeholder="Remota"></label>
+                    <label>Contratação preferida<input type="text" id="rpContratacao" placeholder="CLT"></label>
+                    <label>Localização<input type="text" id="rpLocalizacao" placeholder="Maringá - PR"></label>
+                    <label class="radar-col-2">Skills que domina (uma por linha)<textarea id="rpCore" rows="4"></textarea></label>
+                    <label class="radar-col-2">Skills em evolução / diferenciais<textarea id="rpEvolucao" rows="3"></textarea></label>
+                    <label class="radar-col-2">Gaps conhecidos<textarea id="rpGaps" rows="2"></textarea></label>
+                    <label class="radar-col-2">Setores de diferencial<textarea id="rpSetores" rows="2"></textarea></label>
+                    <label class="radar-col-2">Keywords de busca<textarea id="rpKeywords" rows="2"></textarea></label>
+                </div>
+                <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
+            </div>
+
+            <!-- Adicionar vaga ao Radar -->
+            <div class="radar-card">
+                <h3>Adicionar vaga</h3>
+                <div class="radar-add-grid">
+                    <input type="text" id="raEmpresa" placeholder="Empresa *">
+                    <input type="text" id="raVaga" placeholder="Título da vaga">
+                    <input type="url" id="raLink" placeholder="Link da vaga">
+                    <select id="raModalidade">
+                        <option value="">Modalidade…</option>
+                        <option>Remota</option><option>Híbrida</option><option>Presencial</option>
+                    </select>
+                    <select id="raTipo">
+                        <option value="">Contratação…</option>
+                        <option>CLT</option><option>PJ</option><option>Freelancer</option>
+                    </select>
+                    <input type="text" id="raNivel" placeholder="Nível (ex: Pleno)">
+                    <textarea id="raDescricao" class="radar-col-full" rows="5" placeholder="Cole a descrição da vaga aqui (usada na pontuação)…"></textarea>
+                </div>
+                <button class="btn btn-cyan btn-sm" onclick="addRadarVaga(this)"><i class="fa-solid fa-plus"></i> Adicionar ao Radar</button>
+            </div>
+
+            <!-- Lista de leads -->
+            <div class="radar-list-head">
+                <h3>Leads <span class="radar-count" id="radarCount"></span></h3>
+                <label class="radar-toggle"><input type="checkbox" id="radarShowAll" onchange="loadRadar()"> mostrar promovidas/descartadas</label>
+            </div>
+            <div id="radarList" class="radar-list"></div>
+
+        </div>
+
         <!-- ─── TAB: MÉTRICAS ────────────────────────────────────────── -->
         <div id="tab-metricas" class="tab-panel">
 
@@ -883,6 +952,24 @@
         <div style="display:flex;gap:10px;justify-content:flex-end">
             <button class="btn" id="promptCancelBtn">Cancelar</button>
             <button class="btn btn-cyan" id="promptOkBtn">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── RADAR — ANÁLISE (modo manual / Claude Code) ── -->
+<div class="modal-overlay" id="radarAnalysisModal">
+    <div class="modal" style="max-width:680px;max-height:86vh;overflow-y:auto">
+        <button class="modal-close" onclick="closeRadarAnalysis()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <p class="modal-title">Análise via Claude Code</p>
+        <p class="modal-label">1. Copie o prompt e rode no Claude Code (ou peça "analise os leads novos do Radar" via MCP). 2. Cole o JSON de retorno abaixo e salve.</p>
+        <div class="radar-prompt-box">
+            <button class="btn btn-sm" onclick="copyRadarPrompt(this)"><i class="fa-solid fa-copy"></i> Copiar prompt</button>
+            <pre id="radarPromptText" class="radar-pre"></pre>
+        </div>
+        <textarea id="radarAnalysisJson" rows="6" class="radar-json-input" placeholder="Cole aqui o JSON de análise…"></textarea>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+            <button class="btn" onclick="closeRadarAnalysis()">Cancelar</button>
+            <button class="btn btn-cyan" onclick="saveRadarAnalysis(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar análise</button>
         </div>
     </div>
 </div>

@@ -1740,6 +1740,7 @@ function switchTab(name) {
     if (name === 'tokens') { loadCVs(); loadTokens(); }
     if (name === 'logs') { loadLogs(); loadLogKpis(); }
     if (name === 'vagas') loadApplications();
+    if (name === 'radar') loadRadar();
     if (name === 'metricas') { loadAnalytics(); loadLoginAttempts(); }
     if (name === 'seguranca') { loadSessions(); loadDemoSettings(); }
     _scheduleRefresh();
@@ -4561,5 +4562,238 @@ async function saveDemoSettings() {
         const savedEl = document.getElementById('demoSettingsSaved');
         if (savedEl) { savedEl.style.display = ''; setTimeout(() => { savedEl.style.display = 'none'; }, 2500); }
         showToast('Configuração do demo salva.');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─── RADAR DE VAGAS ───────────────────────────────────────
+let _radarProfile = {};
+let _radarAnalysisId = null;
+const _linesToArr = s => String(s || '').split(/[\n;]+/).map(x => x.trim()).filter(Boolean);
+const _arrToLines = a => (Array.isArray(a) ? a : []).join('\n');
+
+function radarBadge(score) {
+    if (score == null) return { cls: 'na', label: '—' };
+    if (score >= 8) return { cls: 'green', label: score };
+    if (score >= 5) return { cls: 'yellow', label: score };
+    return { cls: 'red', label: score };
+}
+
+async function loadRadar() {
+    try {
+        _radarProfile = await api('GET', '/api/admin/profile');
+        fillRadarProfileForm(_radarProfile);
+        renderRadarSearches(_radarProfile);
+    } catch (e) { /* perfil ainda não criado — segue */ }
+
+    const all = document.getElementById('radarShowAll')?.checked ? '?all=1' : '';
+    const list = document.getElementById('radarList');
+    if (list) list.innerHTML = '<div class="radar-empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Carregando…</div>';
+    try {
+        const leads = await api('GET', `/api/admin/radar${all}`);
+        renderRadarList(leads);
+    } catch (e) {
+        if (list) list.innerHTML = `<div class="radar-empty">Erro: ${esc(e.message)}</div>`;
+    }
+}
+
+function renderRadarSearches(profile) {
+    const grid = document.getElementById('radarSearchGrid');
+    if (!grid) return;
+    const kw = (profile.keywords && profile.keywords[0]) || 'QA';
+    const enc = encodeURIComponent;
+    const jobs = (q, tpr) => `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&f_WT=2&f_TPR=${tpr}&sortBy=DD`;
+    const content = q => `https://www.linkedin.com/search/results/content/?keywords=${enc(q)}`;
+    const people = q => `https://www.linkedin.com/search/results/people/?keywords=${enc(q)}`;
+    const links = [
+        ['Últimas 24h (remoto)', jobs(kw, 'r86400'), 'fa-clock'],
+        ['Últimos 7 dias (remoto)', jobs(kw, 'r604800'), 'fa-calendar-week'],
+        ['Publicações: "contratando"', content(`"contratando" ${kw}`), 'fa-bullhorn'],
+        ['Mercado oculto: "vaga"', content(`"vaga" ${kw}`), 'fa-eye'],
+        ['Gestores (Tech Lead/Head)', people(`"Tech Lead" OR "Head" ${kw}`), 'fa-user-tie'],
+        ['Boolean: QA + Playwright', jobs('("QA" OR "Analista de Testes") AND "Playwright"', 'r604800'), 'fa-code'],
+        ['Boolean: QA + IA', jobs('"QA" AND ("IA" OR "Inteligência Artificial")', 'r604800'), 'fa-robot'],
+    ];
+    grid.innerHTML = links.map(([label, url, icon]) =>
+        `<a class="radar-search-btn" href="${esc(url)}" target="_blank" rel="noopener"><i class="fa-solid ${icon}"></i> ${esc(label)}</a>`
+    ).join('');
+}
+
+function renderRadarList(leads) {
+    _radarLeads = leads;
+    const list = document.getElementById('radarList');
+    const count = document.getElementById('radarCount');
+    if (count) count.textContent = leads.length ? `(${leads.length})` : '';
+    if (!list) return;
+    if (!leads.length) { list.innerHTML = '<div class="radar-empty">Nenhum lead. Adicione uma vaga acima ou use as buscas rápidas.</div>'; return; }
+
+    list.innerHTML = leads.map(l => {
+        const b = radarBadge(l.fit_score);
+        const chips = [l.nivel, l.modalidade, l.tipo_contratacao].filter(Boolean)
+            .map(c => `<span class="radar-chip">${esc(c)}</span>`).join('');
+        const kw = (l.keywords_match || []).slice(0, 12)
+            .map(k => `<span class="radar-chip kw">${esc(k)}</span>`).join('');
+        const gaps = (l.gaps || []).slice(0, 8)
+            .map(g => `<span class="radar-chip gap">${esc(g)}</span>`).join('');
+        const link = l.link_vaga ? `<a href="${esc(l.link_vaga)}" target="_blank" rel="noopener" title="Abrir vaga"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : '';
+        const promoted = l.status === 'promovida';
+        const discarded = l.status === 'descartada';
+        const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
+        return `<div class="radar-lead status-${esc(l.status)}">
+            <div class="radar-score badge-${b.cls}">${b.label}</div>
+            <div class="radar-lead-body">
+                <div class="radar-lead-head">
+                    <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
+                    <span class="radar-status-tag s-${esc(l.status)}">${esc(l.status)}</span>
+                </div>
+                <div class="radar-chips">${chips}</div>
+                ${kw ? `<div class="radar-chips">${kw}</div>` : ''}
+                ${gaps ? `<div class="radar-chips"><span class="radar-chip-label">Gaps:</span>${gaps}</div>` : ''}
+                ${pos}
+                <div class="radar-lead-actions">
+                    <button class="btn btn-sm" onclick="analyzeRadar('${l.id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>
+                    ${!promoted && !discarded ? `<button class="btn btn-cyan btn-sm" onclick="promoteRadar('${l.id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>` : ''}
+                    ${!discarded && !promoted ? `<button class="btn btn-sm" onclick="discardRadar('${l.id}')"><i class="fa-solid fa-ban"></i> Descartar</button>` : ''}
+                    <button class="btn btn-sm" onclick="deleteRadar('${l.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+let _radarLeads = [];
+
+async function addRadarVaga(btn) {
+    const empresa = document.getElementById('raEmpresa').value.trim();
+    if (!empresa) { showToast('Informe a empresa.', 'error'); return; }
+    const payload = {
+        empresa,
+        vaga: document.getElementById('raVaga').value.trim(),
+        link_vaga: document.getElementById('raLink').value.trim(),
+        modalidade: document.getElementById('raModalidade').value,
+        tipo_contratacao: document.getElementById('raTipo').value,
+        nivel: document.getElementById('raNivel').value.trim(),
+        descricao: document.getElementById('raDescricao').value.trim(),
+    };
+    try {
+        await withLoading(btn, async () => {
+            await api('POST', '/api/admin/radar', payload);
+        }, 'Adicionando…');
+        ['raEmpresa','raVaga','raLink','raNivel','raDescricao'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('raModalidade').value = '';
+        document.getElementById('raTipo').value = '';
+        showToast('Vaga adicionada ao Radar.');
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function analyzeRadar(id) {
+    try {
+        const r = await api('GET', `/api/admin/radar-analysis?id=${id}`);
+        if (r.mode === 'auto') {
+            showToast('Análise por IA concluída.');
+            loadRadar();
+        } else {
+            openRadarAnalysisModal(id, r.prompt);
+        }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+function openRadarAnalysisModal(id, prompt) {
+    _radarAnalysisId = id;
+    document.getElementById('radarPromptText').textContent = prompt || '';
+    document.getElementById('radarAnalysisJson').value = '';
+    document.getElementById('radarAnalysisModal').classList.add('open');
+}
+function closeRadarAnalysis() {
+    _radarAnalysisId = null;
+    document.getElementById('radarAnalysisModal').classList.remove('open');
+}
+async function copyRadarPrompt(btn) {
+    const txt = document.getElementById('radarPromptText').textContent;
+    try {
+        await navigator.clipboard.writeText(txt);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado';
+        setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    } catch { showToast('Não foi possível copiar.', 'error'); }
+}
+async function saveRadarAnalysis(btn) {
+    const raw = document.getElementById('radarAnalysisJson').value.trim();
+    if (!raw) { showToast('Cole o JSON de análise.', 'error'); return; }
+    if (!_radarAnalysisId) return;
+    try {
+        await withLoading(btn, async () => {
+            await api('PUT', `/api/admin/radar-analysis?id=${_radarAnalysisId}`, { raw });
+        }, 'Salvando…');
+        showToast('Análise salva.');
+        closeRadarAnalysis();
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function promoteRadar(id) {
+    if (!await showConfirm('Promover para candidatura?', 'Cria uma vaga na Gestão de Vagas com as etapas padrão.', { okText: 'Promover', danger: false })) return;
+    try {
+        await api('PUT', `/api/admin/radar?id=${id}&action=promote`);
+        showToast('Promovido! Veja em Gestão de Vagas.', 'success', { label: 'Ir para Vagas', callback: () => switchTab('vagas') });
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function discardRadar(id) {
+    const motivo = await showPrompt('Descartar lead', 'Motivo (opcional)');
+    if (motivo === null) return; // cancelou
+    try {
+        await api('PUT', `/api/admin/radar?id=${id}`, { status: 'descartada', motivo_descarte: motivo || '' });
+        showToast('Lead descartado.');
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteRadar(id) {
+    if (!await showConfirm('Excluir lead?', 'Esta ação não pode ser desfeita.', { okText: 'Excluir' })) return;
+    try {
+        await api('DELETE', `/api/admin/radar?id=${id}`);
+        showToast('Lead excluído.');
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Perfil-base ──
+function toggleRadarProfile() {
+    const card = document.getElementById('radarProfileCard');
+    if (card) card.hidden = !card.hidden;
+}
+function fillRadarProfileForm(p) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+    set('rpNivel', p.nivel_alvo);
+    set('rpModalidade', p.modalidade_pref);
+    set('rpContratacao', p.contratacao_pref);
+    set('rpLocalizacao', p.localizacao);
+    set('rpCore', _arrToLines(p.skills_core));
+    set('rpEvolucao', _arrToLines(p.skills_evolucao));
+    set('rpGaps', _arrToLines(p.gaps));
+    set('rpSetores', _arrToLines(p.setores));
+    set('rpKeywords', _arrToLines(p.keywords));
+}
+async function saveRadarProfile(btn) {
+    const val = id => document.getElementById(id).value;
+    const payload = {
+        nivel_alvo: val('rpNivel').trim(),
+        modalidade_pref: val('rpModalidade').trim(),
+        contratacao_pref: val('rpContratacao').trim(),
+        localizacao: val('rpLocalizacao').trim(),
+        skills_core: _linesToArr(val('rpCore')),
+        skills_evolucao: _linesToArr(val('rpEvolucao')),
+        gaps: _linesToArr(val('rpGaps')),
+        setores: _linesToArr(val('rpSetores')),
+        keywords: _linesToArr(val('rpKeywords')),
+        diferenciais: _radarProfile.diferenciais || [],
+    };
+    try {
+        await withLoading(btn, async () => {
+            _radarProfile = await api('PUT', '/api/admin/profile', payload);
+        }, 'Salvando…');
+        renderRadarSearches(_radarProfile);
+        showToast('Perfil salvo.');
     } catch (e) { showToast(e.message, 'error'); }
 }
