@@ -18,6 +18,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { scoreVaga } from '../api/_lib/scoring.js';
 import { buildAnalysisPrompt } from '../api/_lib/radar-prompt.js';
+import { searchLinkedin } from './search/linkedin.js';
+import { searchGupy } from './search/gupy.js';
+import { searchMaringa } from './search/maringa.js';
+import { searchIndeed } from './search/indeed.js';
+import { clearSession } from './search/session.js';
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_KEY;
@@ -358,6 +363,275 @@ server.registerTool('save_cv_adaptation',
         if (e3) return fail(e3.message);
 
         return ok(newCv);
+    });
+
+// ============================================================
+// Ferramentas de busca automática de vagas
+// ============================================================
+
+async function getSearchPlatformConfig(platformId) {
+    const profile = await getProfile();
+    const platforms = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
+    return platforms.find(p => p.id === platformId) || null;
+}
+
+async function logSearch(platform, keywordsUsed, foundCount, newCount, duplicateCount, belowMinScore) {
+    await supabase.from('search_log').insert({
+        platform,
+        keywords_used:         keywordsUsed,
+        found_count:           foundCount,
+        new_count:             newCount,
+        duplicate_count:       duplicateCount,
+        below_min_score_count: belowMinScore,
+    });
+}
+
+async function updatePlatformTimestamp(platformId) {
+    const now = new Date().toISOString();
+    const profile = await getProfile();
+    if (!profile.id) return;
+    const platforms = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
+    const updated = platforms.map(p => p.id === platformId ? { ...p, last_searched_at: now } : p);
+    await supabase.from('candidate_profile')
+        .update({ search_platforms: updated, updated_at: now })
+        .eq('id', profile.id);
+}
+
+async function ingestLeads(leads, profile, dryRun) {
+    let newCount = 0, duplicateCount = 0, belowMinScore = 0;
+    const minScore = profile.search_min_score ?? 5;
+    const created = [];
+
+    for (const lead of leads) {
+        if (!lead.link_vaga) { duplicateCount++; continue; }
+
+        const { data: existing } = await supabase.from('vaga_radar')
+            .select('id').eq('link_vaga', lead.link_vaga).maybeSingle();
+        if (existing) { duplicateCount++; continue; }
+
+        const r = scoreVaga(lead, profile);
+        if (r.score < minScore) { belowMinScore++; continue; }
+
+        if (!dryRun) {
+            const row = {
+                empresa:          lead.empresa,
+                vaga:             lead.vaga             ?? null,
+                link_vaga:        lead.link_vaga,
+                descricao:        lead.descricao        ?? null,
+                fonte:            lead.fonte            ?? 'radar-search',
+                modalidade:       lead.modalidade       ?? null,
+                tipo_contratacao: lead.tipo_contratacao ?? null,
+                nivel:            lead.nivel            ?? r.seniority_inferred !== 'unknown' ? r.seniority_inferred : null,
+                requires_cnh:     null,
+                fit_score_regras: r.score,
+                fit_score:        r.score,
+                keywords_match:   r.keywords_match,
+                gaps:             r.gaps_preliminares,
+            };
+            const { error } = await supabase.from('vaga_radar').insert(row);
+            if (!error) { newCount++; created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score }); }
+        } else {
+            newCount++;
+            created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score, dry_run: true });
+        }
+    }
+
+    return { newCount, duplicateCount, belowMinScore, created };
+}
+
+server.registerTool('search_linkedin',
+    { title: 'Buscar vagas no LinkedIn',
+      description: 'Raspa vagas do LinkedIn Jobs com Playwright. Requer sessão (cookie file). Na primeira execução, abre browser para login.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          time_filter: z.string().optional(),
+          max_results: z.number().int().min(1).max(50).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, time_filter, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('linkedin');
+        const kw      = keywords || config?.keywords || ['analista de qa', 'qa engineer'];
+        const tf      = time_filter || config?.time_filter || 'r86400';
+        const mr      = max_results || config?.max_results || 30;
+
+        let leads;
+        try {
+            leads = await searchLinkedin({ keywords: kw, timeFilter: tf, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('linkedin', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('linkedin');
+
+        return ok({ platform: 'linkedin', found: leads.length, ...result });
+    });
+
+server.registerTool('search_gupy',
+    { title: 'Buscar vagas no Gupy',
+      description: 'Consulta a API pública do Gupy (portal.gupy.io). Sem autenticação necessária.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(50).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('gupy');
+        const kw      = keywords || config?.keywords || ['analista de qa', 'quality assurance'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchGupy({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('gupy', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('gupy');
+
+        return ok({ platform: 'gupy', found: leads.length, ...result });
+    });
+
+server.registerTool('search_maringa',
+    { title: 'Buscar vagas no Empregos Maringá',
+      description: 'Raspa vagas do empregos.maringa.com (área TI, categoria 18). Sem autenticação.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('maringa');
+        const kw      = keywords || config?.keywords || ['qa', 'testes', 'implantação'];
+        const mr      = max_results || config?.max_results || 15;
+
+        let leads;
+        try {
+            leads = await searchMaringa({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('maringa', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('maringa');
+
+        return ok({ platform: 'maringa', found: leads.length, ...result });
+    });
+
+server.registerTool('search_indeed',
+    { title: 'Buscar vagas no Indeed',
+      description: 'Consulta o RSS feed público do Indeed Brasil. Sem autenticação necessária.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(40).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('indeed');
+        const kw      = keywords || config?.keywords || ['analista de qa', 'quality assurance'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchIndeed({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('indeed', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('indeed');
+
+        return ok({ platform: 'indeed', found: leads.length, ...result });
+    });
+
+server.registerTool('search_all',
+    { title: 'Buscar vagas em todas as plataformas',
+      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed). Deduplica e salva leads acima do score mínimo.',
+      inputSchema: {
+          platforms: z.array(z.string()).optional(),
+          dry_run:   z.boolean().optional(),
+      } },
+    async ({ platforms, dry_run = false }) => {
+        const profile  = await getProfile();
+        const allPlats = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
+        const enabled  = allPlats.filter(p => p.enabled && (!platforms || platforms.includes(p.id)));
+
+        if (enabled.length === 0) return fail('Nenhuma plataforma habilitada no perfil.');
+
+        const SCRAPERS = {
+            linkedin: (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
+            gupy:     (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+            maringa:  (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
+            indeed:   (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+        };
+
+        const summary = { total_found: 0, total_new: 0, total_duplicates: 0, total_below_min: 0, by_platform: {} };
+
+        for (const plat of enabled) {
+            const scraper = SCRAPERS[plat.id];
+            if (!scraper) { console.error(`[search_all] Scraper desconhecido: ${plat.id}`); continue; }
+
+            let leads = [];
+            try {
+                leads = await scraper(plat);
+            } catch (e) {
+                console.error(`[search_all] Erro em ${plat.id}: ${e.message}`);
+                summary.by_platform[plat.id] = { error: e.message };
+                continue;
+            }
+
+            const result = await ingestLeads(leads, profile, dry_run);
+            await logSearch(plat.id, plat.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+            if (!dry_run) await updatePlatformTimestamp(plat.id);
+
+            summary.total_found      += leads.length;
+            summary.total_new        += result.newCount;
+            summary.total_duplicates += result.duplicateCount;
+            summary.total_below_min  += result.belowMinScore;
+            summary.by_platform[plat.id] = { found: leads.length, new: result.newCount, duplicates: result.duplicateCount, below_min: result.belowMinScore };
+        }
+
+        return ok(summary);
+    });
+
+server.registerTool('ingest_leads',
+    { title: 'Ingerir leads manualmente',
+      description: 'Deduplica e salva um array de leads brutos. Útil para testar ou importar resultados externos.',
+      inputSchema: {
+          leads:   z.array(z.object({
+              empresa:          z.string(),
+              vaga:             z.string().optional(),
+              link_vaga:        z.string(),
+              descricao:        z.string().optional(),
+              fonte:            z.string().optional(),
+              modalidade:       z.string().optional(),
+              tipo_contratacao: z.string().optional(),
+              nivel:            z.string().optional(),
+          })).min(1),
+          dry_run: z.boolean().optional(),
+      } },
+    async ({ leads, dry_run = false }) => {
+        const profile = await getProfile();
+        const result  = await ingestLeads(leads, profile, dry_run);
+        return ok(result);
+    });
+
+server.registerTool('clear_linkedin_session',
+    { title: 'Limpar sessão LinkedIn',
+      description: 'Remove o cookie file do LinkedIn. A próxima busca pedirá login interativo.',
+      inputSchema: {} },
+    async () => {
+        const removed = clearSession();
+        return ok({ removed, message: removed ? 'Sessão removida. Próxima busca abrirá browser para login.' : 'Nenhuma sessão encontrada.' });
     });
 
 await server.connect(new StdioServerTransport());

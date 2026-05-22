@@ -28,3 +28,6 @@ docs/superpowers/
 
 # Worktrees git locais para desenvolvimento paralelo
 .worktrees/
+
+# LinkedIn session cookies (contém dados de autenticação pessoal)
+mcp/.linkedin-session.json
