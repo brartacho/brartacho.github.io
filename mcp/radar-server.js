@@ -146,5 +146,37 @@ server.registerTool('create_lead',
         return error ? fail(error.message) : ok(data);
     });
 
+server.registerTool('list_cv_versions',
+    { title: 'Listar versões de CV', description: 'Retorna CVs ativos com target_role e search_keywords para uso como base de busca.',
+      inputSchema: {} },
+    async () => {
+        const { data, error } = await supabase.from('cv_versions')
+            .select('id,name,description,target_role,search_keywords,search_platforms,active')
+            .eq('active', true)
+            .order('created_at', { ascending: false });
+        return error ? fail(error.message) : ok(data ?? []);
+    });
+
+server.registerTool('update_search_timestamp',
+    { title: 'Atualizar timestamp de busca', description: 'Registra quando uma plataforma foi pesquisada pela última vez (busca incremental).',
+      inputSchema: { platform_id: z.string() } },
+    async ({ platform_id }) => {
+        const profile = await getProfile();
+        const platforms = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
+        const updated = platforms.map(p =>
+            p.id === platform_id ? { ...p, last_searched_at: new Date().toISOString() } : p
+        );
+        if (!updated.some(p => p.id === platform_id)) {
+            return fail(`Plataforma '${platform_id}' não encontrada no perfil`);
+        }
+        const { data: existing } = await supabase.from('candidate_profile').select('id')
+            .order('updated_at', { ascending: false }).limit(1).maybeSingle();
+        if (!existing) return fail('Perfil não encontrado');
+        const { data, error } = await supabase.from('candidate_profile')
+            .update({ search_platforms: updated, updated_at: new Date().toISOString() })
+            .eq('id', existing.id).select('search_platforms').single();
+        return error ? fail(error.message) : ok({ platform_id, updated_at: new Date().toISOString(), platforms: data.search_platforms });
+    });
+
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
