@@ -38,6 +38,7 @@
     { "source": "/api/demo/login-attempts",  "destination": "/api/demo?resource=login-attempts" },
     { "source": "/api/demo/visitor-journey", "destination": "/api/demo?resource=visitor-journey" },
     { "source": "/api/demo/auth",            "destination": "/api/demo?resource=auth" },
+    { "source": "/api/track",               "destination": "/api/cv?action=track" },
     { "source": "/api/cv/download",         "destination": "/api/cv?action=download" },
     { "source": "/api/cv/request-by-email", "destination": "/api/cv?action=request-by-email" },
     { "source": "/cv",          "destination": "/cv.html" },
