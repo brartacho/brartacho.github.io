@@ -202,12 +202,13 @@ server.registerTool('recalculate_scores',
             else unchanged++;
 
             if (!dry_run) {
-                await supabase.from('vaga_radar').update({
+                const { error: updateError } = await supabase.from('vaga_radar').update({
                     fit_score: newScore,
                     fit_score_regras: newScore,
                     keywords_match: r.keywords_match,
                     updated_at: now,
                 }).eq('id', lead.id);
+                if (updateError) return fail(updateError.message);
             }
         }
 
