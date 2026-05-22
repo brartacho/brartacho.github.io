@@ -453,7 +453,8 @@
                 <table class="vagas-table">
                     <thead>
                         <tr>
-                            <th onclick="sortVagas('empresa')"><span id="vagasSelectAllWrap" style="display:none;vertical-align:middle;margin-right:5px"><input type="checkbox" id="vagasSelectAll" onclick="event.stopPropagation()" onchange="toggleSelectAllVagas(this)" aria-label="Selecionar todas" style="accent-color:var(--cyan);cursor:pointer;vertical-align:middle"></span>Empresa / Vaga <span id="sort-empresa" class="sort-icon"></span></th>
+                            <th id="vagasSelectAllTh" style="width:36px;padding-right:4px;display:none"><input type="checkbox" id="vagasSelectAll" onclick="event.stopPropagation()" onchange="toggleSelectAllVagas(this)" aria-label="Selecionar todas" style="accent-color:var(--cyan);cursor:pointer"></th>
+                            <th onclick="sortVagas('empresa')">Empresa / Vaga <span id="sort-empresa" class="sort-icon"></span></th>
                             <th onclick="sortVagas('gestor')">Gestor <span id="sort-gestor" class="sort-icon"></span></th>
                             <th onclick="sortVagas('data_envio')">Enviado em <span id="sort-data_envio" class="sort-icon">↓</span></th>
                             <th class="col-cadastrado" onclick="sortVagas('created_at')">Cadastrado <span id="sort-created_at" class="sort-icon"></span></th>

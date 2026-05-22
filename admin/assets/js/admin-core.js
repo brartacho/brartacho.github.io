@@ -644,22 +644,19 @@ function renderApplicationsTable() {
         const tagBadges   = [app.modalidade, app.tipo_contratacao].filter(Boolean)
             .map(t => `<span style="display:inline-block;font-size:0.62rem;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text-dim);margin-right:3px">${esc(t)}</span>`)
             .join('');
-        const checkboxHtml = _vagasSelecting
-            ? `<input type="checkbox" class="vagas-row-check" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleVagasSelect('${app.id}')">`
-            : '';
         const rowAction = _vagasSelecting
             ? `onclick="toggleVagasSelect('${app.id}')"`
             : `onclick="openDrawer('${app.id}')"`;
         return `<tr class="${rowClass}" ${rowAction}>
+            ${_vagasSelecting ? `<td onclick="event.stopPropagation()" style="width:36px;padding-right:4px">
+                <input type="checkbox" class="vagas-row-check" ${isSelected ? 'checked' : ''} onchange="toggleVagasSelect('${app.id}')" aria-label="Selecionar ${esc(app.empresa||'vaga')}">
+            </td>` : ''}
             <td>
-                <div style="display:flex;align-items:flex-start;gap:2px">
-                    ${checkboxHtml}
-                    <div>
-                        <div style="font-size:0.82rem;font-weight:500">${empresa}</div>
-                        ${vaga ? `<div style="font-size:0.72rem;color:var(--text-soft)">${vaga}</div>` : ''}
-                        ${tagBadges ? `<div style="margin-top:3px">${tagBadges}</div>` : ''}
-                        ${metaMobile ? `<div class="vaga-meta-mobile">${metaMobile}</div>` : ''}
-                    </div>
+                <div>
+                    <div style="font-size:0.82rem;font-weight:500">${empresa}</div>
+                    ${vaga ? `<div style="font-size:0.72rem;color:var(--text-soft)">${vaga}</div>` : ''}
+                    ${tagBadges ? `<div style="margin-top:3px">${tagBadges}</div>` : ''}
+                    ${metaMobile ? `<div class="vaga-meta-mobile">${metaMobile}</div>` : ''}
                 </div>
             </td>
             <td class="col-gestor" style="font-size:0.75rem;color:var(--text-soft)">${gestor}</td>
@@ -729,8 +726,8 @@ function toggleVagasSelectMode() {
     _vagasSelected.clear();
     const btn = document.getElementById('vagasSelectBtn');
     if (btn) btn.classList.toggle('active', _vagasSelecting);
-    const wrap = document.getElementById('vagasSelectAllWrap');
-    if (wrap) wrap.style.display = _vagasSelecting ? 'inline' : 'none';
+    const th = document.getElementById('vagasSelectAllTh');
+    if (th) th.style.display = _vagasSelecting ? '' : 'none';
     const all = document.getElementById('vagasSelectAll');
     if (all) { all.checked = false; all.indeterminate = false; }
     renderApplicationsTable();
