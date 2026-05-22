@@ -163,20 +163,22 @@ window.downloadCV = async function (id) {
 
 // Override previewCV: usa blob local se disponível, caso contrário fallback na amostra demo
 const _corePreviewCV = window.previewCV;
-window.previewCV = async function (id) {
+window.previewCV = async function (id, name) {
     const local = window._demoBlobUrls[id];
     if (local) {
         const overlay = document.getElementById('pdfPreviewOverlay');
         const frame   = document.getElementById('pdfPreviewFrame');
         const loading = document.getElementById('pdfPreviewLoading');
+        const title   = document.getElementById('pdfPreviewTitle');
         if (overlay && frame) {
             overlay.style.display = 'flex';
-            if (loading) loading.textContent = '';
+            if (loading) loading.style.display = 'none';
+            if (title)   title.textContent = name || '';
             frame.src = local.url;
             return;
         }
     }
-    if (typeof _corePreviewCV === 'function') await _corePreviewCV(id);
+    if (typeof _corePreviewCV === 'function') await _corePreviewCV(id, name);
 };
 
 // ─── TOUR ────────────────────────────────────────────────────────────────────

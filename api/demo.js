@@ -506,7 +506,17 @@ async function handleCvStorageUrl(req, res, session_id) {
         const supabase = getSupabaseDemo();
         const { data } = await supabase.from('demo_cv_versions')
             .select('file_name').eq('id', req.query.id).eq('session_id', session_id).single();
-        return res.json({ signedUrl: '/admin/assets/cv-amostra-demo.pdf', file_name: data?.file_name || 'cv-demo.pdf' });
+        const SAMPLE_PDFS = {
+            'cv-jon-snow-qa-senior.pdf':      '/projeto-sistema-admin-assets/cv-jon-snow-qa-senior.pdf',
+            'cv-jon-snow-qa-auto.pdf':        '/projeto-sistema-admin-assets/cv-jon-snow-qa-auto.pdf',
+            'cv-jon-snow-sdet.pdf':           '/projeto-sistema-admin-assets/cv-jon-snow-sdet.pdf',
+            'cv-jon-snow-test-analyst.pdf':   '/projeto-sistema-admin-assets/cv-jon-snow-test-analyst.pdf',
+            'cv-jon-snow-bilingue.pdf':       '/projeto-sistema-admin-assets/cv-jon-snow-bilingue.pdf',
+            'cv-jon-snow-qa-bilingue-en.pdf': '/projeto-sistema-admin-assets/cv-jon-snow-bilingue.pdf',
+        };
+        const fileName = data?.file_name || '';
+        const signedUrl = SAMPLE_PDFS[fileName] || '/projeto-sistema-admin-assets/cv-jon-snow-qa-senior.pdf';
+        return res.json({ signedUrl, file_name: fileName || 'cv-demo.pdf' });
     }
     if (req.method === 'POST') {
         // Upload real não existe no demo — interceptado client-side em demo-chrome.js (Fase 3b)
