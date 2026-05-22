@@ -551,7 +551,9 @@ function getAppCurrentStageName(app) {
 
 async function loadApplications() {
     const tbody = document.getElementById('vagasTableBody');
-    if (!_applications.length) {
+    if (_applications.length) {
+        renderApplicationsTable();
+    } else {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-dim);padding:32px">Carregando…</td></tr>';
     }
 
@@ -560,7 +562,9 @@ async function loadApplications() {
         _applications = data;
         renderApplicationsTable();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:32px">${esc(e.message)}</td></tr>`;
+        if (!_applications.length) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:32px">${esc(e.message)}</td></tr>`;
+        }
     }
 }
 
@@ -1743,12 +1747,16 @@ function switchTab(name) {
 
 // ─── LOAD ALL ─────────────────────────────────────────────
 function loadAll() {
-    // Carrega apenas a aba inicial (CVs) + stats. As demais abas carregam sob demanda.
+    // Carrega a aba inicial (CVs) + stats; pré-carrega demais abas em background.
     loadCVs();
     loadStorageStats();
     detectReplyContext();
     _lastRefreshAt = Date.now();
     _scheduleRefresh();
+    setTimeout(() => {
+        loadTokens().catch(() => {});
+        loadApplications().catch(() => {});
+    }, 500);
 }
 
 // ─── STORAGE STATS ────────────────────────────────────────
@@ -1868,13 +1876,14 @@ async function _refreshCvSelect() {
 
 // ─── CVS ──────────────────────────────────────────────────
 async function loadCVs() {
+    if (_cvData.length) renderCVs();
     try {
         const data = await api('GET', '/api/admin/cv-versions');
         _cvData = data;
         renderCVs();
         _refreshCvSelect();
     } catch (e) {
-        showToast(e.message, 'error');
+        if (!_cvData.length) showToast(e.message, 'error');
     }
 }
 
@@ -2089,6 +2098,7 @@ async function createToken() {
 }
 
 async function loadTokens() {
+    if (_tokenData.length) renderTokens();
     try {
         const [data] = await Promise.all([
             api('GET', '/api/admin/tokens'),
@@ -2096,7 +2106,9 @@ async function loadTokens() {
         ]);
         _tokenData = data;
         renderTokens();
-    } catch (e) { showToast(e.message, 'error'); }
+    } catch (e) {
+        if (!_tokenData.length) showToast(e.message, 'error');
+    }
 }
 
 // Estado de seleção em lote de tokens
