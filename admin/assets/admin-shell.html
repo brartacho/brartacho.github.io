@@ -576,7 +576,33 @@
                 <div class="radar-profile-grid">
                     <label>Nível-alvo<input type="text" id="rpNivel" placeholder="Pleno"></label>
                     <label>Modalidade preferida<input type="text" id="rpModalidade" placeholder="Remota"></label>
-                    <label>Contratação preferida<input type="text" id="rpContratacao" placeholder="CLT"></label>
+                    <div class="radar-col-2 radar-profile-group">
+                        <div class="radar-group-label">Tipos de contratação aceitos</div>
+                        <div class="radar-check-row">
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrCLT"> CLT</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrPJ"> PJ</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrFreelancer"> Freelancer</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrCooperado"> Cooperado</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrTemporrio"> Temporário</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrEstgio"> Estágio</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpContrAutnomo"> Autônomo</label>
+                        </div>
+                    </div>
+                    <div class="radar-col-2 radar-profile-group">
+                        <div class="radar-group-label">CNH</div>
+                        <label class="radar-check-label"><input type="checkbox" id="rpCnhHas"> Tenho CNH</label>
+                        <div class="radar-check-row" id="rpCnhCategories" style="margin-top:4px">
+                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatA"> A</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatB"> B</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatC"> C</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatD"> D</label>
+                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatE"> E</label>
+                        </div>
+                    </div>
+                    <div class="radar-col-2 radar-profile-group">
+                        <div class="radar-group-label">Plataformas de busca</div>
+                        <div id="rpPlatformsContainer" class="radar-check-row"></div>
+                    </div>
                     <label>Localização<input type="text" id="rpLocalizacao" placeholder="Maringá - PR"></label>
                     <label class="radar-col-2">Skills que domina (uma por linha)<textarea id="rpCore" rows="4"></textarea></label>
                     <label class="radar-col-2">Skills em evolução / diferenciais<textarea id="rpEvolucao" rows="3"></textarea></label>
@@ -601,6 +627,7 @@
                     <select id="raTipo">
                         <option value="">Contratação…</option>
                         <option>CLT</option><option>PJ</option><option>Freelancer</option>
+                        <option>Cooperado</option><option>Temporário</option><option>Estágio</option><option>Autônomo</option>
                     </select>
                     <input type="text" id="raNivel" placeholder="Nível (ex: Pleno)">
                     <textarea id="raDescricao" class="radar-col-full" rows="5" placeholder="Cole a descrição da vaga aqui (usada na pontuação)…"></textarea>
@@ -612,8 +639,46 @@
             <div class="radar-list-head">
                 <h3>Leads <span class="radar-count" id="radarCount"></span></h3>
                 <label class="radar-toggle"><input type="checkbox" id="radarShowAll" onchange="loadRadar()"> mostrar promovidas/descartadas</label>
+                <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
+            </div>
+            <div class="radar-filter-bar">
+                <div class="radar-filter-group">
+                    <span class="radar-filter-label">Score mín:</span>
+                    <input type="range" min="0" max="9" value="0" step="1" class="radar-score-range"
+                        oninput="setRadarMinScore(this.value); this.nextElementSibling.textContent = this.value > 0 ? '≥'+this.value : 'todos'">
+                    <span class="radar-score-label">todos</span>
+                </div>
+                <div class="radar-filter-group">
+                    <button class="radar-fonte-chip active" onclick="setRadarFonteFilter('all',this)">Todas</button>
+                    <button class="radar-fonte-chip" onclick="setRadarFonteFilter('linkedin',this)">LinkedIn</button>
+                    <button class="radar-fonte-chip" onclick="setRadarFonteFilter('gupy',this)">Gupy</button>
+                    <button class="radar-fonte-chip" onclick="setRadarFonteFilter('radar-mcp',this)">MCP</button>
+                </div>
+                <div class="radar-filter-group">
+                    <button class="radar-mod-chip active" onclick="setRadarModFilter('all',this)">Qualquer</button>
+                    <button class="radar-mod-chip" onclick="setRadarModFilter('Remota',this)">Remota</button>
+                    <button class="radar-mod-chip" onclick="setRadarModFilter('Híbrida',this)">Híbrida</button>
+                    <button class="radar-mod-chip" onclick="setRadarModFilter('Presencial',this)">Presencial</button>
+                </div>
+                <div class="radar-filter-group" style="margin-left:auto">
+                    <span class="radar-filter-label">Ordenar:</span>
+                    <button class="radar-sort-chip active" onclick="setRadarSort('score',this)">Score</button>
+                    <button class="radar-sort-chip" onclick="setRadarSort('date',this)">Data</button>
+                    <button class="radar-sort-chip" onclick="setRadarSort('empresa',this)">Empresa</button>
+                </div>
             </div>
             <div id="radarList" class="radar-list"></div>
+
+            <!-- Adaptar CV modal -->
+            <div class="modal-overlay" id="radarAdaptarCvModal" style="display:none">
+                <div class="modal" style="max-width:480px">
+                    <div class="modal-header">
+                        <div class="modal-title"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV para esta vaga</div>
+                        <button class="modal-close" onclick="closeRadarAdaptarCv()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body" id="radarAdaptarCvBody"></div>
+                </div>
+            </div>
 
         </div>
 

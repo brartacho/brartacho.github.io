@@ -262,10 +262,11 @@ document.addEventListener('keydown', e => {
         ['forgotModal', closeForgot],
         ['sendCvModal', closeSendCV],
         ['editCvModal', closeEditCV],
+        ['radarAdaptarCvModal', closeRadarAdaptarCv],
     ];
     for (const [id, fn] of openModals) {
         const el = document.getElementById(id);
-        if (el && !el.hidden) { safeCloseModal(id, fn); break; }
+        if (el && (el.classList.contains('open') || !el.hidden)) { safeCloseModal(id, fn); break; }
     }
 });
 
@@ -4618,15 +4619,37 @@ function renderRadarSearches(profile) {
     ).join('');
 }
 
+let _radarLeads = [];
+let _radarMinScore = 0;
+let _radarFonteFilter = 'all';
+let _radarModFilter   = 'all';
+let _radarSortKey     = 'score';
+let _radarSelecting = false;
+let _radarSelected  = new Set();
+let _adaptarCvLeadId = null;
+let _cvVersionsList  = [];
+
 function renderRadarList(leads) {
     _radarLeads = leads;
     const list = document.getElementById('radarList');
     const count = document.getElementById('radarCount');
-    if (count) count.textContent = leads.length ? `(${leads.length})` : '';
-    if (!list) return;
-    if (!leads.length) { list.innerHTML = '<div class="radar-empty">Nenhum lead. Adicione uma vaga acima ou use as buscas rápidas.</div>'; return; }
 
-    list.innerHTML = leads.map(l => {
+    // Apply filters
+    let filtered = leads;
+    if (_radarMinScore > 0) filtered = filtered.filter(l => (l.fit_score ?? 0) >= _radarMinScore);
+    if (_radarFonteFilter !== 'all') filtered = filtered.filter(l => (l.fonte || '') === _radarFonteFilter);
+    if (_radarModFilter !== 'all') filtered = filtered.filter(l => (l.modalidade || '') === _radarModFilter);
+    // Apply sort
+    if (_radarSortKey === 'score') filtered = [...filtered].sort((a,b) => (b.fit_score??-1) - (a.fit_score??-1));
+    else if (_radarSortKey === 'date') filtered = [...filtered].sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+    else if (_radarSortKey === 'empresa') filtered = [...filtered].sort((a,b) => (a.empresa||'').localeCompare(b.empresa||'','pt-BR'));
+    // Update count
+    if (count) count.textContent = filtered.length !== leads.length ? `(${filtered.length}/${leads.length})` : (leads.length ? `(${leads.length})` : '');
+
+    if (!list) return;
+    if (!filtered.length) { list.innerHTML = '<div class="radar-empty">Nenhum lead. Adicione uma vaga acima ou use as buscas rápidas.</div>'; return; }
+
+    list.innerHTML = filtered.map(l => {
         const b = radarBadge(l.fit_score);
         const chips = [l.nivel, l.modalidade, l.tipo_contratacao].filter(Boolean)
             .map(c => `<span class="radar-chip">${esc(c)}</span>`).join('');
@@ -4638,7 +4661,10 @@ function renderRadarList(leads) {
         const promoted = l.status === 'promovida';
         const discarded = l.status === 'descartada';
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
-        return `<div class="radar-lead status-${esc(l.status)}">
+        const isSelected = _radarSelected.has(l.id);
+        const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
+        return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
+            ${_radarSelecting ? `<input type="checkbox" class="radar-row-check" ${isSelected ? 'checked' : ''} onchange="toggleRadarSelect('${l.id}')" style="margin:8px;align-self:center" onclick="event.stopPropagation()">` : ''}
             <div class="radar-score badge-${b.cls}">${b.label}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
@@ -4651,6 +4677,7 @@ function renderRadarList(leads) {
                 ${pos}
                 <div class="radar-lead-actions">
                     <button class="btn btn-sm" onclick="analyzeRadar('${l.id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>
+                    <button class="btn btn-sm" onclick="adaptarCvRadar('${l.id}')"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV</button>
                     ${!promoted && !discarded ? `<button class="btn btn-cyan btn-sm" onclick="promoteRadar('${l.id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>` : ''}
                     ${!discarded && !promoted ? `<button class="btn btn-sm" onclick="discardRadar('${l.id}')"><i class="fa-solid fa-ban"></i> Descartar</button>` : ''}
                     <button class="btn btn-sm" onclick="deleteRadar('${l.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
@@ -4659,7 +4686,144 @@ function renderRadarList(leads) {
         </div>`;
     }).join('');
 }
-let _radarLeads = [];
+
+// ── Filter / sort helpers ──
+function setRadarMinScore(val) {
+    _radarMinScore = Number(val) || 0;
+    renderRadarList(_radarLeads);
+}
+function setRadarFonteFilter(val, btn) {
+    _radarFonteFilter = val;
+    document.querySelectorAll('.radar-fonte-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderRadarList(_radarLeads);
+}
+function setRadarModFilter(val, btn) {
+    _radarModFilter = val;
+    document.querySelectorAll('.radar-mod-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderRadarList(_radarLeads);
+}
+function setRadarSort(key, btn) {
+    _radarSortKey = key;
+    document.querySelectorAll('.radar-sort-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderRadarList(_radarLeads);
+}
+
+// ── Bulk select mode ──
+function toggleRadarSelectMode() {
+    _radarSelecting = !_radarSelecting;
+    _radarSelected.clear();
+    const btn = document.getElementById('radarSelectBtn');
+    if (btn) btn.classList.toggle('active', _radarSelecting);
+    renderRadarList(_radarLeads);
+    _renderRadarBulkBar();
+}
+function toggleRadarSelect(id) {
+    if (_radarSelected.has(id)) _radarSelected.delete(id);
+    else _radarSelected.add(id);
+    renderRadarList(_radarLeads);
+    _renderRadarBulkBar();
+}
+function _renderRadarBulkBar() {
+    let bar = document.getElementById('radar-bulk-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'radar-bulk-bar';
+        bar.className = 'radar-bulk-bar';
+        document.body.appendChild(bar);
+    }
+    if (!_radarSelecting || _radarSelected.size === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+    const n = _radarSelected.size;
+    bar.style.display = 'flex';
+    bar.innerHTML = `
+        <span style="font-size:0.8rem;color:var(--text-soft);margin-right:4px">${n} selecionado${n > 1 ? 's' : ''}</span>
+        <button class="btn btn-danger btn-sm" onclick="bulkDiscardRadar()"><i class="fa-solid fa-ban"></i> Descartar selecionados</button>
+        <button class="btn btn-sm" onclick="toggleRadarSelectMode()" style="margin-left:auto">Cancelar</button>
+    `;
+}
+async function bulkDiscardRadar() {
+    const ids = [..._radarSelected];
+    const motivo = await showPrompt('Descartar leads', 'Motivo (opcional)');
+    if (motivo === null) return;
+    try {
+        await api('PUT', '/api/admin/radar?action=bulk-discard', { ids, motivo_descarte: motivo || '' });
+        showToast(`${ids.length} lead${ids.length > 1 ? 's' : ''} descartado${ids.length > 1 ? 's' : ''}.`);
+        toggleRadarSelectMode();
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Adaptar CV ──
+async function adaptarCvRadar(id) {
+    _adaptarCvLeadId = id;
+    const lead = _radarLeads.find(l => l.id === id);
+    const modal = document.getElementById('radarAdaptarCvModal');
+    const body  = document.getElementById('radarAdaptarCvBody');
+    if (!modal || !body) return;
+    body.innerHTML = '<div style="color:var(--text-dim);padding:8px">Carregando…</div>';
+    modal.style.display = '';
+    modal.classList.add('open');
+
+    try {
+        _cvVersionsList = await api('GET', '/api/admin/cv-versions');
+        const adaptedId = lead?.adapted_cv_id;
+        const adaptedCv = adaptedId ? _cvVersionsList.find(c => c.id === adaptedId) : null;
+
+        const cvOptions = _cvVersionsList.filter(c => c.active).map(c =>
+            `<label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer">
+                <input type="radio" name="adaptarCvSelect" value="${esc(c.id)}" ${c.id === adaptedId ? 'checked' : ''}>
+                <span style="font-size:0.82rem">${esc(c.name)}</span>
+                ${c.target_role ? `<span style="font-size:0.7rem;color:var(--text-dim)">(${esc(c.target_role)})</span>` : ''}
+            </label>`
+        ).join('');
+
+        body.innerHTML = `
+            ${adaptedCv ? `<div style="padding:8px 0;border-bottom:1px solid var(--border-soft);margin-bottom:10px">
+                <div style="font-size:0.7rem;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">CV adaptado atual</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <i class="fa-solid fa-file-pdf" style="color:#f87171"></i>
+                    <span style="font-size:0.82rem">${esc(adaptedCv.name)}</span>
+                    <button class="btn btn-sm" onclick="previewCV('${adaptedCv.id}','${esc(adaptedCv.name)}')" title="Pré-visualizar">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+            </div>` : ''}
+            <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:8px">Selecione o CV base e copie o comando para o Claude Code:</div>
+            <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;margin-bottom:10px">
+                ${cvOptions || '<span style="color:var(--text-dim);font-size:0.8rem">Nenhum CV ativo encontrado.</span>'}
+            </div>
+            <div style="display:flex;gap:6px">
+                <button class="btn btn-sm btn-cyan" onclick="copyAdaptarCvCommand('${id}')"><i class="fa-solid fa-copy"></i> Copiar comando MCP</button>
+            </div>
+            <p style="font-size:0.72rem;color:var(--text-dim);margin-top:10px">Cole o comando no Claude Code para gerar sugestões de adaptação. Após a análise, use <code>save_cv_adaptation</code> para salvar o resultado.</p>
+        `;
+    } catch (e) {
+        body.innerHTML = `<div style="color:var(--danger)">${esc(e.message)}</div>`;
+    }
+}
+async function copyAdaptarCvCommand(leadId) {
+    const selected = document.querySelector('input[name="adaptarCvSelect"]:checked');
+    if (!selected) { showToast('Selecione um CV base.', 'error'); return; }
+    const cvId = selected.value;
+    const cmd = `get_cv_adaptation_prompt({ vaga_id: "${leadId}", cv_id: "${cvId}" })`;
+    try {
+        await navigator.clipboard.writeText(cmd);
+        showToast('Comando copiado!');
+    } catch { showToast('Não foi possível copiar.', 'error'); }
+}
+function closeRadarAdaptarCv() {
+    _adaptarCvLeadId = null;
+    const modal = document.getElementById('radarAdaptarCvModal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
+}
 
 async function addRadarVaga(btn) {
     const empresa = document.getElementById('raEmpresa').value.trim();
@@ -4767,20 +4931,53 @@ function fillRadarProfileForm(p) {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
     set('rpNivel', p.nivel_alvo);
     set('rpModalidade', p.modalidade_pref);
-    set('rpContratacao', p.contratacao_pref);
     set('rpLocalizacao', p.localizacao);
     set('rpCore', _arrToLines(p.skills_core));
     set('rpEvolucao', _arrToLines(p.skills_evolucao));
     set('rpGaps', _arrToLines(p.gaps));
     set('rpSetores', _arrToLines(p.setores));
     set('rpKeywords', _arrToLines(p.keywords));
+    // Contratação prefs (array)
+    const prefs = Array.isArray(p.contratacao_prefs) ? p.contratacao_prefs :
+        (p.contratacao_pref ? [p.contratacao_pref] : []);
+    ['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo'].forEach(tipo => {
+        const el = document.getElementById(`rpContr${tipo.replace(/[^a-zA-Z]/g,'')}`);
+        if (el) el.checked = prefs.includes(tipo);
+    });
+    // CNH
+    const cnh = p.cnh || { has: false, categories: [] };
+    const cnhHasEl = document.getElementById('rpCnhHas');
+    if (cnhHasEl) cnhHasEl.checked = !!cnh.has;
+    ['A','B','C','D','E'].forEach(cat => {
+        const el = document.getElementById(`rpCnhCat${cat}`);
+        if (el) el.checked = (cnh.categories || []).includes(cat);
+    });
+    // Platforms (rendered dynamically)
+    const platforms = Array.isArray(p.search_platforms) ? p.search_platforms : [];
+    const cont = document.getElementById('rpPlatformsContainer');
+    if (cont) {
+        if (platforms.length) {
+            cont.innerHTML = platforms.map(plat =>
+                `<label class="radar-check-label"><input type="checkbox" id="rpPlat${esc(plat.id)}" ${plat.enabled ? 'checked' : ''}> ${esc(plat.label || plat.id)}</label>`
+            ).join('');
+        } else {
+            cont.innerHTML = '<span style="font-size:0.75rem;color:var(--text-dim)">Nenhuma plataforma configurada no perfil.</span>';
+        }
+    }
 }
 async function saveRadarProfile(btn) {
-    const val = id => document.getElementById(id).value;
+    const val = id => (document.getElementById(id) || {}).value || '';
+    const cnhHas = document.getElementById('rpCnhHas')?.checked || false;
+    const cnhCategories = ['A','B','C','D','E'].filter(cat => document.getElementById(`rpCnhCat${cat}`)?.checked);
+    const contratacaoPrefs = ['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo']
+        .filter(tipo => document.getElementById(`rpContr${tipo.replace(/[^a-zA-Z]/g,'')}`)?.checked);
+    const updatedPlatforms = (_radarProfile.search_platforms || []).map(plat => ({
+        ...plat,
+        enabled: document.getElementById(`rpPlat${plat.id}`)?.checked ?? plat.enabled,
+    }));
     const payload = {
         nivel_alvo: val('rpNivel').trim(),
         modalidade_pref: val('rpModalidade').trim(),
-        contratacao_pref: val('rpContratacao').trim(),
         localizacao: val('rpLocalizacao').trim(),
         skills_core: _linesToArr(val('rpCore')),
         skills_evolucao: _linesToArr(val('rpEvolucao')),
@@ -4788,6 +4985,9 @@ async function saveRadarProfile(btn) {
         setores: _linesToArr(val('rpSetores')),
         keywords: _linesToArr(val('rpKeywords')),
         diferenciais: _radarProfile.diferenciais || [],
+        cnh: { has: cnhHas, categories: cnhCategories },
+        contratacao_prefs: contratacaoPrefs,
+        search_platforms: updatedPlatforms,
     };
     try {
         await withLoading(btn, async () => {
