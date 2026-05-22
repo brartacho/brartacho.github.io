@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // Radar de Vagas — descoberta + pontuação + promoção para Gestão de Vagas.
 // Cada teste cria leads descartáveis e limpa ao final.

@@ -1,4 +1,4 @@
-const { defineConfig, devices } = require('@playwright/test');
+import { defineConfig, devices } from '@playwright/test';
 
 // BASE_URL=http://localhost:3000 npx playwright test  → testa localmente (vercel dev)
 // sem BASE_URL                                        → testa produção (artacho.dev)
@@ -7,7 +7,7 @@ const BASE_URL = process.env.BASE_URL || 'https://artacho.dev';
 // Specs que devem rodar em todos os projetos (incluindo mobile/tablet)
 const ALL_PROJECTS_MATCH = ['**/responsive.spec.js', '**/admin-full.spec.js'];
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   workers: 2,

@@ -3,7 +3,7 @@
 // Logo, os testes ou (a) validam a tela pública sem login, ou (b) injetam
 // sessionStorage e interceptam /api/demo/* via page.route() para exercitar a UI.
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // sessionStorage compartilhada entre paralelismo causa flakes — força serial
 test.describe.configure({ mode: 'serial' });

@@ -8,7 +8,7 @@
  *  - Validação leve do payload de /api/admin/analytics (campos premium presentes).
  */
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 

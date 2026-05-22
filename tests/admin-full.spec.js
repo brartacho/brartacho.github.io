@@ -18,7 +18,7 @@
  *   ADMIN_EMAIL, ADMIN_PASSWORD
  */
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // Serial: todos os testes deste arquivo rodam em sequência num único worker.
 // Isso evita que múltiplos beforeAll façam logins concorrentes e esgotem o rate limit.

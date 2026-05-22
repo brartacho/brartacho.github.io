@@ -5,7 +5,7 @@
 // Rate limiting (força bruta): opt-in com SECURITY_BRUTE_FORCE_TEST=1.
 // ATENÇÃO: rode esse flag apenas após limpar a tabela rate_limits no Supabase.
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 const BASE = process.env.BASE_URL || 'https://artacho.dev';
 const RUN_BRUTE_FORCE = process.env.SECURITY_BRUTE_FORCE_TEST === '1';

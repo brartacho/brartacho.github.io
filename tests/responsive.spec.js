@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // ─── MOBILE 390px ─────────────────────────────────────────────────────────
 test.describe('MOBILE 390px — hero', () => {

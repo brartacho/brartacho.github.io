@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // Credenciais via env var — se não definidas, testes autenticados são pulados
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;

@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // Testes de API usam request context diretamente (sem browser)
 // Verificam status HTTP e estrutura básica das respostas

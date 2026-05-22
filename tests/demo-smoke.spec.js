@@ -2,7 +2,7 @@
 // e que nenhum erro de console ocorre no fluxo básico.
 // Usa injeção de sessionStorage + mocks para não depender de Turnstile.
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 const DEMO_PATH = '/projeto-sistema-admin.html';
 const MOCK_SESSION = 'smoke-0000-0000-0000-000000000001';

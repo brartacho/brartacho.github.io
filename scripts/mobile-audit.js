@@ -1,8 +1,11 @@
 // Script de auditoria mobile — captura screenshots de todas as telas do admin
 // Roda: node scripts/mobile-audit.js
-const { chromium, devices } = require('playwright');
-const path = require('path');
-const fs = require('fs');
+import { chromium, devices } from 'playwright';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BASE_URL = process.env.BASE_URL || 'https://artacho.dev';
 const EMAIL    = process.env.ADMIN_EMAIL    || 'bruno@artacho.dev';
