@@ -756,14 +756,39 @@
 
         <!-- ─── TAB: SEGURANÇA ───────────────────────────────────────── -->
         <div id="tab-seguranca" class="tab-panel">
-            <div style="padding:16px;max-width:800px;margin:0 auto">
-                <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text)">Sessões ativas</h3>
-                <div id="sessionsList"><div class="metrics-empty">Carregando…</div></div>
-                <div style="margin-top:16px">
-                    <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="revokeAllSessions()">
-                        <i class="fa-solid fa-right-from-bracket"></i> Forçar logout em todos os devices
-                    </button>
+            <div style="padding:16px;max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+
+                <!-- Sessões ativas -->
+                <div>
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text)">Sessões ativas</h3>
+                    <div id="sessionsList"><div class="metrics-empty">Carregando…</div></div>
+                    <div style="margin-top:16px">
+                        <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="revokeAllSessions()">
+                            <i class="fa-solid fa-right-from-bracket"></i> Forçar logout em todos os devices
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Configurar Demo -->
+                <div class="panel" id="demoSettingsPanel">
+                    <div class="panel-title"><i class="fa-solid fa-flask"></i> Configurar Demo</div>
+                    <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:16px;line-height:1.6">
+                        Define quais abas ficam visíveis para visitantes na demonstração pública.<br>
+                        Mudanças tomam efeito na próxima vez que o visitante carregar o demo.
+                    </p>
+                    <div id="demoTabToggles" style="display:flex;flex-direction:column;gap:10px">
+                        <div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>
+                    </div>
+                    <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+                        <button class="btn btn-cyan btn-sm" onclick="saveDemoSettings()">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar configuração
+                        </button>
+                        <span id="demoSettingsSaved" style="font-size:0.78rem;color:var(--success);display:none">
+                            <i class="fa-solid fa-check"></i> Salvo
+                        </span>
+                    </div>
+                </div>
+
             </div>
         </div>
 

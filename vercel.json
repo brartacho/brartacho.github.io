@@ -11,6 +11,7 @@
   ],
   "rewrites": [
     { "source": "/api/admin/config",            "destination": "/api/admin/login?__h=config" },
+    { "source": "/api/admin/demo-settings",     "destination": "/api/admin/applications?__h=demo-settings" },
     { "source": "/api/admin/analytics",       "destination": "/api/admin/applications?__h=analytics" },
     { "source": "/api/admin/login-attempts",   "destination": "/api/admin/applications?__h=login-attempts" },
     { "source": "/api/admin/mark-my-visits",   "destination": "/api/admin/applications?__h=mark-my-visits" },

@@ -349,6 +349,27 @@ export default async function handler(req, res) {
         }
     }
 
+    // Demo settings — roteado de /api/admin/demo-settings via rewrite
+    if (req.query.__h === 'demo-settings') {
+        const VALID_TABS = new Set(['cvs', 'tokens', 'vagas', 'logs', 'metricas']);
+        if (req.method === 'GET') {
+            const { data } = await supabase.from('demo_settings').select('value').eq('key', 'enabled_tabs').single();
+            const tabs = (data?.value && Array.isArray(data.value)) ? data.value : ['cvs', 'tokens', 'vagas', 'logs', 'metricas'];
+            return res.json({ enabled_tabs: tabs });
+        }
+        if (req.method === 'PUT' || req.method === 'PATCH') {
+            const tabs = req.body?.enabled_tabs;
+            if (!Array.isArray(tabs)) return res.status(400).json({ error: 'enabled_tabs deve ser um array' });
+            const cleaned = tabs.filter(t => VALID_TABS.has(t));
+            await supabase.from('demo_settings').upsert(
+                { key: 'enabled_tabs', value: cleaned, updated_at: new Date().toISOString() },
+                { onConflict: 'key' }
+            );
+            return res.json({ ok: true, enabled_tabs: cleaned });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {

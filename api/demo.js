@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { getSessionId, getSupabaseDemo, cors, clean, hashIP, verifyTurnstile } from './demo/_lib/session.js';
+import { getSupabase } from './_lib/supabase.js';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -54,8 +55,14 @@ async function mutRateLimit(req, res) {
 
 async function handleConfig(req, res) {
     if (req.method !== 'GET') return res.status(405).end();
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    return res.json({ turnstile_sitekey: process.env.TURNSTILE_SITE_KEY || null });
+    const supabase = getSupabase();
+    let enabledTabs = ['cvs', 'tokens', 'vagas', 'logs', 'metricas'];
+    try {
+        const { data } = await supabase.from('demo_settings').select('value').eq('key', 'enabled_tabs').single();
+        if (data?.value && Array.isArray(data.value)) enabledTabs = data.value;
+    } catch { /* usa o padrão */ }
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    return res.json({ turnstile_sitekey: process.env.TURNSTILE_SITE_KEY || null, enabled_tabs: enabledTabs });
 }
 
 async function handleInit(req, res) {

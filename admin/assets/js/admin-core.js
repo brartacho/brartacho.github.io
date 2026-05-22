@@ -3,6 +3,10 @@ let selectedFile = null;
 let selectedFilePath = null;
 let currentExpiryHours = 24;
 
+// Accessors expostos globalmente para que demo-chrome.js acesse variáveis let-scoped
+function _getSelectedFile() { return selectedFile; }
+function _clearSelectedFile() { selectedFile = null; }
+
 // ─── TURNSTILE ───────────────────────────────────────────
 let _turnstileToken = null;
 let _turnstileWidgetId = null;
@@ -1734,7 +1738,7 @@ function switchTab(name) {
     if (name === 'logs') { loadLogs(); loadLogKpis(); }
     if (name === 'vagas') loadApplications();
     if (name === 'metricas') { loadAnalytics(); loadLoginAttempts(); }
-    if (name === 'seguranca') loadSessions();
+    if (name === 'seguranca') { loadSessions(); loadDemoSettings(); }
     _scheduleRefresh();
 }
 
@@ -4503,4 +4507,48 @@ async function revokeAllSessions() {
     } catch (e) {
         alert(e.message);
     }
+}
+
+// ─── DEMO SETTINGS ────────────────────────────────────────
+const _DEMO_ALL_TABS = [
+    { key: 'cvs',      label: 'Currículos', icon: 'fa-file-pdf'   },
+    { key: 'tokens',   label: 'Tokens',     icon: 'fa-key'        },
+    { key: 'vagas',    label: 'Vagas',      icon: 'fa-briefcase'  },
+    { key: 'logs',     label: 'Logs',       icon: 'fa-chart-bar'  },
+    { key: 'metricas', label: 'Métricas',   icon: 'fa-chart-line' },
+];
+
+async function loadDemoSettings() {
+    // Só disponível no painel de produção
+    if (window.ADMIN_CONFIG?.mode === 'demo') return;
+    const el = document.getElementById('demoTabToggles');
+    if (!el) return;
+    try {
+        const data = await api('GET', '/api/admin/demo-settings');
+        _renderDemoSettings(el, data.enabled_tabs ?? []);
+    } catch (e) {
+        el.innerHTML = `<span style="color:var(--danger);font-size:0.82rem">${e.message}</span>`;
+    }
+}
+
+function _renderDemoSettings(el, enabledTabs) {
+    el.innerHTML = _DEMO_ALL_TABS.map(t => `
+        <label style="display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:0.86rem;color:var(--text-soft)">
+            <input type="checkbox" value="${t.key}" ${enabledTabs.includes(t.key) ? 'checked' : ''}
+                style="width:15px;height:15px;accent-color:var(--cyan)">
+            <i class="fa-solid ${t.icon}" style="color:var(--cyan);width:14px;text-align:center"></i>
+            ${t.label}
+        </label>
+    `).join('');
+}
+
+async function saveDemoSettings() {
+    const checks = document.querySelectorAll('#demoTabToggles input[type=checkbox]');
+    const enabled = [...checks].filter(c => c.checked).map(c => c.value);
+    try {
+        await api('PATCH', '/api/admin/demo-settings', { enabled_tabs: enabled });
+        const savedEl = document.getElementById('demoSettingsSaved');
+        if (savedEl) { savedEl.style.display = ''; setTimeout(() => { savedEl.style.display = 'none'; }, 2500); }
+        showToast('Configuração do demo salva.');
+    } catch (e) { showToast(e.message, 'error'); }
 }

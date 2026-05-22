@@ -88,6 +88,18 @@ function revealApp() {
     if (app)    app.style.display    = 'block';
     if (replay) replay.classList.add('visible');
 
+    // Filtra abas conforme configuração do admin de produção
+    const enabledTabs = window.ADMIN_CONFIG?.enabledTabs;
+    if (Array.isArray(enabledTabs) && enabledTabs.length > 0) {
+        document.querySelectorAll('.app-tabs .tab-btn[data-tab]').forEach(btn => {
+            btn.style.display = enabledTabs.includes(btn.dataset.tab) ? '' : 'none';
+        });
+    }
+
+    // Painel "Configurar Demo" é exclusivo do prod — oculta no demo
+    const demoPanel = document.getElementById('demoSettingsPanel');
+    if (demoPanel) demoPanel.style.display = 'none';
+
     // Injeta banner de modo demo (idempotente)
     if (app && !document.getElementById('demoBanner')) {
         const banner = document.createElement('div');
@@ -113,7 +125,7 @@ window.uploadCV = async function uploadCVDemo() {
     const name     = (document.getElementById('cvName')?.value || '').trim();
     const desc     = (document.getElementById('cvDesc')?.value || '').trim();
     const fileName = (document.getElementById('cvFileName')?.value || '').trim();
-    const file     = selectedFile; // variável do core
+    const file     = _getSelectedFile(); // acessa via accessor (let não cruza script boundaries)
 
     if (!name)     { showToast('Informe o nome da versão.', 'error');  return; }
     if (!fileName) { showToast('Informe o nome do arquivo.', 'error'); return; }
@@ -130,7 +142,7 @@ window.uploadCV = async function uploadCVDemo() {
         if (document.getElementById('cvDesc'))     document.getElementById('cvDesc').value = '';
         if (document.getElementById('cvFileName')) document.getElementById('cvFileName').value = '';
         if (document.getElementById('uploadFileName')) document.getElementById('uploadFileName').textContent = '';
-        selectedFile = null;
+        _clearSelectedFile();
 
         showToast('Currículo cadastrado — preview disponível localmente nesta sessão');
         loadCVs();
@@ -201,7 +213,10 @@ function nextStep() {
 
 function showStep() {
     const s = TOUR[_tourStep];
-    if (s.tab && typeof switchTab === 'function' && _activeTab !== s.tab) switchTab(s.tab);
+    if (s.tab && typeof switchTab === 'function') {
+        const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        if (currentTab !== s.tab) switchTab(s.tab);
+    }
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('tourEmoji',   s.emoji);
     set('tourTitle',   s.title);

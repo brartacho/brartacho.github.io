@@ -113,10 +113,11 @@ window.ADMIN_CONFIG = {
 <!-- Loader: config → shell → admin-core.js → demo-chrome.js -->
 <script>
 (async () => {
-    // 1. Busca sitekey do Turnstile antes de qualquer render
+    // 1. Busca config (sitekey Turnstile + abas habilitadas no demo)
     try {
         const cfg = await fetch('/api/demo/config').then(r => r.json());
-        if (cfg && cfg.turnstile_sitekey) window.ADMIN_CONFIG.turnstileSitekey = cfg.turnstile_sitekey;
+        if (cfg.turnstile_sitekey) window.ADMIN_CONFIG.turnstileSitekey = cfg.turnstile_sitekey;
+        if (Array.isArray(cfg.enabled_tabs)) window.ADMIN_CONFIG.enabledTabs = cfg.enabled_tabs;
     } catch {}
 
     // 2. Injeta o app-shell compartilhado
