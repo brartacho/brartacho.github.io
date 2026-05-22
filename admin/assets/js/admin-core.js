@@ -728,6 +728,8 @@ function toggleVagasSelectMode() {
     if (btn) btn.classList.toggle('active', _vagasSelecting);
     const th = document.getElementById('vagasSelectAllTh');
     if (th) th.style.display = _vagasSelecting ? '' : 'none';
+    const sortBar = document.querySelector('.vagas-sort-bar');
+    if (sortBar) sortBar.style.paddingLeft = _vagasSelecting ? '44px' : '';
     const all = document.getElementById('vagasSelectAll');
     if (all) { all.checked = false; all.indeterminate = false; }
     renderApplicationsTable();
