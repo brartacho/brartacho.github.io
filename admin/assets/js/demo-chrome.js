@@ -168,7 +168,7 @@ window.previewCV = async function (id, name) {
     if (local) {
         const overlay = document.getElementById('pdfPreviewOverlay');
         const frame   = document.getElementById('pdfPreviewFrame');
-        const loading = document.getElementById('pdfPreviewLoading');
+        const loading = document.getElementById('pdfLoadingMsg');
         const title   = document.getElementById('pdfPreviewTitle');
         if (overlay && frame) {
             overlay.style.display = 'flex';
