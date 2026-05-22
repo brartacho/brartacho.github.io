@@ -370,6 +370,11 @@ async function handleTokens(req, res, session_id) {
         });
         return res.json({ token: updated, pdf: cv.file_name });
     }
+    if (req.method === 'POST' && req.query.action === 'send-email') {
+        if (!await mutRateLimit(req, res)) return;
+        // NUNCA envia e-mail real no demo
+        return res.json({ ok: true, demo: true, message: 'E-mail simulado. Nenhum e-mail real foi enviado.' });
+    }
     if (req.method === 'POST') {
         const { data: qErr } = await supabase.rpc('demo_check_quota', { p_session_id: session_id, p_table: 'demo_download_tokens' });
         if (qErr) return res.status(429).json({ error: qErr });
@@ -445,12 +450,14 @@ async function handleLogs(req, res, session_id) {
         const tipo = req.query.tipo || '';
         const search = req.query.search || '';
         const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit ?? req.query.page_size) || 25));
         const offset = (page - 1) * limit;
 
         let query = supabase.from('demo_download_logs')
             .select('*, cv_versions:demo_cv_versions(name), download_tokens:demo_download_tokens(label)', { count: 'exact' })
             .eq('session_id', session_id).order('downloaded_at', { ascending: false });
+
+        if (req.query.token_id) query = query.eq('token_id', req.query.token_id);
 
         if (tipo === 'download')          query = query.not('ip_address', 'like', 'admin-%');
         else if (tipo === 'email')        query = query.eq('ip_address', 'admin-send-email');
