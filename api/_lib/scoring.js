@@ -38,9 +38,10 @@ function inferSeniority(text) {
 }
 
 /**
- * @param {object} vaga    { vaga, descricao, nivel, modalidade, tipo_contratacao }
+ * @param {object} vaga    { vaga, descricao, nivel, modalidade, tipo_contratacao, requires_cnh }
  * @param {object} profile { nivel_alvo, skills_core[], skills_evolucao[], gaps[],
- *                           setores[], keywords[], modalidade_pref, contratacao_pref }
+ *                           setores[], keywords[], modalidade_pref, contratacao_pref,
+ *                           contratacao_prefs[], cnh }
  * @returns {{ score:number, keywords_match:string[], gaps_preliminares:string[],
  *            breakdown:object, seniority_inferred:string }}
  */
@@ -88,11 +89,35 @@ export function scoreVaga(vaga = {}, profile = {}) {
     // ---- Contratação (até 1 pt) ----
     const tipoVaga = vaga.tipo_contratacao || '';
     let contratPts;
-    if (!tipoVaga) contratPts = 0.6;
-    else if (profile.contratacao_pref && tipoVaga === profile.contratacao_pref) contratPts = 1;
-    else contratPts = 0.5;
+    if (!tipoVaga) {
+        contratPts = 0.6;
+    } else {
+        const prefs = arr(profile.contratacao_prefs);
+        if (prefs.length > 0) {
+            // novo: contratacao_prefs é array
+            contratPts = prefs.includes(tipoVaga) ? 1 : 0.5;
+        } else if (profile.contratacao_pref) {
+            // retrocompatibilidade: contratacao_pref string
+            contratPts = tipoVaga === profile.contratacao_pref ? 1 : 0.5;
+        } else {
+            contratPts = 0.5;
+        }
+    }
 
-    const total = skillsPts + nivelPts + setorPts + modPts + contratPts;
+    // ---- CNH (penalidade até -0.5 pts) ----
+    const requiresCnh = vaga.requires_cnh ?? null;
+    const cnh = profile.cnh ?? { has: false, categories: [] };
+    let cnhPts = 0;
+    if (requiresCnh !== null) {
+        if (!cnh.has) {
+            cnhPts = -0.5; // exige CNH, candidato não tem
+        } else if (requiresCnh !== 'qualquer' && !arr(cnh.categories).includes(requiresCnh)) {
+            cnhPts = -0.3; // tem CNH mas categoria errada
+        }
+        // cnh.has=true e categoria compatível, ou requires_cnh='qualquer' → sem penalidade
+    }
+
+    const total = skillsPts + nivelPts + setorPts + modPts + contratPts + cnhPts;
     const score = Math.max(0, Math.min(10, Math.round(total)));
 
     // ---- Gaps preliminares: requisitos da vaga que são gaps do candidato ----
@@ -109,6 +134,7 @@ export function scoreVaga(vaga = {}, profile = {}) {
             setor: Number(setorPts.toFixed(2)),
             modalidade: Number(modPts.toFixed(2)),
             contratacao: Number(contratPts.toFixed(2)),
+            cnh: Number(cnhPts.toFixed(2)),
         },
     };
 }
