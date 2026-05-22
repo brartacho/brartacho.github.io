@@ -161,21 +161,20 @@ server.registerTool('update_search_timestamp',
     { title: 'Atualizar timestamp de busca', description: 'Registra quando uma plataforma foi pesquisada pela última vez (busca incremental).',
       inputSchema: { platform_id: z.string() } },
     async ({ platform_id }) => {
+        const now = new Date().toISOString();
         const profile = await getProfile();
+        if (!profile.id) return fail('Perfil não encontrado');
         const platforms = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
         const updated = platforms.map(p =>
-            p.id === platform_id ? { ...p, last_searched_at: new Date().toISOString() } : p
+            p.id === platform_id ? { ...p, last_searched_at: now } : p
         );
         if (!updated.some(p => p.id === platform_id)) {
             return fail(`Plataforma '${platform_id}' não encontrada no perfil`);
         }
-        const { data: existing } = await supabase.from('candidate_profile').select('id')
-            .order('updated_at', { ascending: false }).limit(1).maybeSingle();
-        if (!existing) return fail('Perfil não encontrado');
         const { data, error } = await supabase.from('candidate_profile')
-            .update({ search_platforms: updated, updated_at: new Date().toISOString() })
-            .eq('id', existing.id).select('search_platforms').single();
-        return error ? fail(error.message) : ok({ platform_id, updated_at: new Date().toISOString(), platforms: data.search_platforms });
+            .update({ search_platforms: updated, updated_at: now })
+            .eq('id', profile.id).select('search_platforms').single();
+        return error ? fail(error.message) : ok({ platform_id, updated_at: now, platforms: data.search_platforms });
     });
 
 await server.connect(new StdioServerTransport());
