@@ -96,6 +96,13 @@ async function handleRefresh(req, res) {
         }),
     ]);
 
+    // Cleanup fire-and-forget: remove rotações de refresh com mais de 24h
+    supabase.from('admin_sessions')
+        .delete()
+        .eq('revoke_reason', 'refresh')
+        .lt('revoked_at', new Date(Date.now() - 86_400_000).toISOString())
+        .then(() => {});
+
     res.setHeader('Set-Cookie', serializeSessionCookie(newToken));
     return res.status(200).json({ ok: true });
 }
@@ -110,6 +117,7 @@ async function listSessions(req, res) {
     const { data, error } = await supabase
         .from('admin_sessions')
         .select('jti, ip_address, user_agent, country_code, created_at, last_seen_at, revoked_at, revoke_reason')
+        .not('revoke_reason', 'eq', 'refresh')
         .order('last_seen_at', { ascending: false })
         .limit(50);
     if (error) return res.status(500).json({ error: error.message });
