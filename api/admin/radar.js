@@ -12,10 +12,10 @@ import { scoreVaga } from '../_lib/scoring.js';
 import { isConfigured, analyze, providerInfo } from '../_lib/ai-provider.js';
 import { buildAnalysisPrompt, parseAnalysisJson } from '../_lib/radar-prompt.js';
 
-const TEXT_MAX = { empresa: 200, vaga: 200, link_vaga: 500, descricao: 8000, fonte: 40, nivel: 60, motivo_descarte: 500, localizacao: 120, generic: 160 };
+const TEXT_MAX = { empresa: 200, vaga: 200, link_vaga: 500, descricao: 8000, fonte: 40, nivel: 60, motivo_descarte: 500, localizacao: 120, generic: 160, requires_cnh: 10, fit_analysis: 4000 };
 const VALID_MODALIDADE = new Set(['Presencial', 'Híbrida', 'Remota']);
-const VALID_TIPO = new Set(['CLT', 'PJ', 'Freelancer']);
-const VALID_STATUS = new Set(['novo', 'avaliada', 'promovida', 'descartada']);
+const VALID_TIPO = new Set(['CLT', 'PJ', 'Freelancer', 'Cooperado', 'Temporário', 'Estágio', 'Autônomo']);
+const VALID_STATUS = new Set(['novo', 'avaliada', 'promovida', 'descartada', 'arquivada']);
 
 const CONTROL_CHARS = new RegExp('[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]', 'g');
 const INVISIBLE_CHARS = new RegExp('[\\u200B-\\u200D\\u202A-\\u202E\\u2060\\u2066-\\u2069\\uFEFF]', 'g');
@@ -49,6 +49,7 @@ async function applyAnalysis(supabase, id, a) {
         keywords_match: keywords,
         gaps: a.gaps || [],
         positioning: a.positioning || null,
+        fit_analysis: a.fit_analysis || null,
         analyzed_at: new Date().toISOString(),
         status: 'avaliada',
         updated_at: new Date().toISOString(),
@@ -182,6 +183,7 @@ export default async function handler(req, res) {
             modalidade: b.modalidade || null,
             tipo_contratacao: b.tipo_contratacao || null,
             nivel: clean(b.nivel, TEXT_MAX.nivel),
+            requires_cnh: clean(b.requires_cnh, TEXT_MAX.requires_cnh),
         };
 
         // Score por regras no momento da captura
@@ -201,6 +203,19 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
         const id = req.query.id;
         if (!id) return res.status(400).json({ error: 'id obrigatório' });
+
+        // Ação: descartar múltiplos leads em lote
+        if (req.query.action === 'bulk-discard') {
+            const { ids, motivo_descarte } = req.body || {};
+            if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids obrigatório (array)' });
+            if (ids.length > 50) return res.status(400).json({ error: 'máximo 50 leads por vez' });
+            const motivo = clean(motivo_descarte, TEXT_MAX.motivo_descarte);
+            const patch = { status: 'descartada', updated_at: new Date().toISOString() };
+            if (motivo) patch.motivo_descarte = motivo;
+            const { data, error } = await supabase.from('vaga_radar').update(patch).in('id', ids).select('id,status');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true, updated: data?.length ?? 0, ids: data?.map(r => r.id) ?? [] });
+        }
 
         // Ação: promover lead → cria candidatura em job_applications
         if (req.query.action === 'promote') {
