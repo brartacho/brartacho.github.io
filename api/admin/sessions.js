@@ -117,7 +117,7 @@ async function listSessions(req, res) {
     const { data, error } = await supabase
         .from('admin_sessions')
         .select('jti, ip_address, user_agent, country_code, created_at, last_seen_at, revoked_at, revoke_reason')
-        .not('revoke_reason', 'eq', 'refresh')
+        .or('revoke_reason.is.null,revoke_reason.neq.refresh')
         .order('last_seen_at', { ascending: false })
         .limit(50);
     if (error) return res.status(500).json({ error: error.message });
