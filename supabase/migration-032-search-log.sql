@@ -44,7 +44,7 @@ SET search_platforms = (
       )
       WHEN 'maringa' THEN p || jsonb_build_object(
         'enabled',     true,
-        'keywords',    COALESCE(p->'keywords', '["QA","testes","qualidade","implantação","customer success"]'::jsonb),
+        'keywords',    COALESCE(p->'keywords', '["qualidade","analista","implantação","customer success","suporte técnico"]'::jsonb),
         'max_results', COALESCE((p->>'max_results')::int, 15)
       )
       ELSE p

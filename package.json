@@ -12,8 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "node-html-parser": "^6.1.13"
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
