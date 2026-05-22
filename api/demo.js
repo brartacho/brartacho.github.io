@@ -423,6 +423,25 @@ async function handleLogs(req, res, session_id) {
     const supabase = getSupabaseDemo();
 
     if (req.method === 'GET') {
+        if (req.query.id) {
+            const { data: log, error: logErr } = await supabase
+                .from('demo_download_logs')
+                .select('*, download_tokens:demo_download_tokens(id,label,hash,expires_at,max_uses,revoked), cv_versions:demo_cv_versions(id,name,description,file_name)')
+                .eq('id', req.query.id).eq('session_id', session_id).single();
+            if (logErr || !log) return res.status(404).json({ error: 'Log não encontrado' });
+            let accesses = [];
+            if (log.token_id) {
+                const { data: acc } = await supabase
+                    .from('demo_download_logs')
+                    .select('id,downloaded_at,ip_address,user_agent')
+                    .eq('token_id', log.token_id).eq('session_id', session_id)
+                    .not('ip_address', 'like', 'admin-%')
+                    .order('downloaded_at', { ascending: true });
+                accesses = acc || [];
+            }
+            return res.json({ log, accesses });
+        }
+
         const tipo = req.query.tipo || '';
         const search = req.query.search || '';
         const page = Math.max(1, parseInt(req.query.page) || 1);
