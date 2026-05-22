@@ -100,5 +100,51 @@ server.registerTool('score_preview',
       inputSchema: { vaga: z.string().optional(), descricao: z.string(), modalidade: z.string().optional(), tipo_contratacao: z.string().optional(), nivel: z.string().optional() } },
     async (v) => ok(scoreVaga(v, await getProfile())));
 
+server.registerTool('check_duplicate',
+    { title: 'Verificar duplicata', description: 'Verifica se já existe um lead com esse link_vaga. Retorna o lead existente ou null.',
+      inputSchema: { link_vaga: z.string() } },
+    async ({ link_vaga }) => {
+        const { data } = await supabase.from('vaga_radar').select('id,empresa,vaga,status,fit_score')
+            .eq('link_vaga', link_vaga).maybeSingle();
+        return ok(data ?? null);
+    });
+
+server.registerTool('create_lead',
+    { title: 'Criar lead', description: 'Insere uma nova vaga no Radar com score calculado automaticamente. Use check_duplicate antes para evitar duplicatas.',
+      inputSchema: {
+          empresa:          z.string(),
+          vaga:             z.string().optional(),
+          link_vaga:        z.string().optional(),
+          descricao:        z.string().optional(),
+          fonte:            z.string().optional(),
+          modalidade:       z.enum(['Presencial','Híbrida','Remota']).optional(),
+          tipo_contratacao: z.enum(['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo']).optional(),
+          nivel:            z.string().optional(),
+          requires_cnh:     z.string().optional(),
+      } },
+    async (input) => {
+        const profile = await getProfile();
+        const lead = {
+            empresa:          input.empresa,
+            vaga:             input.vaga             ?? null,
+            link_vaga:        input.link_vaga        ?? null,
+            descricao:        input.descricao        ?? null,
+            fonte:            input.fonte            ?? 'radar-mcp',
+            modalidade:       input.modalidade       ?? null,
+            tipo_contratacao: input.tipo_contratacao ?? null,
+            nivel:            input.nivel            ?? null,
+            requires_cnh:     input.requires_cnh     ?? null,
+        };
+        const r = scoreVaga(lead, profile);
+        lead.fit_score_regras = r.score;
+        lead.fit_score        = r.score;
+        lead.keywords_match   = r.keywords_match;
+        lead.gaps             = r.gaps_preliminares;
+        if (!lead.nivel && r.seniority_inferred !== 'unknown') lead.nivel = r.seniority_inferred;
+
+        const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
+        return error ? fail(error.message) : ok(data);
+    });
+
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
