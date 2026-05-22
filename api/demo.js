@@ -96,8 +96,8 @@ async function handleAuth(req, res) {
     }
 
     const { username, password } = req.body || {};
-    const expectedUser = process.env.DEMO_ADMIN_USER;
-    const expectedPass = process.env.DEMO_ADMIN_PASS;
+    const expectedUser = process.env.ADMIN_DEMO_USER;
+    const expectedPass = process.env.ADMIN_DEMO_PASS;
 
     if (!expectedUser || !expectedPass) return res.status(503).json({ error: 'Demo não configurado.' });
     if (String(username) !== expectedUser || String(password) !== expectedPass) {
