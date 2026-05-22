@@ -20,27 +20,32 @@ function makeFixtures() {
     return {
         cvs: [
             { id: 'cv-1', name: 'QA Sênior', description: 'Padrão', file_name: 'cv-jon-snow-qa-senior.pdf', active: true,  created_at: inPast(48) },
-            { id: 'cv-2', name: 'Automation', description: '',     file_name: 'cv-jon-snow-qa-auto.pdf',   active: true,  created_at: inPast(24) },
-            { id: 'cv-3', name: 'SDET',      description: 'EN',    file_name: 'cv-jon-snow-sdet.pdf',      active: false, created_at: inPast(12) },
+            { id: 'cv-2', name: 'Automation', description: '',      file_name: 'cv-jon-snow-qa-auto.pdf',   active: true,  created_at: inPast(24) },
+            { id: 'cv-3', name: 'SDET',       description: 'EN',    file_name: 'cv-jon-snow-sdet.pdf',      active: false, created_at: inPast(12) },
         ],
+        // status field obrigatório: _tokenEffectiveStatus() no core lê t.status
         tokens: [
-            { id: 'tk-1', cv_version_id: 'cv-1', label: 'Nubank · Ana',  hash: 'aaaaaa', use_count: 0, max_uses: 5, expires_at: inFuture(48),  revoked: false, cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
-            { id: 'tk-2', cv_version_id: 'cv-2', label: 'Stone · João', hash: 'bbbbbb',  use_count: 2, max_uses: 5, expires_at: inFuture(12),  revoked: false, cv_versions: { id: 'cv-2', name: 'Automation' } },
-            { id: 'tk-3', cv_version_id: 'cv-1', label: 'Vexp · Carla', hash: 'cccccc',  use_count: 5, max_uses: 5, expires_at: inFuture(72),  revoked: false, cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
-            { id: 'tk-4', cv_version_id: 'cv-1', label: 'Inter · Bia',  hash: 'dddddd',  use_count: 1, max_uses: 5, expires_at: inPast(48),    revoked: false, cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
-            { id: 'tk-5', cv_version_id: 'cv-2', label: 'Itau · Pedro', hash: 'eeeeee',  use_count: 0, max_uses: 5, expires_at: inFuture(96),  revoked: true,  cv_versions: { id: 'cv-2', name: 'Automation' } },
+            { id: 'tk-1', cv_version_id: 'cv-1', label: 'Nubank · Ana',  hash: 'aaaaaa', use_count: 0, max_uses: 5, expires_at: inFuture(48), revoked: false, status: 'ativo',    cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
+            { id: 'tk-2', cv_version_id: 'cv-2', label: 'Stone · João',  hash: 'bbbbbb', use_count: 2, max_uses: 5, expires_at: inFuture(12), revoked: false, status: 'ativo',    cv_versions: { id: 'cv-2', name: 'Automation' } },
+            { id: 'tk-3', cv_version_id: 'cv-1', label: 'Vexp · Carla',  hash: 'cccccc', use_count: 5, max_uses: 5, expires_at: inFuture(72), revoked: false, status: 'esgotado', cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
+            { id: 'tk-4', cv_version_id: 'cv-1', label: 'Inter · Bia',   hash: 'dddddd', use_count: 1, max_uses: 5, expires_at: inPast(48),   revoked: false, status: 'expirado', cv_versions: { id: 'cv-1', name: 'QA Sênior' } },
+            { id: 'tk-5', cv_version_id: 'cv-2', label: 'Itau · Pedro',  hash: 'eeeeee', use_count: 0, max_uses: 5, expires_at: inFuture(96), revoked: true,  status: 'revogado', cv_versions: { id: 'cv-2', name: 'Automation' } },
         ],
         apps: [
-            { id: 'a-1', empresa: 'Nubank', vaga: 'Sr QA',     gestor_nome: 'Ana',   gestor_email: 'ana@nu.com',    modalidade: 'Remota',    tipo_contratacao: 'CLT', stages: [{name:'Aplicado',status:'done'},{name:'Triagem',status:'running'}], data_envio: inPast(72), created_at: inPast(72), updated_at: inPast(2),  result: 'em_processo', archived: false, cv_versions: { id: 'cv-1', name: 'QA Sênior', file_name: 'cv-jon-snow-qa-senior.pdf' } },
-            { id: 'a-2', empresa: 'Stone',  vaga: 'QA Auto',  gestor_nome: 'João',  gestor_email: 'joao@stone.com', modalidade: 'Híbrida',   tipo_contratacao: 'PJ',  stages: [{name:'Aplicado',status:'done'},{name:'Entrevista',status:'done'},{name:'Oferta',status:'done'}], data_envio: inPast(24), created_at: inPast(24), updated_at: inPast(1),  result: 'aprovado', archived: false, cv_versions: { id: 'cv-2', name: 'Automation', file_name: 'cv-jon-snow-qa-auto.pdf' } },
-            { id: 'a-3', empresa: 'Vexp',   vaga: 'SDET',     gestor_nome: 'Carla', gestor_email: 'carla@vexp.com', modalidade: 'Presencial', tipo_contratacao: 'CLT', stages: [{name:'Aplicado',status:'done'},{name:'Triagem',status:'rejected'}], data_envio: inPast(120), created_at: inPast(120), updated_at: inPast(48), result: 'recusado', archived: false, cv_versions: null },
-            { id: 'a-4', empresa: 'OldCo',  vaga: 'QA',       gestor_nome: '',      gestor_email: '',               modalidade: 'Remota',   tipo_contratacao: 'CLT', stages: [], data_envio: inPast(720), created_at: inPast(720), updated_at: inPast(720), result: 'em_processo', archived: true, cv_versions: null },
+            { id: 'a-1', empresa: 'Nubank', vaga: 'Sr QA',    gestor_nome: 'Ana',   gestor_email: 'ana@nu.com',    modalidade: 'Remota',    tipo_contratacao: 'CLT', stages: [{name:'Aplicado',status:'done'},{name:'Triagem',status:'running'}], data_envio: inPast(72),  created_at: inPast(72),  updated_at: inPast(2),   result: 'em_processo', archived: false, cv_versions: { id: 'cv-1', name: 'QA Sênior', file_name: 'cv-jon-snow-qa-senior.pdf' } },
+            { id: 'a-2', empresa: 'Stone',  vaga: 'QA Auto',  gestor_nome: 'João',  gestor_email: 'joao@stone.com',modalidade: 'Híbrida',   tipo_contratacao: 'PJ',  stages: [{name:'Aplicado',status:'done'},{name:'Entrevista',status:'done'},{name:'Oferta',status:'done'}], data_envio: inPast(24),  created_at: inPast(24),  updated_at: inPast(1),   result: 'aprovado', archived: false, cv_versions: { id: 'cv-2', name: 'Automation', file_name: 'cv-jon-snow-qa-auto.pdf' } },
+            { id: 'a-3', empresa: 'Vexp',   vaga: 'SDET',     gestor_nome: 'Carla', gestor_email: 'carla@vexp.com',modalidade: 'Presencial', tipo_contratacao: 'CLT', stages: [{name:'Aplicado',status:'done'},{name:'Triagem',status:'rejected'}], data_envio: inPast(120), created_at: inPast(120), updated_at: inPast(48),  result: 'recusado', archived: false, cv_versions: null },
+            { id: 'a-4', empresa: 'OldCo',  vaga: 'QA',       gestor_nome: '',      gestor_email: '',              modalidade: 'Remota',     tipo_contratacao: 'CLT', stages: [], data_envio: inPast(720), created_at: inPast(720), updated_at: inPast(720), result: 'em_processo', archived: true, cv_versions: null },
         ],
     };
 }
 
 // Injeta sessão fake e mocka /api/demo/* antes de revealApp
 async function bootDemoApp(page, fx) {
+    // Config: Turnstile desativado em testes, todas as abas habilitadas
+    await page.route('**/api/demo/config**', route => route.fulfill({
+        json: { turnstile_sitekey: null, enabled_tabs: ['cvs', 'tokens', 'vagas', 'logs', 'metricas'] },
+    }));
     await page.route('**/api/demo/cv-versions**', async route => {
         const m = route.request().method();
         if (m === 'GET') return route.fulfill({ json: fx.cvs });
@@ -49,29 +54,27 @@ async function bootDemoApp(page, fx) {
     await page.route('**/api/demo/tokens**', async route => {
         const m = route.request().method();
         if (m === 'GET') return route.fulfill({ json: fx.tokens });
-        if (m === 'POST') return route.fulfill({ status: 201, json: { id: 'tk-new', hash: 'newhsh', use_count: 0, expires_at: new Date(Date.now() + 24*3600_000).toISOString(), revoked: false, cv_versions: fx.cvs[0], ...JSON.parse(route.request().postData() || '{}') } });
-        if (m === 'PUT' || m === 'DELETE') return route.fulfill({ status: 200, json: { ok: true } });
+        if (m === 'POST') return route.fulfill({ status: 201, json: { id: 'tk-new', hash: 'newhsh', use_count: 0, status: 'ativo', expires_at: new Date(Date.now() + 24*3600_000).toISOString(), revoked: false, cv_versions: fx.cvs[0], ...JSON.parse(route.request().postData() || '{}') } });
+        if (m === 'PUT' || m === 'PATCH' || m === 'DELETE') return route.fulfill({ status: 200, json: { ok: true } });
         return route.fallback();
     });
     await page.route('**/api/demo/applications**', async route => {
         const m = route.request().method();
         if (m === 'GET') return route.fulfill({ json: fx.apps });
         if (m === 'POST') return route.fulfill({ status: 201, json: { id: 'a-new', stages: [], created_at: new Date().toISOString(), ...JSON.parse(route.request().postData() || '{}') } });
-        if (m === 'PUT' || m === 'DELETE') return route.fulfill({ status: 200, json: { ok: true } });
+        if (m === 'PUT' || m === 'PATCH' || m === 'DELETE') return route.fulfill({ status: 200, json: { ok: true } });
         return route.fallback();
     });
-    await page.route('**/api/demo/storage-stats**', async route => {
-        return route.fulfill({ json: {
-            bucket: 'demo-cvs',
-            files_count: fx.cvs.length,
-            used_bytes:  fx.cvs.length * 320_000,
-            limit_bytes: 1_073_741_824,
-            used_percent: 0.1,
-            alert_threshold_percent: 80,
-            should_alert: false,
-            dashboard_url: null,
-        }});
-    });
+    await page.route('**/api/demo/storage-stats**', route => route.fulfill({ json: {
+        bucket: 'demo-cvs',
+        files_count: fx.cvs.length,
+        used_bytes:  fx.cvs.length * 320_000,
+        limit_bytes: 1_073_741_824,
+        used_percent: 0.1,
+        alert_threshold_percent: 80,
+        should_alert: false,
+        dashboard_url: null,
+    }}));
 
     await page.goto(DEMO_PATH, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.evaluate((sid) => {
@@ -91,19 +94,23 @@ test.describe('DEMO /projeto-sistema-admin — pública', () => {
         await expect(page).toHaveTitle(/Sistema Admin|ARTACHO|Demo/i);
     });
 
-    test('hero/gate de acesso renderiza com botão Acessar demo', async ({ page }) => {
+    test('hero screen e formulário de login renderizam', async ({ page }) => {
         await page.goto(DEMO_PATH);
         await expect(page.locator('#heroScreen')).toBeVisible();
-        await expect(page.locator('#demoGate')).toBeVisible();
-        await expect(page.locator('#gateIdle')).toBeVisible();
-        await expect(page.locator('#gateBtn')).toBeVisible();
-        await expect(page.locator('#gateBtn')).toContainText('Acessar demo');
+        await expect(page.locator('#demoLoginForm')).toBeVisible();
+        await expect(page.locator('#demoLoginBtn')).toBeVisible();
+        await expect(page.locator('#demoLoginBtn')).toContainText('Entrar');
     });
 
-    test('banner LGPD/demo aparece', async ({ page }) => {
+    test('campos de usuário e senha estão presentes', async ({ page }) => {
         await page.goto(DEMO_PATH);
-        const lgpd = page.locator('.lgpd-note, .login-hint');
-        await expect(lgpd.first()).toBeVisible();
+        await expect(page.locator('#demoUser')).toBeVisible();
+        await expect(page.locator('#demoPass')).toBeVisible();
+    });
+
+    test('nota de contato aparece', async ({ page }) => {
+        await page.goto(DEMO_PATH);
+        await expect(page.locator('.lgpd-note')).toBeVisible();
     });
 
     test('appScreen está oculto antes do login', async ({ page }) => {
@@ -143,7 +150,9 @@ test.describe('DEMO — aba CVs (com mocks)', () => {
 
     test('filtro de status oculta inativos quando selecionado', async ({ page }) => {
         await bootDemoApp(page, makeFixtures());
-        await page.locator('#cvStatusFilter').selectOption('ativo');
+        // Custom select — click no botão para abrir o menu
+        await page.locator('#cvStatusFilter .custom-select-btn').click();
+        await page.locator('#cvStatusFilter .custom-select-option[data-value="ativo"]').click();
         await expect(page.locator('#cvTable')).not.toContainText('SDET');
         await expect(page.locator('#cvTable')).toContainText('QA Sênior');
     });
@@ -156,12 +165,7 @@ test.describe('DEMO — aba Tokens (com mocks)', () => {
     });
 
     test('5 KPIs aparecem com valores corretos', async ({ page }) => {
-        // fixtures: 2 ativos (não expirados, não esgotados, não revogados, 1 expirando), 1 esgotado, 1 expirado, 1 revogado
-        // ativo: tk-1 (48h, !esgotado), tk-2 (12h, !esgotado)
-        // expirando: tk-2 (12h < 24h)
-        // esgotado: tk-3 (use=max=5)
-        // expirado: tk-4 (expires_at past)
-        // revogado: tk-5
+        // tk-1: ativo (48h), tk-2: ativo (12h < 24h → expirando), tk-3: esgotado, tk-4: expirado, tk-5: revogado
         await expect(page.locator('#kpiTokenAtivo')).toHaveText('2');
         await expect(page.locator('#kpiTokenExpirando')).toHaveText('1');
         await expect(page.locator('#kpiTokenExpirado')).toHaveText('1');
@@ -190,7 +194,6 @@ test.describe('DEMO — aba Tokens (com mocks)', () => {
     test('botão "Limpar expirados" presente e clicável', async ({ page }) => {
         const btn = page.locator('button:has-text("Limpar expirados")');
         await expect(btn).toBeVisible();
-        // Não clica para não disparar confirm dialog em todos os runs
     });
 
     test('form de criação está em grid (4 áreas) no desktop', async ({ page, viewport }) => {
@@ -276,13 +279,12 @@ test.describe('DEMO — tour (5 passos)', () => {
 
         for (let i = 1; i <= 5; i++) {
             await expect(page.locator('#tourCounter')).toContainText(`${i} / 5`);
-            // Card precisa estar dentro da viewport
             const box = await page.locator('#tourCard').boundingBox();
             expect(box).not.toBeNull();
             expect(box.y).toBeGreaterThanOrEqual(0);
             expect(box.x).toBeGreaterThanOrEqual(0);
             const vp = page.viewportSize();
-            expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 5); // tolera 5px de subpixel
+            expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 5);
             if (i < 5) await page.locator('#tourNext').click();
         }
     });
