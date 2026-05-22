@@ -179,5 +179,98 @@ server.registerTool('update_search_timestamp',
         return error ? fail(error.message) : ok({ platform_id, updated_at: now, platforms: data.search_platforms });
     });
 
+server.registerTool('recalculate_scores',
+    { title: 'Recalcular scores', description: 'Recalcula fit_score de todos os leads em status novo usando o perfil atual. Retorna resumo.',
+      inputSchema: { dry_run: z.boolean().optional() } },
+    async ({ dry_run }) => {
+        const profile = await getProfile();
+        const { data: leads, error } = await supabase.from('vaga_radar')
+            .select('id, vaga, descricao, nivel, modalidade, tipo_contratacao, requires_cnh, fit_score')
+            .eq('status', 'novo');
+        if (error) return fail(error.message);
+
+        let improved = 0, dropped = 0, unchanged = 0;
+        const now = new Date().toISOString();
+
+        for (const lead of (leads ?? [])) {
+            const r = scoreVaga(lead, profile);
+            const oldScore = lead.fit_score ?? null;
+            const newScore = r.score;
+
+            if (oldScore === null || newScore > oldScore) improved++;
+            else if (newScore < oldScore) dropped++;
+            else unchanged++;
+
+            if (!dry_run) {
+                await supabase.from('vaga_radar').update({
+                    fit_score: newScore,
+                    fit_score_regras: newScore,
+                    keywords_match: r.keywords_match,
+                    updated_at: now,
+                }).eq('id', lead.id);
+            }
+        }
+
+        return ok({ recalculated: (leads ?? []).length, improved, dropped, unchanged });
+    });
+
+server.registerTool('cleanup_leads',
+    { title: 'Limpeza de leads', description: 'Deleta descartadas antigas e arquiva leads parados. dry_run=true apenas lista sem executar.',
+      inputSchema: { dry_run: z.boolean().optional() } },
+    async ({ dry_run }) => {
+        const profile = await getProfile();
+        const autoDeleteDiscardedDays = profile.auto_delete_discarded_days ?? 30;
+        const autoDeleteStaleDays = profile.auto_delete_stale_days ?? 90;
+
+        const discardedCutoff = new Date(Date.now() - autoDeleteDiscardedDays * 86400000).toISOString();
+        const staleCutoff = new Date(Date.now() - autoDeleteStaleDays * 86400000).toISOString();
+
+        const { data: toDelete, error: e1 } = await supabase.from('vaga_radar')
+            .select('id, updated_at')
+            .eq('status', 'descartada')
+            .lt('updated_at', discardedCutoff);
+        if (e1) return fail(e1.message);
+
+        const { data: toArchive, error: e2 } = await supabase.from('vaga_radar')
+            .select('id, updated_at')
+            .in('status', ['novo', 'avaliada'])
+            .lt('updated_at', staleCutoff);
+        if (e2) return fail(e2.message);
+
+        const deleteList = toDelete ?? [];
+        const archiveList = toArchive ?? [];
+
+        if (dry_run) {
+            const oldestDelete = deleteList.length
+                ? deleteList.reduce((a, b) => a.updated_at < b.updated_at ? a : b).updated_at
+                : null;
+            const oldestArchive = archiveList.length
+                ? archiveList.reduce((a, b) => a.updated_at < b.updated_at ? a : b).updated_at
+                : null;
+            return ok({ would_delete: deleteList.length, would_archive: archiveList.length, oldest_to_delete: oldestDelete, oldest_to_archive: oldestArchive });
+        }
+
+        const now = new Date().toISOString();
+        let deleted = 0, archived = 0;
+
+        if (deleteList.length > 0) {
+            const ids = deleteList.map(r => r.id);
+            const { error: delError } = await supabase.from('vaga_radar').delete().in('id', ids);
+            if (delError) return fail(delError.message);
+            deleted = deleteList.length;
+        }
+
+        if (archiveList.length > 0) {
+            const ids = archiveList.map(r => r.id);
+            const { error: archError } = await supabase.from('vaga_radar')
+                .update({ status: 'arquivada', updated_at: now })
+                .in('id', ids);
+            if (archError) return fail(archError.message);
+            archived = archiveList.length;
+        }
+
+        return ok({ deleted, archived });
+    });
+
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
