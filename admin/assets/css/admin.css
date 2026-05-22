@@ -2473,3 +2473,66 @@
         }
         .vagas-bucket-bar { display:flex; gap:4px; }
         .vagas-bucket-bar .metrics-period-btn { font-size:0.72rem; padding:4px 10px; }
+
+        /* ─── RADAR DE VAGAS ─────────────────────────────── */
+        .radar-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+        .radar-title { margin:0; font-size:1.15rem; color:var(--text); }
+        .radar-title i { color:var(--cyan); margin-right:6px; }
+        .radar-sub { margin:4px 0 0; color:var(--text-dim); font-size:0.85rem; }
+        .radar-head-actions { display:flex; align-items:center; gap:10px; }
+        .radar-provider { font-size:0.72rem; color:var(--text-dim); }
+        .radar-card { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+        .radar-card h3 { margin:0 0 12px; font-size:0.95rem; color:var(--text-soft); }
+        .radar-searches summary { cursor:pointer; font-size:0.92rem; color:var(--text-soft); padding:4px 0; }
+        .radar-searches summary i { color:var(--cyan); margin-right:6px; }
+        .radar-search-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .radar-search-btn { display:inline-flex; align-items:center; gap:6px; background:var(--cyan-soft); border:1px solid var(--cyan-mid); color:var(--cyan); border-radius:8px; padding:6px 12px; font-size:0.8rem; text-decoration:none; transition:background .15s; }
+        .radar-search-btn:hover { background:var(--cyan-mid); }
+        .radar-hint { margin:10px 0 0; color:var(--text-dim); font-size:0.76rem; }
+        .radar-profile-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:14px; }
+        .radar-profile-grid label { display:flex; flex-direction:column; gap:5px; font-size:0.78rem; color:var(--text-dim); }
+        .radar-profile-grid .radar-col-2 { grid-column:1 / -1; }
+        .radar-add-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+        .radar-add-grid .radar-col-full { grid-column:1 / -1; }
+        .radar-profile-grid input, .radar-profile-grid textarea,
+        .radar-add-grid input, .radar-add-grid select, .radar-add-grid textarea {
+            background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:9px 12px;
+            color:var(--text); font-family:inherit; font-size:0.85rem; outline:none; transition:border-color .15s; width:100%; box-sizing:border-box; }
+        .radar-profile-grid input:focus, .radar-profile-grid textarea:focus,
+        .radar-add-grid input:focus, .radar-add-grid select:focus, .radar-add-grid textarea:focus { border-color:var(--cyan-mid); }
+        .radar-list-head { display:flex; justify-content:space-between; align-items:center; margin:18px 0 10px; }
+        .radar-list-head h3 { margin:0; font-size:0.95rem; color:var(--text-soft); }
+        .radar-count { color:var(--text-dim); font-weight:400; }
+        .radar-toggle { font-size:0.76rem; color:var(--text-dim); display:flex; align-items:center; gap:6px; cursor:pointer; }
+        .radar-list { display:flex; flex-direction:column; gap:10px; }
+        .radar-empty { text-align:center; color:var(--text-dim); padding:32px; font-size:0.88rem; }
+        .radar-lead { display:flex; gap:14px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+        .radar-lead.status-promovida { opacity:.7; }
+        .radar-lead.status-descartada { opacity:.5; }
+        .radar-score { flex:0 0 46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; }
+        .badge-green { background:var(--success-soft); color:var(--success); }
+        .badge-yellow { background:var(--warning-soft); color:var(--warning); }
+        .badge-red { background:var(--danger-soft); color:var(--danger); }
+        .badge-na { background:var(--bg-surface); color:var(--text-dim); }
+        .radar-lead-body { flex:1; min-width:0; }
+        .radar-lead-head { font-size:0.92rem; color:var(--text); margin-bottom:8px; }
+        .radar-lead-head a { color:var(--cyan); margin-left:4px; }
+        .radar-status-tag { font-size:0.66rem; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:6px; margin-left:6px; background:var(--bg-surface); color:var(--text-dim); }
+        .radar-status-tag.s-avaliada { background:var(--cyan-soft); color:var(--cyan); }
+        .radar-status-tag.s-promovida { background:var(--success-soft); color:var(--success); }
+        .radar-status-tag.s-descartada { background:var(--danger-soft); color:var(--danger); }
+        .radar-chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; align-items:center; }
+        .radar-chip { font-size:0.72rem; padding:2px 8px; border-radius:6px; background:var(--bg-surface); color:var(--text-soft); border:1px solid var(--border); }
+        .radar-chip.kw { background:var(--cyan-soft); color:var(--cyan); border-color:var(--cyan-mid); }
+        .radar-chip.gap { background:var(--warning-soft); color:var(--warning); border:none; }
+        .radar-chip-label { font-size:0.72rem; color:var(--text-dim); margin-right:2px; }
+        .radar-pos { font-size:0.82rem; color:var(--text-soft); margin:8px 0 4px; line-height:1.45; }
+        .radar-lead-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .radar-prompt-box { position:relative; margin:12px 0; }
+        .radar-prompt-box .btn { position:absolute; top:8px; right:8px; z-index:1; }
+        .radar-pre { background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:14px; max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-soft); white-space:pre-wrap; }
+        .radar-json-input { width:100%; box-sizing:border-box; background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:var(--font-mono); font-size:0.8rem; outline:none; }
+        .radar-json-input:focus { border-color:var(--cyan-mid); }
+        @media (max-width: 700px) {
+            .radar-profile-grid, .radar-add-grid { grid-template-columns:1fr; }
+        }
