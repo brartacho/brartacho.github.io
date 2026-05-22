@@ -1,12 +1,13 @@
 import { randomBytes } from 'crypto';
 import { getSessionId, getSupabaseDemo, cors, clean, hashIP, verifyTurnstile } from './demo/_lib/session.js';
 import { getSupabase } from './_lib/supabase.js';
+import { normalizeFileName } from './_lib/filename.js';
 import { checkRateLimit, clientIp } from './_lib/rate-limit.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function safeFileName(n) {
-    return String(n || 'cv-demo.pdf').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100);
+    return normalizeFileName(n || 'cv-demo.pdf');
 }
 function genHash() { return randomBytes(6).toString('hex'); }
 
