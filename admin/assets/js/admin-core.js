@@ -4658,7 +4658,7 @@ function renderRadarList(leads) {
             .map(k => `<span class="radar-chip kw">${esc(k)}</span>`).join('');
         const gaps = (l.gaps || []).slice(0, 8)
             .map(g => `<span class="radar-chip gap">${esc(g)}</span>`).join('');
-        const link = l.link_vaga ? `<a href="${esc(l.link_vaga)}" target="_blank" rel="noopener" title="Abrir vaga"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : '';
+        const link = l.link_vaga ? `<a href="${esc(l.link_vaga)}" target="_blank" rel="noopener" title="Abrir vaga" onclick="event.stopPropagation()"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : '';
         const promoted = l.status === 'promovida';
         const discarded = l.status === 'descartada';
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
@@ -4676,13 +4676,13 @@ function renderRadarList(leads) {
                 ${kw ? `<div class="radar-chips">${kw}</div>` : ''}
                 ${gaps ? `<div class="radar-chips"><span class="radar-chip-label">Gaps:</span>${gaps}</div>` : ''}
                 ${pos}
-                <div class="radar-lead-actions">
+                ${_radarSelecting ? '' : `<div class="radar-lead-actions">
                     <button class="btn btn-sm" onclick="analyzeRadar('${l.id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>
                     <button class="btn btn-sm" onclick="adaptarCvRadar('${l.id}')"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV</button>
                     ${!promoted && !discarded ? `<button class="btn btn-cyan btn-sm" onclick="promoteRadar('${l.id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>` : ''}
                     ${!discarded && !promoted ? `<button class="btn btn-sm" onclick="discardRadar('${l.id}')"><i class="fa-solid fa-ban"></i> Descartar</button>` : ''}
                     <button class="btn btn-sm" onclick="deleteRadar('${l.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                </div>
+                </div>`}
             </div>
         </div>`;
     }).join('');

@@ -383,7 +383,7 @@
             margin-bottom: 6px;
         }
 
-        input, select, textarea {
+        input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea {
             width: 100%;
             background: var(--bg-elevated);
             border: 1px solid var(--border);
@@ -396,7 +396,7 @@
             transition: border-color 0.2s;
         }
 
-        input:focus, select:focus, textarea:focus {
+        input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):focus, select:focus, textarea:focus {
             border-color: var(--cyan-mid);
         }
 
