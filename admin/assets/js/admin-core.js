@@ -4565,6 +4565,10 @@ function _renderDemoSettings(el, enabledTabs) {
     `).join('');
 }
 
+function _demoToggleAll(checked) {
+    document.querySelectorAll('#demoTabToggles input[type=checkbox]').forEach(c => { c.checked = checked; });
+}
+
 async function saveDemoSettings() {
     const checks = document.querySelectorAll('#demoTabToggles input[type=checkbox]');
     const enabled = [...checks].filter(c => c.checked).map(c => c.value);

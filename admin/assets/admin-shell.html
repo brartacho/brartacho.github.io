@@ -1091,6 +1091,10 @@
                         Define quais abas ficam visíveis para visitantes na demonstração pública.<br>
                         Mudanças tomam efeito na próxima vez que o visitante carregar o demo.
                     </p>
+                    <div style="margin-bottom:10px;display:flex;gap:8px">
+                        <button class="btn btn-sm" style="font-size:0.75rem;padding:4px 10px" onclick="_demoToggleAll(true)">Marcar todas</button>
+                        <button class="btn btn-sm" style="font-size:0.75rem;padding:4px 10px" onclick="_demoToggleAll(false)">Desmarcar todas</button>
+                    </div>
                     <div id="demoTabToggles" style="display:flex;flex-direction:column;gap:10px">
                         <div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>
                     </div>
@@ -1497,6 +1501,10 @@
     <button class="mobile-nav-btn" data-tab="vagas" onclick="switchTab('vagas')">
         <i class="fa-solid fa-briefcase"></i>
         <span>Vagas</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="radar" onclick="switchTab('radar')">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <span>Radar</span>
     </button>
     <button class="mobile-nav-btn" data-tab="metricas" onclick="switchTab('metricas')">
         <i class="fa-solid fa-chart-line"></i>

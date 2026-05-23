@@ -303,10 +303,14 @@
             border-top: 1px solid var(--border-soft);
             padding-bottom: env(safe-area-inset-bottom, 0px);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
+        .mobile-bottom-nav::-webkit-scrollbar { display: none; }
 
         .mobile-nav-btn {
-            flex: 1;
+            flex: 0 0 72px;
             display: flex;
             flex-direction: column;
             align-items: center;
