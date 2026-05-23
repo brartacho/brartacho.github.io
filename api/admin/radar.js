@@ -102,6 +102,16 @@ export default async function handler(req, res) {
             if (Array.isArray(b.search_platforms)) {
                 row.search_platforms = b.search_platforms;
             }
+            if (Array.isArray(b.quick_searches)) {
+                if (b.quick_searches.length > 20) return res.status(400).json({ error: 'máximo 20 buscas rápidas' });
+                for (const q of b.quick_searches) {
+                    if (!q.label || typeof q.label !== 'string' || q.label.length > 60)
+                        return res.status(400).json({ error: 'label inválido (1-60 caracteres)' });
+                    if (!q.url_template || typeof q.url_template !== 'string' || !q.url_template.startsWith('https://') || q.url_template.length > 500)
+                        return res.status(400).json({ error: 'url_template inválido (deve começar com https:// e ter ≤ 500 caracteres)' });
+                }
+                row.quick_searches = b.quick_searches;
+            }
             const existing = await loadProfile(supabase);
             let result;
             if (existing.id) {
@@ -182,7 +192,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET' && req.query.action === 'search-status') {
         if (!req.query.id) return res.status(400).json({ error: 'id obrigatório' });
         const { data, error } = await supabase.from('search_requests')
-            .select('id,status,result,error_message,created_at,started_at,finished_at')
+            .select('id,status,result,error_message,created_at,started_at,finished_at,progress')
             .eq('id', req.query.id).single();
         if (error || !data) return res.status(404).json({ error: 'não encontrado' });
         return res.json(data);
@@ -193,6 +203,132 @@ export default async function handler(req, res) {
             .select('id,platform,keywords_used,found_count,new_count,ran_at')
             .order('ran_at', { ascending: false }).limit(10);
         return res.json(data || []);
+    }
+
+    // ---------------------------------------------------------
+    // STATS — breakdown de contadores no header do radar
+    // ---------------------------------------------------------
+    if (req.method === 'GET' && req.query.action === 'stats') {
+        const { data: rows } = await supabase.from('vaga_radar').select('status,updated_at');
+        const byStatus = { novo: 0, avaliada: 0, descartada: 0, promovida: 0, arquivada: 0 };
+        const cutoff30d = Date.now() - 30 * 86400000;
+        let staleCount = 0;
+        for (const r of rows || []) {
+            if (r.status in byStatus) byStatus[r.status]++;
+            if ((r.status === 'novo' || r.status === 'avaliada') && new Date(r.updated_at).getTime() < cutoff30d) staleCount++;
+        }
+        return res.json({ total: (rows || []).length, by_status: byStatus, stale_count: staleCount });
+    }
+
+    // ---------------------------------------------------------
+    // LIMPEZA — preview e execução de presets
+    // ---------------------------------------------------------
+    const CLEANUP_PRESETS = {
+        descartadas_30d: { type: 'delete', status: 'descartada', days: 30 },
+        descartadas_60d: { type: 'delete', status: 'descartada', days: 60 },
+        descartadas_90d: { type: 'delete', status: 'descartada', days: 90 },
+        promovidas_180d: { type: 'delete', status: 'promovida', days: 180 },
+        expirar_parados_30d: { type: 'expire', days: 30 },
+    };
+
+    async function cleanupCount(preset) {
+        const cfg = CLEANUP_PRESETS[preset];
+        if (!cfg) return null;
+        const cutoff = new Date(Date.now() - cfg.days * 86400000).toISOString();
+        if (cfg.type === 'expire') {
+            const { count } = await supabase.from('vaga_radar')
+                .select('id', { count: 'exact', head: true })
+                .in('status', ['novo', 'avaliada'])
+                .lt('updated_at', cutoff);
+            return count || 0;
+        }
+        // Delete preview — não consegue facilmente excluir os com app correspondente via PostgREST,
+        // então conta direto e aceita pequena imprecisão. Execução real usa SQL function que filtra.
+        const { count } = await supabase.from('vaga_radar')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', cfg.status)
+            .lt('updated_at', cutoff);
+        return count || 0;
+    }
+
+    if (req.method === 'GET' && req.query.action === 'cleanup-preview') {
+        const preset = req.query.preset;
+        const cfg = CLEANUP_PRESETS[preset];
+        if (!cfg) return res.status(400).json({ error: 'preset inválido' });
+        const count = await cleanupCount(preset);
+        return res.json({ count, type: cfg.type, days: cfg.days });
+    }
+
+    if (req.method === 'DELETE' && req.query.action === 'cleanup') {
+        const preset = req.query.preset;
+        const cfg = CLEANUP_PRESETS[preset];
+        if (!cfg) return res.status(400).json({ error: 'preset inválido' });
+        if (cfg.type === 'expire') {
+            const { data, error } = await supabase.rpc('radar_expire_stale_leads');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.json({ updated: data });
+        }
+        const fn = cfg.status === 'descartada' ? 'radar_purge_old_discarded' : 'radar_purge_old_promoted';
+        const { data, error } = await supabase.rpc(fn, { min_days: cfg.days });
+        if (error) return res.status(500).json({ error: error.message });
+        return res.json({ deleted: data });
+    }
+
+    // ---------------------------------------------------------
+    // CHECK APP LINK — usado pelo botão Excluir para alertar duplicata
+    // ---------------------------------------------------------
+    if (req.method === 'GET' && req.query.action === 'check-app-link') {
+        const link = req.query.link;
+        if (!link) return res.json({ has_app: false });
+        const { data } = await supabase.from('job_applications')
+            .select('id').eq('link_vaga', link).limit(1).maybeSingle();
+        return res.json({ has_app: !!data });
+    }
+
+    // ---------------------------------------------------------
+    // REOPEN FROM APP — escape hatch para "Voltar para Radar"
+    // ---------------------------------------------------------
+    if (req.method === 'POST' && req.query.action === 'reopen-from-app') {
+        const appId = req.query.app_id;
+        if (!appId) return res.status(400).json({ error: 'app_id obrigatório' });
+        const { data: app, error: e1 } = await supabase.from('job_applications')
+            .select('empresa,vaga,link_vaga,observacoes,modalidade,tipo_contratacao')
+            .eq('id', appId).single();
+        if (e1 || !app) return res.status(404).json({ error: 'application não encontrada' });
+
+        // Se já existe lead com mesmo link_vaga, atualiza para avaliada em vez de criar duplicata
+        if (app.link_vaga) {
+            const { data: existing } = await supabase.from('vaga_radar')
+                .select('id').eq('link_vaga', app.link_vaga).maybeSingle();
+            if (existing) {
+                const { data, error } = await supabase.from('vaga_radar')
+                    .update({ status: 'avaliada', motivo_descarte: null, updated_at: new Date().toISOString() })
+                    .eq('id', existing.id).select().single();
+                if (error) return res.status(500).json({ error: error.message });
+                return res.json({ ok: true, lead: data, reused: true });
+            }
+        }
+
+        const lead = {
+            empresa: app.empresa,
+            vaga: app.vaga,
+            link_vaga: app.link_vaga,
+            modalidade: app.modalidade,
+            tipo_contratacao: app.tipo_contratacao,
+            fonte: 'reaberta',
+            status: 'avaliada',
+            descricao: app.observacoes ? `Reaberta de candidatura anterior. ${app.observacoes}`.slice(0, TEXT_MAX.descricao) : 'Reaberta de candidatura anterior.',
+        };
+        const profile = await loadProfile(supabase);
+        const r = scoreVaga(lead, profile);
+        lead.fit_score_regras = r.score;
+        lead.fit_score = r.score;
+        lead.keywords_match = r.keywords_match;
+        lead.gaps = r.gaps_preliminares;
+
+        const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.json({ ok: true, lead: data, reused: false });
     }
 
     // ---------------------------------------------------------

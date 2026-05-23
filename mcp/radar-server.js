@@ -404,6 +404,35 @@ async function updatePlatformTimestamp(platformId) {
         .eq('id', profile.id);
 }
 
+// Cooldown padrão para re-ingestão de vagas com candidatura prévia (dias).
+const RETRY_COOLDOWN_DAYS = 30;
+
+// Camada 1 — Dedup ampliado:
+// - já existe em vaga_radar → bloqueia sempre
+// - já existe em job_applications:
+//     - em_processo + não arquivada → bloqueio permanente (você está ativo no funil)
+//     - qualquer outro estado dentro do cooldown → bloqueia
+//     - fora do cooldown → permite re-ingestão (contexto pode ter mudado)
+async function isAlreadyTracked(linkVaga) {
+    if (!linkVaga) return false;
+
+    const { data: inRadar } = await supabase.from('vaga_radar')
+        .select('id').eq('link_vaga', linkVaga).maybeSingle();
+    if (inRadar) return true;
+
+    const { data: apps } = await supabase.from('job_applications')
+        .select('id,result,archived,updated_at')
+        .eq('link_vaga', linkVaga);
+    if (!apps?.length) return false;
+
+    const cutoff = Date.now() - RETRY_COOLDOWN_DAYS * 86400000;
+    return apps.some(app => {
+        if (app.result === 'em_processo' && !app.archived) return true;
+        const updatedMs = new Date(app.updated_at).getTime();
+        return updatedMs > cutoff;
+    });
+}
+
 async function ingestLeads(leads, profile, dryRun) {
     let newCount = 0, duplicateCount = 0, belowMinScore = 0;
     const minScore = profile.search_min_score ?? 5;
@@ -412,9 +441,7 @@ async function ingestLeads(leads, profile, dryRun) {
     for (const lead of leads) {
         if (!lead.link_vaga) { duplicateCount++; continue; }
 
-        const { data: existing } = await supabase.from('vaga_radar')
-            .select('id').eq('link_vaga', lead.link_vaga).maybeSingle();
-        if (existing) { duplicateCount++; continue; }
+        if (await isAlreadyTracked(lead.link_vaga)) { duplicateCount++; continue; }
 
         const r = scoreVaga(lead, profile);
         if (r.score < minScore) { belowMinScore++; continue; }
@@ -668,14 +695,29 @@ async function processPendingRequests() {
 
     console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})`);
     await supabase.from('search_requests')
-        .update({ status: 'running', started_at: new Date().toISOString() }).eq('id', data.id);
+        .update({
+            status: 'running',
+            started_at: new Date().toISOString(),
+            progress: { current: null, done: [], total: data.platforms.length, platforms: data.platforms },
+        })
+        .eq('id', data.id);
 
     const profile = await getProfile();
     const summary = { total_found: 0, total_new: 0, by_platform: {} };
+    const donePlatforms = [];
     try {
         for (const platId of data.platforms) {
+            // Atualiza progress antes de cada plataforma — frontend renderiza chip ciano girando
+            await supabase.from('search_requests')
+                .update({ progress: { current: platId, done: [...donePlatforms], total: data.platforms.length, platforms: data.platforms } })
+                .eq('id', data.id);
+
             const scraper = SCRAPERS[platId];
-            if (!scraper) { console.error(`[radar-mcp] scraper desconhecido: ${platId}`); continue; }
+            if (!scraper) {
+                console.error(`[radar-mcp] scraper desconhecido: ${platId}`);
+                donePlatforms.push(platId);
+                continue;
+            }
             const cfg = {
                 keywords:    data.keywords?.length ? data.keywords : undefined,
                 max_results: data.max_results || undefined,
@@ -686,6 +728,7 @@ async function processPendingRequests() {
             } catch (e) {
                 console.error(`[radar-mcp] erro em ${platId}: ${e.message}`);
                 summary.by_platform[platId] = { error: e.message };
+                donePlatforms.push(platId);
                 continue;
             }
             const result = await ingestLeads(leads, profile, data.dry_run);
@@ -693,9 +736,16 @@ async function processPendingRequests() {
             summary.by_platform[platId] = { found: leads.length, new: result.newCount };
             summary.total_found += leads.length;
             summary.total_new   += result.newCount;
+            donePlatforms.push(platId);
         }
         await supabase.from('search_requests')
-            .update({ status: 'done', result: summary, finished_at: new Date().toISOString() }).eq('id', data.id);
+            .update({
+                status: 'done',
+                result: summary,
+                finished_at: new Date().toISOString(),
+                progress: { current: null, done: donePlatforms, total: data.platforms.length, platforms: data.platforms },
+            })
+            .eq('id', data.id);
         console.error(`[radar-mcp] search_request ${data.id} concluída: ${summary.total_new} novas vagas`);
     } catch (e) {
         await supabase.from('search_requests')

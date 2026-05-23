@@ -583,51 +583,112 @@
             <!-- Editor de perfil (oculto por padrão) -->
             <div class="radar-card radar-profile" id="radarProfileCard" hidden>
                 <h3>Perfil-base da pontuação</h3>
-                <div class="radar-profile-grid">
-                    <label>Nível-alvo<input type="text" id="rpNivel" placeholder="Pleno"></label>
-                    <label>Modalidade preferida<input type="text" id="rpModalidade" placeholder="Remota"></label>
-                    <div class="radar-col-2 radar-profile-group">
-                        <div class="radar-group-label">Tipos de contratação aceitos</div>
-                        <div class="radar-check-row">
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrCLT"> CLT</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrPJ"> PJ</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrFreelancer"> Freelancer</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrCooperado"> Cooperado</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrTemporrio"> Temporário</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrEstgio"> Estágio</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpContrAutnomo"> Autônomo</label>
+
+                <section class="rp-section">
+                    <h4 class="rp-section-title">Identidade</h4>
+                    <div class="rp-row">
+                        <div class="rp-field">
+                            <label for="rpNivel">Nível-alvo</label>
+                            <select id="rpNivel">
+                                <option value="">—</option>
+                                <option>Júnior</option>
+                                <option>Pleno</option>
+                                <option>Sênior</option>
+                                <option>Especialista</option>
+                                <option>Lead</option>
+                            </select>
+                        </div>
+                        <div class="rp-field">
+                            <label for="rpModalidade">Modalidade preferida</label>
+                            <select id="rpModalidade">
+                                <option value="">—</option>
+                                <option>Remota</option>
+                                <option>Híbrida</option>
+                                <option>Presencial</option>
+                                <option>Qualquer</option>
+                            </select>
+                        </div>
+                        <div class="rp-field">
+                            <label for="rpLocalizacao">Localização</label>
+                            <input type="text" id="rpLocalizacao" placeholder="Maringá - PR">
                         </div>
                     </div>
-                    <div class="radar-col-2 radar-profile-group">
-                        <div class="radar-group-label">CNH</div>
-                        <label class="radar-check-label"><input type="checkbox" id="rpCnhHas"> Tenho CNH</label>
-                        <div class="radar-check-row" id="rpCnhCategories" style="margin-top:4px">
-                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatA"> A</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatB"> B</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatC"> C</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatD"> D</label>
-                            <label class="radar-check-label"><input type="checkbox" id="rpCnhCatE"> E</label>
+                </section>
+
+                <section class="rp-section">
+                    <h4 class="rp-section-title">Contratação</h4>
+                    <div class="rp-field">
+                        <label>Tipos aceitos</label>
+                        <div class="rp-chips" id="rpContratacaoChips"></div>
+                    </div>
+                    <div class="rp-cnh-row">
+                        <div class="rp-cnh-toggle">
+                            <label class="radar-switch">
+                                <input type="checkbox" id="rpCnhHas" onchange="_rpToggleCnh()">
+                                <span class="radar-switch-track"><span class="radar-switch-thumb"></span></span>
+                                <span class="radar-switch-label">Tenho CNH</span>
+                            </label>
+                        </div>
+                        <div class="rp-field" id="rpCnhCategoriesField" hidden>
+                            <label>Categorias</label>
+                            <div class="rp-chips" id="rpCnhCategories"></div>
                         </div>
                     </div>
-                    <div class="radar-col-2 radar-profile-group">
-                        <div class="radar-group-label">Plataformas de busca</div>
-                        <div id="rpPlatformsContainer" class="radar-check-row"></div>
+                </section>
+
+                <section class="rp-section">
+                    <h4 class="rp-section-title">Plataformas de busca</h4>
+                    <div class="rp-chips" id="rpPlatformsContainer"></div>
+                </section>
+
+                <section class="rp-section">
+                    <h4 class="rp-section-title">Skills &amp; termos</h4>
+                    <div class="rp-field">
+                        <label>Skills que domino</label>
+                        <div class="rp-tag-input" id="rpCore" data-placeholder="+ adicionar"></div>
                     </div>
-                    <label>Localização<input type="text" id="rpLocalizacao" placeholder="Maringá - PR"></label>
-                    <label class="radar-col-2">Skills que domina (uma por linha)<textarea id="rpCore" rows="4"></textarea></label>
-                    <label class="radar-col-2">Skills em evolução / diferenciais<textarea id="rpEvolucao" rows="3"></textarea></label>
-                    <label class="radar-col-2">Gaps conhecidos<textarea id="rpGaps" rows="2"></textarea></label>
-                    <label class="radar-col-2">Setores de diferencial<textarea id="rpSetores" rows="2"></textarea></label>
-                    <label class="radar-col-2">Keywords de busca<textarea id="rpKeywords" rows="2"></textarea></label>
+                    <div class="rp-field">
+                        <label>Skills em evolução / diferenciais</label>
+                        <div class="rp-tag-input" id="rpEvolucao" data-placeholder="+ adicionar"></div>
+                    </div>
+                    <div class="rp-field">
+                        <label>Gaps conhecidos</label>
+                        <div class="rp-tag-input" id="rpGaps" data-placeholder="+ adicionar"></div>
+                    </div>
+                    <div class="rp-field">
+                        <label>Setores de diferencial</label>
+                        <div class="rp-tag-input" id="rpSetores" data-placeholder="+ adicionar"></div>
+                    </div>
+                    <div class="rp-field">
+                        <label>Keywords de busca</label>
+                        <div class="rp-tag-input" id="rpKeywords" data-placeholder="+ adicionar"></div>
+                    </div>
+                </section>
+
+                <section class="rp-section">
+                    <div class="rp-section-title" style="display:flex;justify-content:space-between;align-items:center">
+                        <span>Buscas rápidas</span>
+                        <button class="btn btn-sm" type="button" onclick="openQuickSearchesEditor()"><i class="fa-solid fa-pen"></i> Editar</button>
+                    </div>
+                    <p class="radar-hint" style="margin:0">Os atalhos aparecem em "Buscas rápidas no LinkedIn" acima da lista de leads. Use <code>{kw}</code> no template do URL para interpolar a 1ª keyword do perfil.</p>
+                </section>
+
+                <div class="rp-save-row">
+                    <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
+                    <span class="rp-saved-hint" id="rpSavedHint"><i class="fa-solid fa-check"></i> <span id="rpSavedHintText">Salvo</span></span>
                 </div>
-                <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
             </div>
 
             <!-- Lista de leads -->
             <div class="radar-list-head">
-                <h3>Leads <span class="radar-count" id="radarCount"></span></h3>
-                <label class="radar-toggle"><input type="checkbox" id="radarShowAll" onchange="loadRadar()"> mostrar promovidas/descartadas</label>
-                <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
+                <div>
+                    <h3>Leads <span class="radar-count" id="radarCount"></span></h3>
+                    <div class="radar-stats-row" id="radarStats"></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <button class="btn btn-sm" onclick="openLimparModal()" title="Limpar leads antigos/obsoletos"><i class="fa-solid fa-broom"></i> Limpar</button>
+                    <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
+                </div>
             </div>
             <div class="radar-filter-bar">
                 <div class="radar-filter-group">
@@ -635,6 +696,13 @@
                     <input type="range" min="0" max="9" value="0" step="1" class="radar-score-range"
                         oninput="setRadarMinScore(this.value); this.nextElementSibling.textContent = this.value > 0 ? '≥'+this.value : 'todos'">
                     <span class="radar-score-label">todos</span>
+                </div>
+                <div class="radar-filter-group">
+                    <label class="radar-switch" title="Inclui leads já promovidos ou descartados na listagem">
+                        <input type="checkbox" id="radarShowAll" onchange="loadRadar()">
+                        <span class="radar-switch-track"><span class="radar-switch-thumb"></span></span>
+                        <span class="radar-switch-label">Incluir promovidas/descartadas</span>
+                    </label>
                 </div>
                 <div class="radar-filter-group">
                     <button class="radar-fonte-chip active" onclick="setRadarFonteFilter('all',this)">Todas</button>
@@ -661,33 +729,38 @@
 
             <!-- Modal: Buscar vagas -->
             <div class="modal-overlay" id="radarBuscarModal">
-                <div class="modal" style="max-width:520px">
+                <div class="modal" style="max-width:560px">
                     <div class="modal-header">
                         <div class="modal-title"><i class="fa-solid fa-satellite-dish"></i> Buscar vagas</div>
                         <button class="modal-close" onclick="closeBuscarModal()"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
-                        <div class="rsq-form">
-                            <div class="radar-profile-group radar-col-2">
-                                <div class="radar-group-label">Plataformas</div>
-                                <div class="radar-check-row" id="rsqPlatforms">
-                                    <label class="radar-check-label"><input type="checkbox" value="linkedin" checked> LinkedIn</label>
-                                    <label class="radar-check-label"><input type="checkbox" value="gupy" checked> Gupy</label>
-                                    <label class="radar-check-label"><input type="checkbox" value="maringa" checked> Maringá</label>
-                                    <label class="radar-check-label"><input type="checkbox" value="indeed"> Indeed</label>
-                                </div>
+
+                        <section class="rsq-section">
+                            <h4 class="rsq-section-title">Configuração</h4>
+                            <div class="rsq-field">
+                                <label>Plataformas</label>
+                                <div class="rp-chips" id="rsqPlatforms"></div>
                             </div>
-                            <label class="radar-col-2">Keywords <span style="font-weight:400;color:var(--text-soft);font-size:0.75rem">(opcional — usa as do perfil, separadas por vírgula)</span>
+                            <div class="rsq-field">
+                                <label>Keywords <span class="rsq-field-hint">(opcional — usa as do perfil se vazio)</span></label>
                                 <input type="text" id="rsqKeywords" placeholder="ex: analista de qa, implantação, suporte técnico">
-                            </label>
-                            <label>Máx. resultados / plataforma
-                                <input type="number" id="rsqMaxResults" value="20" min="5" max="50" style="width:80px">
-                            </label>
-                            <label class="radar-check-label" style="align-self:flex-end;padding-bottom:4px">
-                                <input type="checkbox" id="rsqDryRun"> Simulação (não salva)
-                            </label>
-                        </div>
-                        <div class="rsq-actions">
+                            </div>
+                            <div class="rsq-row-2">
+                                <div class="rsq-field">
+                                    <label>Máx. por plataforma</label>
+                                    <input type="number" id="rsqMaxResults" value="20" min="5" max="50">
+                                </div>
+                                <label class="rsq-checkbox-field">
+                                    <input type="checkbox" id="rsqDryRun">
+                                    <span>Simulação <span class="rsq-field-hint">(não salva)</span></span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <hr class="rsq-divider">
+
+                        <div class="rsq-cta">
                             <button class="btn btn-cyan" onclick="requestRadarSearch(this)">
                                 <i class="fa-solid fa-satellite-dish"></i> Solicitar busca
                             </button>
@@ -695,9 +768,52 @@
                                 <i class="fa-solid fa-copy"></i> Copiar comando MCP
                             </button>
                         </div>
-                        <p class="rsq-mcp-hint"><i class="fa-solid fa-circle-info"></i> "Solicitar busca" requer o MCP server local em execução</p>
-                        <div id="rsqStatus" style="display:none"></div>
-                        <div class="rsq-history" id="rsqHistory" style="display:none"></div>
+                        <p class="rsq-hint"><i class="fa-solid fa-circle-info"></i> Requer MCP server local em execução</p>
+
+                        <div id="rsqStatus" class="rsq-status-area" style="display:none"></div>
+
+                        <details class="rsq-history-details" id="rsqHistoryDetails" open>
+                            <summary class="rsq-section-title">Últimas execuções</summary>
+                            <div class="rsq-history" id="rsqHistory"></div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Editor de buscas rápidas -->
+            <div class="modal-overlay" id="quickSearchesModal">
+                <div class="modal" style="max-width:640px">
+                    <div class="modal-header">
+                        <div class="modal-title"><i class="fa-solid fa-magnifying-glass"></i> Buscas rápidas</div>
+                        <button class="modal-close" onclick="closeQuickSearchesEditor()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="radar-hint" style="margin-top:0">Atalhos visíveis acima da lista de leads. Use <code>{kw}</code> no URL para interpolar a 1ª keyword do perfil.</p>
+                        <div id="quickSearchesList" style="display:flex;flex-direction:column;gap:10px"></div>
+                        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                            <button class="btn btn-sm" onclick="addQuickSearch()"><i class="fa-solid fa-plus"></i> Adicionar busca</button>
+                            <button class="btn btn-sm" onclick="resetQuickSearchesToDefault()" style="margin-left:auto"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveQuickSearches(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Limpar radar -->
+            <div class="modal-overlay" id="radarLimparModal">
+                <div class="modal" style="max-width:520px">
+                    <div class="modal-header">
+                        <div class="modal-title"><i class="fa-solid fa-broom"></i> Limpar radar</div>
+                        <button class="modal-close" onclick="closeLimparModal()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="radar-hint" style="margin-top:0">Selecione o que limpar. Leads com candidatura registrada nunca são removidos (preservados para evitar duplicatas em buscas futuras).</p>
+                        <div class="cleanup-preset-list" id="cleanupPresetList"></div>
+                        <div class="cleanup-preview" id="cleanupPreview" hidden></div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+                            <button class="btn btn-sm" onclick="closeLimparModal()">Cancelar</button>
+                            <button class="btn btn-danger btn-sm" id="cleanupExecuteBtn" onclick="executeCleanup(this)" disabled><i class="fa-solid fa-trash-can"></i> Limpar</button>
+                        </div>
                     </div>
                 </div>
             </div>
