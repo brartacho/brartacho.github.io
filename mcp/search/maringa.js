@@ -1,19 +1,53 @@
-// Scraper de empregos.maringa.com via Playwright (real Chrome).
-// O site usa Cloudflare — fetch simples é bloqueado com 403.
-// Usa channel:'chrome' para contornar a proteção.
+// Scraper de empregos.maringa.com.
+// Site usa Cloudflare Turnstile nas páginas individuais — bypass via stealth plugin.
+// Listagem: cards via .card-anuncio. Detalhe: p.description / ul.description.
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { normalize } from './normalizer.js';
+
+chromium.use(StealthPlugin());
 
 const BASE_URL = 'https://empregos.maringa.com';
 
-// Extrai localização da última linha de texto que contém UF (PR, SP, MG…)
 function parseLocation(lines) {
     const ufRe = /\b(PR|SP|MG|RJ|RS|SC|GO|BA|CE|PE|AM|PA|DF|ES|MT|MS|TO|RO|AC|RN|PB|AL|SE|PI|MA|AP|RR)\b/;
     const loc = lines.find(l => ufRe.test(l));
     if (!loc) return 'Paraná';
-    // Remove data no final (dd/mm/aaaa)
     return loc.replace(/\s+\d{2}\/\d{2}\/\d{4}\s*$/, '').trim();
+}
+
+async function fetchJobDescription(page, url) {
+    try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+        // Aguarda Cloudflare resolver (com stealth, normalmente <1s)
+        try {
+            await page.waitForFunction(
+                () => !/um momento|just a moment|attention required/i.test(document.title),
+                { timeout: 15_000 }
+            );
+        } catch {
+            console.error(`[maringa] Challenge não resolveu para ${url}`);
+            return null;
+        }
+        await new Promise(r => setTimeout(r, 500));
+
+        return await page.evaluate(() => {
+            // Regex no body: corta de "Descrição:" até "Enviar Currículo"/etc.
+            // (Seletor p.description é ambíguo — pega banner de cookies LGPD).
+            const all = document.body?.innerText || '';
+            const m = all.match(/Descri[çc][ãa]o:?\s*([\s\S]*?)(?=Enviar Curr[íi]culo|Compartilhar|Voltar para|©|$)/i);
+            if (m && m[1].trim().length > 50) return m[1].trim();
+            // Fallback: descrição + requisitos + benefícios via p.description que NÃO contenha "cookies"
+            const blocks = [...document.querySelectorAll('p.description, ul.description')]
+                .map(el => el.innerText.trim())
+                .filter(t => t && !/cookies|essenciais/i.test(t));
+            return blocks.length ? blocks.join('\n') : null;
+        });
+    } catch (e) {
+        console.error(`[maringa] Erro ao buscar descrição ${url}: ${e.message}`);
+        return null;
+    }
 }
 
 export async function searchMaringa({ keywords, maxResults = 15 }) {
@@ -34,23 +68,24 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         });
 
-        const page = await ctx.newPage();
+        const listPage = await ctx.newPage();
+        const detailPage = await ctx.newPage();
 
+        // Coleta cards de todas as keywords primeiro
+        const allCards = [];
         for (const keyword of keywords) {
-            if (results.length >= maxResults) break;
-
             console.error(`[maringa] Buscando: "${keyword}"`);
             const url = `${BASE_URL}/?text=${encodeURIComponent(keyword)}&ordem=publicacao`;
 
             try {
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
-                await new Promise(r => setTimeout(r, 1500)); // aguarda JS renderizar cards
+                await listPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+                await new Promise(r => setTimeout(r, 1500));
             } catch {
-                console.error(`[maringa] Timeout ao navegar para "${keyword}", tentando mesmo assim`);
+                console.error(`[maringa] Timeout em "${keyword}", tentando mesmo assim`);
                 await new Promise(r => setTimeout(r, 1500));
             }
 
-            const cards = await page.evaluate(() =>
+            const cards = await listPage.evaluate(() =>
                 [...document.querySelectorAll('.card-anuncio')].map(card => {
                     const lines = card.innerText.split('\n').map(l => l.trim()).filter(Boolean);
                     const linkEl = card.querySelector('a[href]');
@@ -66,23 +101,39 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
             console.error(`[maringa] Cards para "${keyword}": ${cards.length}`);
 
             for (const card of cards) {
-                if (results.length >= maxResults) break;
+                if (allCards.length >= maxResults) break;
                 if (!card.link || seen.has(card.link)) continue;
                 seen.add(card.link);
-
-                results.push(normalize({
-                    empresa:    card.company || 'Empresa não informada',
-                    vaga:       card.title,
-                    link_vaga:  card.link,
-                    descricao:  null, // páginas individuais são protegidas por Cloudflare
-                    localizacao: parseLocation(card.lines),
-                }, 'maringa'));
+                allCards.push(card);
             }
+            if (allCards.length >= maxResults) break;
 
-            await new Promise(r => setTimeout(r, 800 + Math.random() * 800));
+            await new Promise(r => setTimeout(r, 600 + Math.random() * 600));
         }
 
-        await page.close();
+        // Busca descrição de cada card
+        for (let i = 0; i < allCards.length; i++) {
+            const card = allCards[i];
+            const descricao = await fetchJobDescription(detailPage, card.link);
+            if (descricao) {
+                console.error(`[maringa] (${i + 1}/${allCards.length}) descrição: ${descricao.length} chars`);
+            } else {
+                console.error(`[maringa] (${i + 1}/${allCards.length}) sem descrição`);
+            }
+
+            results.push(normalize({
+                empresa:     card.company || 'Empresa não informada',
+                vaga:        card.title,
+                link_vaga:   card.link,
+                descricao,
+                localizacao: parseLocation(card.lines),
+            }, 'maringa'));
+
+            await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
+        }
+
+        await listPage.close();
+        await detailPage.close();
     } catch (e) {
         console.error(`[maringa] Erro fatal: ${e.message}`);
     } finally {
