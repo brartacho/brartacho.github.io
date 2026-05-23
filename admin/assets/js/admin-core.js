@@ -378,19 +378,27 @@ let _previewCvId = null;
 
 async function previewCV(id, name) {
     _previewCvId = id;
-    const overlay = document.getElementById('pdfPreviewOverlay');
-    const frame   = document.getElementById('pdfPreviewFrame');
-    const loading = document.getElementById('pdfLoadingMsg');
-    const title   = document.getElementById('pdfPreviewTitle');
-    title.textContent = name;
-    frame.style.display = 'none';
-    _revokePdfBlob();
-    frame.src = '';
-    loading.style.display = 'flex';
-    loading.textContent = 'Carregando PDF…';
-    overlay.style.display = 'flex';
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+        || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     try {
         const dl = await api('GET', `/api/admin/cv-storage-url?id=${id}&preview=1`);
+        if (isMobile) {
+            // Blob URL em iframe é bloqueado por mobile Safari/Chrome — abre direto em nova aba
+            window.open(dl.signedUrl, '_blank');
+            return;
+        }
+        // Desktop: overlay com iframe
+        const overlay = document.getElementById('pdfPreviewOverlay');
+        const frame   = document.getElementById('pdfPreviewFrame');
+        const loading = document.getElementById('pdfLoadingMsg');
+        const title   = document.getElementById('pdfPreviewTitle');
+        title.textContent = name;
+        frame.style.display = 'none';
+        _revokePdfBlob();
+        frame.src = '';
+        loading.style.display = 'flex';
+        loading.textContent = 'Carregando PDF…';
+        overlay.style.display = 'flex';
         // Fetch como blob para ignorar Content-Disposition do Storage e forçar renderização inline
         const resp = await fetch(dl.signedUrl);
         if (!resp.ok) throw new Error(`Erro ao baixar PDF (${resp.status})`);
@@ -398,7 +406,8 @@ async function previewCV(id, name) {
         const blob = raw.type === 'application/pdf' ? raw : new Blob([raw], { type: 'application/pdf' });
         frame.src = URL.createObjectURL(blob);
     } catch (e) {
-        loading.textContent = 'Erro ao carregar PDF: ' + e.message;
+        const loading = document.getElementById('pdfLoadingMsg');
+        if (loading) loading.textContent = 'Erro ao carregar PDF: ' + e.message;
     }
 }
 

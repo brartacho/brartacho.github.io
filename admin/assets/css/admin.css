@@ -1,5 +1,10 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        html {
+            background: #0a0a0f; /* Android PWA lê o background do html para colorir a nav bar do sistema */
+            color-scheme: dark;
+        }
+
         :root {
             --bg: #0a0a0f;
             --bg-soft: #0f0f17;
@@ -1685,6 +1690,7 @@
                 flex: 1;
                 gap: 0;
                 border-radius: 0;
+                flex-wrap: nowrap;
             }
             #cvTable .cv-action-btn {
                 flex: 1;
@@ -1940,11 +1946,12 @@
 
             /* ─── Fixes de overflow horizontal mobile ─── */
 
-            /* Modais: nunca encostam na borda */
+            /* Modais: nunca encostam na borda; ancora no topo para conteúdo alto não sair da tela */
             .modal-content,
             .radar-buscar-modal,
             .radar-adicionar-modal,
             .modal-overlay .panel { max-width: calc(100vw - 24px); }
+            .modal-overlay { align-items: flex-start; overflow-y: auto; }
 
             /* Coluna "Ações" das tabelas: permite quebra */
             th.col-actions, td.col-actions { white-space: normal; }
