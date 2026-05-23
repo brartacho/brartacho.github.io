@@ -1714,6 +1714,11 @@ document.addEventListener('click', e => {
 
 // ─── TABS ─────────────────────────────────────────────────
 function switchTab(name) {
+    // Guard: aba inexistente ou bloqueada no demo
+    if (!ADMIN_TABS.some(t => t.key === name)) return;
+    const _enabled = window.ADMIN_CONFIG?.enabledTabs;
+    if (Array.isArray(_enabled) && _enabled.length > 0 && !_enabled.includes(name)) return;
+
     // Fecha modais abertos: permite que bottom-nav funcione mesmo com modal visível
     ['sendCvModal','editCvModal','forgotModal','shareModal','confirmModal','promptModal','kpiDetailModal']
         .forEach(id => { const m = document.getElementById(id); if (m && !m.hidden) m.hidden = true; });
@@ -1750,6 +1755,9 @@ function switchTab(name) {
 
 // ─── LOAD ALL ─────────────────────────────────────────────
 function loadAll() {
+    // Renderiza as abas (fonte única em ADMIN_TABS) antes de qualquer switchTab.
+    renderAdminTabs();
+
     // Carrega a aba inicial (CVs) + stats; pré-carrega demais abas em background.
     loadCVs();
     loadStorageStats();
@@ -4532,14 +4540,44 @@ async function revokeAllSessions() {
     }
 }
 
-// ─── DEMO SETTINGS ────────────────────────────────────────
-const _DEMO_ALL_TABS = [
-    { key: 'cvs',      label: 'Currículos', icon: 'fa-file-pdf'   },
-    { key: 'tokens',   label: 'Tokens',     icon: 'fa-key'        },
-    { key: 'vagas',    label: 'Vagas',      icon: 'fa-briefcase'  },
-    { key: 'logs',     label: 'Logs',       icon: 'fa-chart-bar'  },
-    { key: 'metricas', label: 'Métricas',   icon: 'fa-chart-line' },
+// ─── ABAS DO ADMIN ────────────────────────────────────────
+// Fonte única das abas. Renderiza desktop tab bar + mobile-bottom-nav.
+// Para adicionar/remover/reordenar uma aba, edite SÓ este array.
+const ADMIN_TABS = [
+    { key: 'cvs',       label: 'Currículos',      shortLabel: 'Currículos', icon: 'fa-file-pdf',       demoEligible: true  },
+    { key: 'tokens',    label: 'Tokens',          shortLabel: 'Tokens',     icon: 'fa-key',            demoEligible: true  },
+    { key: 'logs',      label: 'Logs',            shortLabel: 'Logs',       icon: 'fa-chart-bar',      demoEligible: true  },
+    { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true  },
+    { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: false },
+    { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true  },
+    { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: false },
 ];
+
+function renderAdminTabs() {
+    const desktopBar = document.querySelector('.app-tabs');
+    const mobileBar  = document.getElementById('mobileBottomNav');
+    const activeKey  = _activeTab || 'cvs';
+
+    if (desktopBar) {
+        desktopBar.innerHTML = ADMIN_TABS.map(t => `
+            <button class="tab-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
+                <i class="fa-solid ${t.icon}"></i> ${t.label}
+            </button>`).join('');
+    }
+    if (mobileBar) {
+        mobileBar.innerHTML = ADMIN_TABS.map(t => `
+            <button class="mobile-nav-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
+                <i class="fa-solid ${t.icon}"></i>
+                <span>${t.shortLabel}</span>
+            </button>`).join('');
+    }
+}
+
+// ─── DEMO SETTINGS ────────────────────────────────────────
+// _DEMO_ALL_TABS deriva de ADMIN_TABS (filtra demoEligible).
+const _DEMO_ALL_TABS = ADMIN_TABS.filter(t => t.demoEligible).map(t => ({
+    key: t.key, label: t.label, icon: t.icon,
+}));
 
 async function loadDemoSettings() {
     // Só disponível no painel de produção

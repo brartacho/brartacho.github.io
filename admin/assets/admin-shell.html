@@ -12,15 +12,8 @@
         <button class="app-logout" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</button>
     </header>
 
-    <nav class="app-tabs">
-        <button class="tab-btn active" data-tab="cvs" onclick="switchTab('cvs')"><i class="fa-solid fa-file-pdf"></i> Currículos</button>
-        <button class="tab-btn" data-tab="tokens" onclick="switchTab('tokens')"><i class="fa-solid fa-key"></i> Tokens</button>
-        <button class="tab-btn" data-tab="logs" onclick="switchTab('logs')"><i class="fa-solid fa-chart-bar"></i> Logs</button>
-        <button class="tab-btn" data-tab="vagas" onclick="switchTab('vagas')"><i class="fa-solid fa-briefcase"></i> Gestão de Vagas</button>
-        <button class="tab-btn" data-tab="radar" onclick="switchTab('radar')"><i class="fa-solid fa-satellite-dish"></i> Radar</button>
-        <button class="tab-btn" data-tab="metricas" onclick="switchTab('metricas')"><i class="fa-solid fa-chart-line"></i> Métricas</button>
-        <button class="tab-btn" data-tab="seguranca" onclick="switchTab('seguranca')"><i class="fa-solid fa-shield-halved"></i> Segurança</button>
-    </nav>
+    <!-- Botões injetados dinamicamente por renderAdminTabs() a partir de ADMIN_TABS em admin-core.js -->
+    <nav class="app-tabs" id="appTabs"></nav>
 
     <div class="app-content">
 
@@ -1485,33 +1478,5 @@
 </div>
 
 <!-- ─── BOTTOM NAV (mobile only) ─────────────────────────── -->
-<nav class="mobile-bottom-nav" id="mobileBottomNav">
-    <button class="mobile-nav-btn active" data-tab="cvs" onclick="switchTab('cvs')">
-        <i class="fa-solid fa-file-pdf"></i>
-        <span>Currículos</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="tokens" onclick="switchTab('tokens')">
-        <i class="fa-solid fa-key"></i>
-        <span>Tokens</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="logs" onclick="switchTab('logs')">
-        <i class="fa-solid fa-chart-bar"></i>
-        <span>Logs</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="vagas" onclick="switchTab('vagas')">
-        <i class="fa-solid fa-briefcase"></i>
-        <span>Vagas</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="radar" onclick="switchTab('radar')">
-        <i class="fa-solid fa-satellite-dish"></i>
-        <span>Radar</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="metricas" onclick="switchTab('metricas')">
-        <i class="fa-solid fa-chart-line"></i>
-        <span>Métricas</span>
-    </button>
-    <button class="mobile-nav-btn" data-tab="seguranca" onclick="switchTab('seguranca')">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>Segurança</span>
-    </button>
-</nav>
+<!-- Botões injetados dinamicamente por renderAdminTabs() a partir de ADMIN_TABS em admin-core.js -->
+<nav class="mobile-bottom-nav" id="mobileBottomNav"></nav>

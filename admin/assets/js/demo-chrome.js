@@ -88,10 +88,15 @@ function revealApp() {
     if (app)    app.style.display    = 'block';
     if (replay) replay.classList.add('visible');
 
-    // Filtra abas conforme configuração do admin de produção
+    // Renderiza as abas (idempotente). Necessário no demo porque loadAll() do prod
+    // é o ponto que normalmente chama renderAdminTabs.
+    if (typeof renderAdminTabs === 'function') renderAdminTabs();
+
+    // Filtra abas conforme configuração do admin de produção. Aplica em ambos os bars
+    // (desktop .tab-btn + mobile .mobile-nav-btn) — usam a mesma chave data-tab.
     const enabledTabs = window.ADMIN_CONFIG?.enabledTabs;
     if (Array.isArray(enabledTabs) && enabledTabs.length > 0) {
-        document.querySelectorAll('.app-tabs .tab-btn[data-tab]').forEach(btn => {
+        document.querySelectorAll('.tab-btn[data-tab], .mobile-nav-btn[data-tab]').forEach(btn => {
             btn.style.display = enabledTabs.includes(btn.dataset.tab) ? '' : 'none';
         });
     }
