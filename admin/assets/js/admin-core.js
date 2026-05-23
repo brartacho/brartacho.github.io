@@ -5064,6 +5064,7 @@ let _radarMinScore = 0;
 let _radarFonteFilter = 'all';
 let _radarModFilter   = 'all';
 let _radarSortKey     = 'score';
+let _radarFiltersOpen = false;
 let _radarSelecting = false;
 let _radarSelected  = new Set();
 let _adaptarCvLeadId = null;
@@ -5121,22 +5122,41 @@ function renderRadarList(leads) {
     }).join('');
 }
 
+// ── Filter panel toggle ──
+function toggleRadarFilters() {
+    _radarFiltersOpen = !_radarFiltersOpen;
+    document.getElementById('radarFiltersPanel')?.classList.toggle('collapsed', !_radarFiltersOpen);
+    const ch = document.getElementById('radarFiltersChevron');
+    if (ch) ch.style.transform = _radarFiltersOpen ? 'rotate(180deg)' : '';
+}
+function _updateRadarFilterBadge() {
+    let n = 0;
+    if (_radarMinScore > 0)          n++;
+    if (_radarFonteFilter !== 'all') n++;
+    if (_radarModFilter   !== 'all') n++;
+    const badge = document.getElementById('radarFiltersBadge');
+    if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
+}
+
 // ── Filter / sort helpers ──
 function setRadarMinScore(val) {
     _radarMinScore = Number(val) || 0;
     renderRadarList(_radarLeads);
+    _updateRadarFilterBadge();
 }
 function setRadarFonteFilter(val, btn) {
     _radarFonteFilter = val;
     document.querySelectorAll('.radar-fonte-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderRadarList(_radarLeads);
+    _updateRadarFilterBadge();
 }
 function setRadarModFilter(val, btn) {
     _radarModFilter = val;
     document.querySelectorAll('.radar-mod-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderRadarList(_radarLeads);
+    _updateRadarFilterBadge();
 }
 function setRadarSort(key, btn) {
     _radarSortKey = key;

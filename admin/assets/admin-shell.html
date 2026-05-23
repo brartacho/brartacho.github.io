@@ -681,8 +681,14 @@
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                     <button class="btn btn-sm" onclick="openLimparModal()" title="Limpar leads antigos/obsoletos"><i class="fa-solid fa-broom"></i> Limpar</button>
                     <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
+                    <button class="btn btn-sm" id="radarFiltersToggleBtn" onclick="toggleRadarFilters()" title="Mostrar/ocultar filtros" style="display:inline-flex;align-items:center;gap:5px">
+                        <i class="fa-solid fa-sliders"></i> Filtros
+                        <span id="radarFiltersBadge" class="radar-filters-badge" style="display:none"></span>
+                        <i class="fa-solid fa-chevron-down" id="radarFiltersChevron" style="font-size:0.7em;transition:transform 0.2s;"></i>
+                    </button>
                 </div>
             </div>
+            <div id="radarFiltersPanel" class="collapsed">
             <div class="radar-filter-bar">
                 <div class="radar-filter-group">
                     <span class="radar-filter-label">Score mín:</span>
@@ -717,6 +723,7 @@
                     <button class="radar-sort-chip" onclick="setRadarSort('date',this)">Data</button>
                     <button class="radar-sort-chip" onclick="setRadarSort('empresa',this)">Empresa</button>
                 </div>
+            </div>
             </div>
             <div id="radarList" class="radar-list"></div>
 
