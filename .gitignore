@@ -31,3 +31,6 @@ docs/superpowers/
 
 # LinkedIn session cookies (contém dados de autenticação pessoal)
 mcp/.linkedin-session.json
+
+# Logs do pm2 (radar-mcp daemon)
+logs/

@@ -4448,7 +4448,7 @@ function renderLoginAttempts({ attempts = [], alert_ips = [] }) {
 
 // ─── SESSÕES ──────────────────────────────────────────────
 
-function _parseUA(ua) {
+function _parseUASession(ua) {
     if (!ua) return 'Desconhecido';
     const os = /Windows/.test(ua) ? 'Windows'
         : /Mac OS X/.test(ua) ? 'macOS'
@@ -4477,7 +4477,7 @@ async function loadSessions() {
             const isCurrent  = !!s.is_current;
             const dotCls     = isCurrent ? 'dot-current' : isRevoked ? 'dot-revoked' : 'dot-active';
             const itemCls    = isCurrent ? 'is-current' : isRevoked ? 'is-revoked' : '';
-            const ua         = _parseUA(s.user_agent);
+            const ua         = _parseUASession(s.user_agent);
             const seen       = new Date(s.last_seen_at).toLocaleString('pt-BR');
             const created    = new Date(s.created_at).toLocaleString('pt-BR');
             const badgeHtml  = isCurrent
@@ -4800,7 +4800,7 @@ function copyRadarSearchCmd() {
         .catch(() => showToast('Não foi possível copiar.', 'error'));
 }
 
-function _rsqShowStatus(status, extra, res) {
+function _rsqShowStatus(status, extra, res, mcp) {
     const el = document.getElementById('rsqStatus');
     if (!el) return;
     el.style.display = '';
@@ -4809,10 +4809,16 @@ function _rsqShowStatus(status, extra, res) {
 
     if (status === 'pending') {
         const created = res?.created_at;
-        const sincePending = created ? (Date.now() - new Date(created).getTime()) / 1000 : 0;
-        const stale = sincePending > 35;
-        const hintCls = stale ? 'rsq-progress-hint rsq-hint-warn' : 'rsq-progress-hint';
-        const hintTxt = stale ? '⚠ MCP server pode não estar em execução' : 'Aguardando MCP server local';
+        // Hint baseado em heartbeat real (não mais heurística de tempo).
+        // mcp.online === false → amarelo com instrução; true → cinza ativo; null → cinza neutro
+        let hintCls = 'rsq-progress-hint';
+        let hintTxt = 'Aguardando MCP server local';
+        if (mcp?.online === false) {
+            hintCls = 'rsq-progress-hint rsq-hint-warn';
+            hintTxt = '⚠ MCP server não está em execução — rode <code>npm run mcp:start</code>';
+        } else if (mcp?.online === true) {
+            hintTxt = `Aguardando MCP processar (servidor ativo, visto há ${mcp.seconds_ago}s)`;
+        }
         el.innerHTML = `<div class="rsq-progress-wrap rsq-pending" aria-live="polite">
             <div class="rsq-progress-header">
                 <span><i class="fa-solid fa-clock"></i> Na fila…</span>
@@ -4872,7 +4878,11 @@ let _rsqPollTimer = null;
 async function _rsqPoll(id) {
     clearTimeout(_rsqPollTimer);
     try {
-        const res = await api('GET', `/api/admin/radar?action=search-status&id=${id}`);
+        // Busca status do request + heartbeat do MCP em paralelo
+        const [res, mcp] = await Promise.all([
+            api('GET', `/api/admin/radar?action=search-status&id=${id}`),
+            api('GET', '/api/admin/radar?action=mcp-status').catch(() => ({ online: null })),
+        ]);
         if (id !== _rsqActiveId) return; // poll obsoleto — outra busca foi disparada
         if (res.status === 'done') {
             const n = res.result?.total_new ?? 0;
@@ -4885,7 +4895,7 @@ async function _rsqPoll(id) {
             showToast(res.error_message || 'Erro na busca', 'error');
             loadRsqHistory();
         } else {
-            _rsqShowStatus(res.status, undefined, res);
+            _rsqShowStatus(res.status, undefined, res, mcp);
             _rsqPollTimer = setTimeout(() => _rsqPoll(id), 5000);
         }
     } catch (_) {

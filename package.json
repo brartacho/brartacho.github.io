@@ -7,7 +7,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "mcp:setup":   "powershell -ExecutionPolicy Bypass -File scripts/setup-mcp-daemon.ps1",
+    "mcp:start":   "pm2 start ecosystem.config.cjs",
+    "mcp:stop":    "pm2 stop radar-mcp",
+    "mcp:restart": "pm2 restart radar-mcp",
+    "mcp:status":  "pm2 status",
+    "mcp:logs":    "pm2 logs radar-mcp --lines 50"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
