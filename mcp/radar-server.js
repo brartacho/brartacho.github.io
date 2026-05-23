@@ -24,6 +24,13 @@ import { searchMaringa } from './search/maringa.js';
 import { searchIndeed } from './search/indeed.js';
 import { clearSession } from './search/session.js';
 
+const SCRAPERS = {
+    linkedin: (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
+    gupy:     (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    maringa:  (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
+    indeed:   (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+};
+
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_KEY;
 if (!url || !key) {
@@ -567,13 +574,6 @@ server.registerTool('search_all',
 
         if (enabled.length === 0) return fail('Nenhuma plataforma habilitada no perfil.');
 
-        const SCRAPERS = {
-            linkedin: (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
-            gupy:     (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
-            maringa:  (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
-            indeed:   (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
-        };
-
         const summary = { total_found: 0, total_new: 0, total_duplicates: 0, total_below_min: 0, by_platform: {} };
 
         for (const plat of enabled) {
@@ -659,3 +659,49 @@ server.registerTool('clear_linkedin_session',
 
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
+
+// ── Polling de search_requests: processa pedidos feitos pelo admin ──────────
+async function processPendingRequests() {
+    const { data } = await supabase.from('search_requests')
+        .select('*').eq('status', 'pending').order('created_at').limit(1).maybeSingle();
+    if (!data) return;
+
+    console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})`);
+    await supabase.from('search_requests')
+        .update({ status: 'running', started_at: new Date().toISOString() }).eq('id', data.id);
+
+    const profile = await getProfile();
+    const summary = { total_found: 0, total_new: 0, by_platform: {} };
+    try {
+        for (const platId of data.platforms) {
+            const scraper = SCRAPERS[platId];
+            if (!scraper) { console.error(`[radar-mcp] scraper desconhecido: ${platId}`); continue; }
+            const cfg = {
+                keywords:    data.keywords?.length ? data.keywords : undefined,
+                max_results: data.max_results || undefined,
+            };
+            let leads = [];
+            try {
+                leads = await scraper(cfg);
+            } catch (e) {
+                console.error(`[radar-mcp] erro em ${platId}: ${e.message}`);
+                summary.by_platform[platId] = { error: e.message };
+                continue;
+            }
+            const result = await ingestLeads(leads, profile, data.dry_run);
+            await logSearch(platId, cfg.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+            summary.by_platform[platId] = { found: leads.length, new: result.newCount };
+            summary.total_found += leads.length;
+            summary.total_new   += result.newCount;
+        }
+        await supabase.from('search_requests')
+            .update({ status: 'done', result: summary, finished_at: new Date().toISOString() }).eq('id', data.id);
+        console.error(`[radar-mcp] search_request ${data.id} concluída: ${summary.total_new} novas vagas`);
+    } catch (e) {
+        await supabase.from('search_requests')
+            .update({ status: 'error', error_message: e.message, finished_at: new Date().toISOString() }).eq('id', data.id);
+        console.error(`[radar-mcp] search_request ${data.id} falhou: ${e.message}`);
+    }
+}
+
+setInterval(() => processPendingRequests().catch(e => console.error('[radar-mcp] poll error:', e.message)), 20_000);
