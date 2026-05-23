@@ -987,6 +987,7 @@ function renderDrawerBody(app) {
         <div class="drawer-actions">
             <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
             <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
+            ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
             <button class="btn btn-danger btn-sm" style="padding:6px 10px" title="Deletar candidatura"
@@ -4598,6 +4599,14 @@ async function loadRadar() {
     } catch (e) { /* perfil ainda não criado — segue */ }
 
     loadRsqHistory();
+    loadRadarStats();
+
+    // Parte 2: feedback visual no toggle (mesmo se rede instantânea)
+    const sw = document.querySelector('.radar-filter-bar .radar-switch');
+    if (sw) {
+        sw.classList.add('loading');
+        setTimeout(() => sw.classList.remove('loading'), 400);
+    }
 
     const all = document.getElementById('radarShowAll')?.checked ? '?all=1' : '';
     const list = document.getElementById('radarList');
@@ -4610,11 +4619,111 @@ async function loadRadar() {
     }
 }
 
+// Parte 7: breakdown de contadores no header
+async function loadRadarStats() {
+    const el = document.getElementById('radarStats');
+    if (!el) return;
+    try {
+        const s = await api('GET', '/api/admin/radar?action=stats');
+        const parts = [];
+        const by = s.by_status || {};
+        const ativos = (by.novo || 0) + (by.avaliada || 0);
+        if (ativos)          parts.push(`<span class="stat"><span class="stat-val">${ativos}</span> ativos</span>`);
+        if (by.promovida)    parts.push(`<span class="stat"><span class="stat-val">${by.promovida}</span> promovidas</span>`);
+        if (by.descartada)   parts.push(`<span class="stat"><span class="stat-val">${by.descartada}</span> descartadas</span>`);
+        if (s.stale_count)   parts.push(`<span class="stat" title="Leads novos/avaliados parados há mais de 30 dias"><span class="stat-val" style="color:#fbbf24">${s.stale_count}</span> parados</span>`);
+        if (parts.length) {
+            el.innerHTML = parts.join('<span class="stat-divider">·</span>');
+        } else {
+            el.innerHTML = '';
+        }
+    } catch (_) { /* stats são opcionais */ }
+}
+
+// Parte 7: modal de limpeza
+const CLEANUP_PRESETS_UI = [
+    { id: 'descartadas_30d',     label: 'Descartadas há mais de 30 dias',  desc: 'DELETE — leads rejeitados há ≥30d (sem candidatura)', danger: true },
+    { id: 'descartadas_60d',     label: 'Descartadas há mais de 60 dias',  desc: 'DELETE — recomendado: vaga provavelmente não está mais ativa', danger: false },
+    { id: 'descartadas_90d',     label: 'Descartadas há mais de 90 dias',  desc: 'DELETE — leads bem antigos, baixíssimo risco', danger: false },
+    { id: 'promovidas_180d',     label: 'Promovidas há mais de 180 dias',  desc: 'DELETE — só remove se candidatura não estiver em processo', danger: true },
+    { id: 'expirar_parados_30d', label: 'Expirar parados há mais de 30d',  desc: 'UPDATE — marca como descartada com motivo "expirado"', danger: false },
+];
+let _cleanupSelected = null;
+
+function openLimparModal() {
+    _cleanupSelected = null;
+    document.getElementById('cleanupExecuteBtn').disabled = true;
+    document.getElementById('cleanupPreview').hidden = true;
+    const list = document.getElementById('cleanupPresetList');
+    if (list) {
+        list.innerHTML = CLEANUP_PRESETS_UI.map(p => `
+            <label class="cleanup-preset" data-id="${p.id}">
+                <input type="radio" name="cleanupPreset" value="${p.id}" onchange="selectCleanupPreset('${p.id}')">
+                <div class="cleanup-preset-body">
+                    <p class="cleanup-preset-label">${esc(p.label)}</p>
+                    <p class="cleanup-preset-desc">${esc(p.desc)}</p>
+                </div>
+                <span class="cleanup-preset-count" id="cpc_${p.id}">…</span>
+            </label>
+        `).join('');
+        // Pré-carrega contagens em paralelo
+        CLEANUP_PRESETS_UI.forEach(p => {
+            api('GET', `/api/admin/radar?action=cleanup-preview&preset=${p.id}`)
+                .then(r => {
+                    const el = document.getElementById(`cpc_${p.id}`);
+                    if (el) el.textContent = `${r.count || 0} lead${r.count === 1 ? '' : 's'}`;
+                })
+                .catch(() => {
+                    const el = document.getElementById(`cpc_${p.id}`);
+                    if (el) el.textContent = '—';
+                });
+        });
+    }
+    document.getElementById('radarLimparModal').classList.add('open');
+}
+function closeLimparModal() {
+    document.getElementById('radarLimparModal').classList.remove('open');
+}
+async function selectCleanupPreset(id) {
+    _cleanupSelected = id;
+    document.querySelectorAll('.cleanup-preset').forEach(p => p.classList.toggle('selected', p.dataset.id === id));
+    document.getElementById('cleanupExecuteBtn').disabled = false;
+    const cfg = CLEANUP_PRESETS_UI.find(p => p.id === id);
+    try {
+        const r = await api('GET', `/api/admin/radar?action=cleanup-preview&preset=${id}`);
+        const isExpire = id.startsWith('expirar_');
+        const verb = isExpire ? 'marcados como descartados' : 'excluídos permanentemente';
+        const prev = document.getElementById('cleanupPreview');
+        if (prev) {
+            prev.hidden = false;
+            prev.className = `cleanup-preview${cfg?.danger && !isExpire ? ' warn' : ''}`;
+            prev.innerHTML = `<strong>${r.count || 0} lead${r.count === 1 ? '' : 's'}</strong> serão ${verb}.${cfg?.danger && !isExpire ? '<br>⚠ Leads com candidatura ativa em job_applications são preservados automaticamente.' : ''}`;
+        }
+    } catch (_) { /* silencioso */ }
+}
+async function executeCleanup(btn) {
+    if (!_cleanupSelected) return;
+    const cfg = CLEANUP_PRESETS_UI.find(p => p.id === _cleanupSelected);
+    if (!await showConfirm('Confirmar limpeza?', `Tem certeza? ${cfg?.danger ? 'Esta ação não pode ser desfeita.' : 'Esta ação é reversível restaurando os leads.'}`, { okText: cfg?.danger ? 'Limpar' : 'Confirmar', danger: !!cfg?.danger })) return;
+    try {
+        const r = await withLoading(btn, () => api('DELETE', `/api/admin/radar?action=cleanup&preset=${_cleanupSelected}`), 'Limpando…');
+        const n = r.deleted ?? r.updated ?? 0;
+        showToast(`${n} lead${n === 1 ? '' : 's'} processado${n === 1 ? '' : 's'}.`);
+        closeLimparModal();
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
 // ── Buscar vagas ─────────────────────────────────────────────────────────────
 
-function _rsqPlatforms() {
-    return [...document.querySelectorAll('#rsqPlatforms input[type=checkbox]')]
-        .filter(c => c.checked).map(c => c.value);
+// Estado do polling/progress (Parte 1)
+let _rsqRequestPlats = [];     // plataformas da requisição ativa (para chips)
+let _rsqElapsedTimer = null;
+let _rsqStartedAt = null;
+let _rsqActiveId = null;       // ID da busca ativa — evita race condition entre polls
+
+function _rsqGetSelectedPlats() {
+    return _chipsGetSelected(document.getElementById('rsqPlatforms'));
 }
 
 function _rsqKeywords() {
@@ -4623,16 +4732,38 @@ function _rsqKeywords() {
 }
 
 function _rsqSyncPlatforms(profile) {
-    const plats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
-    if (!plats.length) return;
-    document.querySelectorAll('#rsqPlatforms input[type=checkbox]').forEach(cb => {
-        const p = plats.find(p => p.id === cb.value);
-        if (p) cb.checked = !!p.enabled;
-    });
+    const container = document.getElementById('rsqPlatforms');
+    if (!container) return;
+    const allPlats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
+    if (!allPlats.length) {
+        // Fallback: lista padrão se perfil não tem search_platforms
+        _chipsRender(container, [
+            { value: 'linkedin', label: 'LinkedIn' },
+            { value: 'gupy',     label: 'Gupy' },
+            { value: 'maringa',  label: 'Maringá' },
+            { value: 'indeed',   label: 'Indeed' },
+        ], ['linkedin', 'gupy', 'maringa']);
+        return;
+    }
+    _chipsRender(container, allPlats.map(p => ({ value: p.id, label: p.label || p.id })),
+        allPlats.filter(p => p.enabled !== false).map(p => p.id));
+}
+
+function _rsqStartElapsed(isoDate) {
+    clearInterval(_rsqElapsedTimer);
+    _rsqStartedAt = isoDate ? new Date(isoDate) : new Date();
+    _rsqElapsedTimer = setInterval(_rsqUpdateElapsed, 1000);
+    _rsqUpdateElapsed();
+}
+function _rsqUpdateElapsed() {
+    const el = document.getElementById('rsqElapsed');
+    if (!el) { clearInterval(_rsqElapsedTimer); return; }
+    const s = Math.max(0, Math.floor((Date.now() - _rsqStartedAt) / 1000));
+    el.textContent = s < 60 ? `há ${s}s` : `há ${Math.floor(s/60)}m${s % 60}s`;
 }
 
 async function requestRadarSearch(btn) {
-    const platforms = _rsqPlatforms();
+    const platforms = _rsqGetSelectedPlats();
     if (!platforms.length) { showToast('Selecione ao menos uma plataforma.', 'error'); return; }
     const payload = {
         platforms,
@@ -4643,14 +4774,17 @@ async function requestRadarSearch(btn) {
     try {
         await withLoading(btn, async () => {
             const res = await api('POST', '/api/admin/radar?action=request-search', payload);
-            _rsqShowStatus('pending');
+            _rsqRequestPlats = payload.platforms;
+            _rsqActiveId    = res.id;
+            _rsqStartedAt   = null;
+            _rsqShowStatus('pending', undefined, { created_at: new Date().toISOString() });
             _rsqPoll(res.id);
         }, 'Solicitando…');
     } catch (e) { showToast(e.message, 'error'); }
 }
 
 function copyRadarSearchCmd() {
-    const platforms = _rsqPlatforms();
+    const platforms = _rsqGetSelectedPlats();
     const keywords  = _rsqKeywords();
     const max       = parseInt(document.getElementById('rsqMaxResults')?.value) || 20;
     let cmd;
@@ -4666,12 +4800,71 @@ function copyRadarSearchCmd() {
         .catch(() => showToast('Não foi possível copiar.', 'error'));
 }
 
-function _rsqShowStatus(status, extra) {
+function _rsqShowStatus(status, extra, res) {
     const el = document.getElementById('rsqStatus');
     if (!el) return;
-    const icons  = { pending: 'fa-clock', running: 'fa-circle-notch fa-spin', done: 'fa-check', error: 'fa-triangle-exclamation' };
-    const labels = { pending: 'Na fila…', running: 'Executando scrapers…', done: extra || 'Concluída!', error: extra || 'Erro na busca' };
     el.style.display = '';
+
+    const PLAT_NAMES = { linkedin: 'LinkedIn', gupy: 'Gupy', maringa: 'Maringá', indeed: 'Indeed' };
+
+    if (status === 'pending') {
+        const created = res?.created_at;
+        const sincePending = created ? (Date.now() - new Date(created).getTime()) / 1000 : 0;
+        const stale = sincePending > 35;
+        const hintCls = stale ? 'rsq-progress-hint rsq-hint-warn' : 'rsq-progress-hint';
+        const hintTxt = stale ? '⚠ MCP server pode não estar em execução' : 'Aguardando MCP server local';
+        el.innerHTML = `<div class="rsq-progress-wrap rsq-pending" aria-live="polite">
+            <div class="rsq-progress-header">
+                <span><i class="fa-solid fa-clock"></i> Na fila…</span>
+                <span class="rsq-elapsed" id="rsqElapsed"></span>
+            </div>
+            <div class="rsq-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="rsq-bar rsq-bar-pulse"></div>
+            </div>
+            <div class="${hintCls}">${hintTxt}</div>
+        </div>`;
+        if (!_rsqStartedAt) _rsqStartElapsed(created);
+        else _rsqUpdateElapsed();
+        return;
+    }
+
+    if (status === 'running') {
+        const prog  = res?.progress || {};
+        const done  = prog.done || [];
+        const cur   = prog.current;
+        const plats = _rsqRequestPlats.length ? _rsqRequestPlats : (prog.platforms || []);
+        const total = prog.total || plats.length || 1;
+        const pct   = Math.max(Math.round(done.length / total * 100), 5);
+        const chips = plats.map(p => {
+            const isDone = done.includes(p), isCur = p === cur;
+            const cls  = isDone ? 'rsq-plat-chip-done' : isCur ? 'rsq-plat-chip-active' : 'rsq-plat-chip-wait';
+            const icon = isDone ? 'fa-check' : isCur ? 'fa-circle-notch fa-spin' : 'fa-circle';
+            return `<span class="rsq-plat-chip ${cls}"><i class="fa-solid ${icon}"></i> ${esc(PLAT_NAMES[p] || p)}</span>`;
+        }).join('');
+        el.innerHTML = `<div class="rsq-progress-wrap rsq-running" aria-live="polite">
+            <div class="rsq-progress-header">
+                <span><i class="fa-solid fa-circle-notch fa-spin"></i> Executando… <span class="rsq-progress-count">${done.length}/${total}</span></span>
+                <span class="rsq-elapsed" id="rsqElapsed"></span>
+            </div>
+            <div class="rsq-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+                <div class="rsq-bar" style="width:${pct}%"></div>
+            </div>
+            <div class="rp-chips">${chips}</div>
+        </div>`;
+        if (!_rsqStartedAt) _rsqStartElapsed(res?.started_at);
+        else _rsqUpdateElapsed();
+        return;
+    }
+
+    // done/error: badge simples + reset de estado
+    clearInterval(_rsqElapsedTimer);
+    _rsqElapsedTimer = null;
+    _rsqStartedAt = null;
+    _rsqRequestPlats = [];
+    _rsqActiveId = null;
+
+    const icons  = { done: 'fa-check', error: 'fa-triangle-exclamation' };
+    const labels = { done: extra || 'Concluída!', error: extra || 'Erro na busca' };
     el.innerHTML = `<span class="rsq-badge rsq-${status}"><i class="fa-solid ${icons[status]}"></i> ${labels[status]}</span>`;
 }
 
@@ -4680,20 +4873,23 @@ async function _rsqPoll(id) {
     clearTimeout(_rsqPollTimer);
     try {
         const res = await api('GET', `/api/admin/radar?action=search-status&id=${id}`);
+        if (id !== _rsqActiveId) return; // poll obsoleto — outra busca foi disparada
         if (res.status === 'done') {
             const n = res.result?.total_new ?? 0;
-            _rsqShowStatus('done', `${n} nova${n !== 1 ? 's' : ''} vaga${n !== 1 ? 's' : ''}`);
+            _rsqShowStatus('done', `${n} nova${n!==1?'s':''} vaga${n!==1?'s':''}`);
             showToast(`Busca concluída: ${n} novas vagas`);
             loadRadar();
+            loadRsqHistory();
         } else if (res.status === 'error') {
             _rsqShowStatus('error', res.error_message || 'Erro desconhecido');
             showToast(res.error_message || 'Erro na busca', 'error');
+            loadRsqHistory();
         } else {
-            _rsqShowStatus(res.status);
+            _rsqShowStatus(res.status, undefined, res);
             _rsqPollTimer = setTimeout(() => _rsqPoll(id), 5000);
         }
     } catch (_) {
-        _rsqPollTimer = setTimeout(() => _rsqPoll(id), 10000);
+        if (id === _rsqActiveId) _rsqPollTimer = setTimeout(() => _rsqPoll(id), 10000);
     }
 }
 
@@ -4718,26 +4914,98 @@ async function loadRsqHistory() {
     } catch (_) { el.style.display = 'none'; }
 }
 
+const QUICK_SEARCH_DEFAULTS = [
+    { id: 'linkedin_24h_remote', label: 'Últimas 24h (remoto)', icon: 'fa-clock', url_template: 'https://www.linkedin.com/jobs/search/?keywords={kw}&f_WT=2&f_TPR=r86400&sortBy=DD', enabled: true },
+    { id: 'linkedin_7d_remote', label: 'Últimos 7 dias (remoto)', icon: 'fa-calendar-week', url_template: 'https://www.linkedin.com/jobs/search/?keywords={kw}&f_WT=2&f_TPR=r604800&sortBy=DD', enabled: true },
+    { id: 'posts_contratando', label: 'Publicações: "contratando"', icon: 'fa-bullhorn', url_template: 'https://www.linkedin.com/search/results/content/?keywords=%22contratando%22%20{kw}', enabled: true },
+    { id: 'posts_vaga', label: 'Mercado oculto: "vaga"', icon: 'fa-eye', url_template: 'https://www.linkedin.com/search/results/content/?keywords=%22vaga%22%20{kw}', enabled: true },
+    { id: 'people_leads', label: 'Gestores (Tech Lead/Head)', icon: 'fa-user-tie', url_template: 'https://www.linkedin.com/search/results/people/?keywords=%22Tech%20Lead%22%20OR%20%22Head%22%20{kw}', enabled: true },
+    { id: 'boolean_qa_playwright', label: 'Boolean: QA + Playwright', icon: 'fa-code', url_template: 'https://www.linkedin.com/jobs/search/?keywords=%28%22QA%22%20OR%20%22Analista%20de%20Testes%22%29%20AND%20%22Playwright%22&f_TPR=r604800&sortBy=DD', enabled: true },
+    { id: 'boolean_qa_ia', label: 'Boolean: QA + IA', icon: 'fa-robot', url_template: 'https://www.linkedin.com/jobs/search/?keywords=%22QA%22%20AND%20%28%22IA%22%20OR%20%22Intelig%C3%AAncia%20Artificial%22%29&f_TPR=r604800&sortBy=DD', enabled: true },
+];
+const QUICK_SEARCH_ICONS = ['fa-clock','fa-calendar-week','fa-bullhorn','fa-eye','fa-user-tie','fa-code','fa-robot','fa-magnifying-glass','fa-briefcase','fa-building','fa-link','fa-star'];
+
+function interpolateSearchUrl(template, profile) {
+    const kw = encodeURIComponent((profile?.keywords && profile.keywords[0]) || 'QA');
+    return String(template || '').replace(/\{kw\}/g, kw);
+}
+
 function renderRadarSearches(profile) {
     const grid = document.getElementById('radarSearchGrid');
     if (!grid) return;
-    const kw = (profile.keywords && profile.keywords[0]) || 'QA';
-    const enc = encodeURIComponent;
-    const jobs = (q, tpr) => `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&f_WT=2&f_TPR=${tpr}&sortBy=DD`;
-    const content = q => `https://www.linkedin.com/search/results/content/?keywords=${enc(q)}`;
-    const people = q => `https://www.linkedin.com/search/results/people/?keywords=${enc(q)}`;
-    const links = [
-        ['Últimas 24h (remoto)', jobs(kw, 'r86400'), 'fa-clock'],
-        ['Últimos 7 dias (remoto)', jobs(kw, 'r604800'), 'fa-calendar-week'],
-        ['Publicações: "contratando"', content(`"contratando" ${kw}`), 'fa-bullhorn'],
-        ['Mercado oculto: "vaga"', content(`"vaga" ${kw}`), 'fa-eye'],
-        ['Gestores (Tech Lead/Head)', people(`"Tech Lead" OR "Head" ${kw}`), 'fa-user-tie'],
-        ['Boolean: QA + Playwright', jobs('("QA" OR "Analista de Testes") AND "Playwright"', 'r604800'), 'fa-code'],
-        ['Boolean: QA + IA', jobs('"QA" AND ("IA" OR "Inteligência Artificial")', 'r604800'), 'fa-robot'],
-    ];
-    grid.innerHTML = links.map(([label, url, icon]) =>
-        `<a class="radar-search-btn" href="${esc(url)}" target="_blank" rel="noopener"><i class="fa-solid ${icon}"></i> ${esc(label)}</a>`
+    const list = (profile?.quick_searches?.length ? profile.quick_searches : QUICK_SEARCH_DEFAULTS).filter(q => q.enabled !== false);
+    if (!list.length) {
+        grid.innerHTML = '<p class="radar-hint" style="margin:0">Nenhuma busca rápida configurada. <a href="#" onclick="openQuickSearchesEditor();return false">Editar</a></p>';
+        return;
+    }
+    grid.innerHTML = list.map(q =>
+        `<a class="radar-search-btn" href="${esc(interpolateSearchUrl(q.url_template, profile))}" target="_blank" rel="noopener"><i class="fa-solid ${esc(q.icon || 'fa-link')}"></i> ${esc(q.label)}</a>`
     ).join('');
+}
+
+// ── Editor de buscas rápidas (Parte 3) ──
+let _qsEditing = [];
+
+function openQuickSearchesEditor() {
+    _qsEditing = JSON.parse(JSON.stringify(_radarProfile?.quick_searches?.length ? _radarProfile.quick_searches : QUICK_SEARCH_DEFAULTS));
+    _renderQuickSearchesList();
+    document.getElementById('quickSearchesModal').classList.add('open');
+}
+function closeQuickSearchesEditor() {
+    document.getElementById('quickSearchesModal').classList.remove('open');
+}
+function _renderQuickSearchesList() {
+    const list = document.getElementById('quickSearchesList');
+    if (!list) return;
+    if (!_qsEditing.length) {
+        list.innerHTML = '<p class="radar-hint" style="margin:0">Nenhuma busca cadastrada. Clique em "Adicionar busca" para começar.</p>';
+        return;
+    }
+    list.innerHTML = _qsEditing.map((q, i) => `
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr auto auto;gap:8px;align-items:center;padding:8px;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px">
+            <select class="qs-icon" data-i="${i}" onchange="_qsUpdate(${i},'icon',this.value)" style="background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-family:inherit">
+                ${QUICK_SEARCH_ICONS.map(ic => `<option value="${ic}" ${ic === q.icon ? 'selected' : ''}>${ic.replace('fa-','')}</option>`).join('')}
+            </select>
+            <input type="text" value="${esc(q.label)}" maxlength="60" placeholder="Label" oninput="_qsUpdate(${i},'label',this.value)" style="background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:0.85rem">
+            <input type="text" value="${esc(q.url_template)}" maxlength="500" placeholder="https://… use {kw} para 1ª keyword" oninput="_qsUpdate(${i},'url_template',this.value)" style="background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-mono);font-size:0.75rem">
+            <label class="radar-switch" style="margin:0" title="Ativar/desativar">
+                <input type="checkbox" ${q.enabled !== false ? 'checked' : ''} onchange="_qsUpdate(${i},'enabled',this.checked)">
+                <span class="radar-switch-track"><span class="radar-switch-thumb"></span></span>
+            </label>
+            <button class="btn btn-sm btn-danger" type="button" onclick="removeQuickSearch(${i})" title="Remover"><i class="fa-solid fa-trash"></i></button>
+        </div>
+    `).join('');
+}
+function _qsUpdate(i, field, value) {
+    if (_qsEditing[i]) _qsEditing[i][field] = value;
+}
+function addQuickSearch() {
+    _qsEditing.push({ id: `custom_${Date.now()}`, label: 'Nova busca', icon: 'fa-magnifying-glass', url_template: 'https://www.linkedin.com/jobs/search/?keywords={kw}', enabled: true });
+    _renderQuickSearchesList();
+}
+function removeQuickSearch(i) {
+    _qsEditing.splice(i, 1);
+    _renderQuickSearchesList();
+}
+function resetQuickSearchesToDefault() {
+    _qsEditing = JSON.parse(JSON.stringify(QUICK_SEARCH_DEFAULTS));
+    _renderQuickSearchesList();
+}
+async function saveQuickSearches(btn) {
+    // Validação client-side
+    for (const q of _qsEditing) {
+        if (!q.label || q.label.length > 60) { showToast(`Label inválido: "${q.label || '(vazio)'}"`, 'error'); return; }
+        if (!q.url_template || !q.url_template.startsWith('https://')) { showToast(`URL inválido: deve começar com https://`, 'error'); return; }
+        if (q.url_template.length > 500) { showToast(`URL muito longo: ${q.label}`, 'error'); return; }
+    }
+    try {
+        await withLoading(btn, async () => {
+            _radarProfile = await api('PUT', '/api/admin/profile', { quick_searches: _qsEditing });
+        }, 'Salvando…');
+        renderRadarSearches(_radarProfile);
+        closeQuickSearchesEditor();
+        showToast('Buscas rápidas salvas.');
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 let _radarLeads = [];
@@ -4796,13 +5064,7 @@ function renderRadarList(leads) {
                 ${kw ? `<div class="radar-chips">${kw}</div>` : ''}
                 ${gaps ? `<div class="radar-chips"><span class="radar-chip-label">Gaps:</span>${gaps}</div>` : ''}
                 ${pos}
-                ${_radarSelecting ? '' : `<div class="radar-lead-actions">
-                    <button class="btn btn-sm" onclick="analyzeRadar('${l.id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>
-                    <button class="btn btn-sm" onclick="adaptarCvRadar('${l.id}')"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV</button>
-                    ${!promoted && !discarded ? `<button class="btn btn-cyan btn-sm" onclick="promoteRadar('${l.id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>` : ''}
-                    ${!discarded && !promoted ? `<button class="btn btn-sm" onclick="discardRadar('${l.id}')"><i class="fa-solid fa-ban"></i> Descartar</button>` : ''}
-                    <button class="btn btn-sm" onclick="deleteRadar('${l.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                </div>`}
+                ${_radarSelecting ? '' : _renderLeadActions(l)}
             </div>
         </div>`;
     }).join('');
@@ -5050,12 +5312,135 @@ async function discardRadar(id) {
 }
 
 async function deleteRadar(id) {
-    if (!await showConfirm('Excluir lead?', 'Esta ação não pode ser desfeita.', { okText: 'Excluir' })) return;
+    const lead = _radarLeads.find(l => l.id === id);
+    let extra = '';
+    if (lead?.link_vaga) {
+        try {
+            const r = await api('GET', `/api/admin/radar?action=check-app-link&link=${encodeURIComponent(lead.link_vaga)}`);
+            if (r?.has_app) extra = '\n\nAtenção: você já tem candidatura registrada para essa vaga. Excluir o lead pode causar duplicata na próxima busca.';
+        } catch (_) { /* checagem é opcional */ }
+    }
+    if (!await showConfirm('Excluir lead?', 'Esta ação não pode ser desfeita.' + extra, { okText: 'Excluir' })) return;
     try {
         await api('DELETE', `/api/admin/radar?id=${id}`);
         showToast('Lead excluído.');
         loadRadar();
     } catch (e) { showToast(e.message, 'error'); }
+}
+
+// Parte 7 / Camada 4: escape hatch — reabrir candidatura no Radar para nova avaliação
+async function reopenInRadar(appId) {
+    if (!await showConfirm('Voltar para o Radar?', 'Reabre esta vaga no Radar como "avaliada" para nova avaliação. A candidatura original fica preservada como histórico.', { okText: 'Reabrir', danger: false })) return;
+    try {
+        const r = await api('POST', `/api/admin/radar?action=reopen-from-app&app_id=${appId}`);
+        showToast(r.reused ? 'Lead existente atualizado no Radar.' : 'Lead reaberto no Radar.', 'success', {
+            label: 'Ver Radar', callback: () => switchTab('radar')
+        });
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function restoreRadar(id) {
+    if (!await showConfirm('Restaurar lead?', 'Volta para o status "avaliada" e limpa o motivo de descarte.', { okText: 'Restaurar', danger: false })) return;
+    try {
+        await api('PUT', `/api/admin/radar?id=${id}`, { status: 'avaliada', motivo_descarte: null });
+        showToast('Lead restaurado.');
+        loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// Parte 6: botões condicionais por status do lead
+function _renderLeadActions(l) {
+    const id = l.id;
+    const analyze = `<button class="btn btn-sm" onclick="analyzeRadar('${id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>`;
+    let extra = '';
+    if (l.status === 'novo' || l.status === 'avaliada') {
+        extra = `
+            <button class="btn btn-sm" onclick="adaptarCvRadar('${id}')"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV</button>
+            <button class="btn btn-cyan btn-sm" onclick="promoteRadar('${id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>
+            <button class="btn btn-sm" onclick="discardRadar('${id}')" title="Marcar como descartada (reversível)"><i class="fa-solid fa-ban"></i> Descartar</button>
+        `;
+    } else if (l.status === 'descartada') {
+        extra = `
+            <button class="btn btn-sm" onclick="restoreRadar('${id}')" title="Voltar para avaliação"><i class="fa-solid fa-rotate-left"></i> Restaurar</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteRadar('${id}')" title="Excluir permanentemente — não pode ser desfeito"><i class="fa-solid fa-trash-can"></i> Excluir</button>
+        `;
+    } else if (l.status === 'promovida') {
+        extra = `
+            <button class="btn btn-danger btn-sm" onclick="deleteRadar('${id}')" title="Excluir permanentemente — não pode ser desfeito"><i class="fa-solid fa-trash-can"></i> Excluir</button>
+        `;
+    }
+    return `<div class="radar-lead-actions">${analyze}${extra}</div>`;
+}
+
+// ── Helpers compartilhados: chips, tag-input, CNH toggle ──
+function _chipToggle(btn) {
+    const cur = btn.getAttribute('data-selected') === 'true';
+    btn.setAttribute('data-selected', String(!cur));
+}
+function _chipsGetSelected(container) {
+    if (!container) return [];
+    return [...container.querySelectorAll('.rp-chip[data-selected="true"]')].map(b => b.getAttribute('data-value'));
+}
+function _chipsRender(container, items, selected) {
+    if (!container) return;
+    const sel = new Set(selected || []);
+    container.innerHTML = items.map(it => {
+        const val = typeof it === 'string' ? it : it.value;
+        const lbl = typeof it === 'string' ? it : it.label;
+        return `<button type="button" class="rp-chip" data-value="${esc(val)}" data-selected="${sel.has(val)}" onclick="_chipToggle(this)">${esc(lbl)}</button>`;
+    }).join('');
+}
+function _tagInputInit(container, values = []) {
+    if (!container) return;
+    const placeholder = container.getAttribute('data-placeholder') || '+ adicionar';
+    container.innerHTML = '';
+    (values || []).forEach(v => _tagInputAdd(container, v));
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'rp-tag-add';
+    input.placeholder = placeholder;
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const v = input.value.trim().replace(/,$/, '').trim();
+            if (v) { _tagInputAdd(container, v); input.value = ''; }
+        } else if (e.key === 'Backspace' && !input.value) {
+            const tags = container.querySelectorAll('.rp-tag');
+            const last = tags[tags.length - 1];
+            if (last) last.remove();
+        }
+    });
+    input.addEventListener('blur', () => {
+        const v = input.value.trim();
+        if (v) { _tagInputAdd(container, v); input.value = ''; }
+    });
+    container.appendChild(input);
+}
+function _tagInputAdd(container, value) {
+    const tag = document.createElement('span');
+    tag.className = 'rp-tag';
+    const txt = document.createElement('span');
+    txt.textContent = value;
+    tag.appendChild(txt);
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'rp-tag-x'; x.textContent = '×';
+    x.onclick = () => tag.remove();
+    tag.appendChild(x);
+    const adder = container.querySelector('.rp-tag-add');
+    if (adder) container.insertBefore(tag, adder);
+    else container.appendChild(tag);
+}
+function _tagInputGet(container) {
+    if (!container) return [];
+    return [...container.querySelectorAll('.rp-tag > span:first-child')].map(t => t.textContent.trim()).filter(Boolean);
+}
+function _rpToggleCnh() {
+    const has = document.getElementById('rpCnhHas')?.checked;
+    const fld = document.getElementById('rpCnhCategoriesField');
+    if (fld) fld.hidden = !has;
+    if (!has) {
+        document.querySelectorAll('#rpCnhCategories .rp-chip[data-selected="true"]').forEach(c => c.setAttribute('data-selected', 'false'));
+    }
 }
 
 // ── Perfil-base ──
@@ -5068,58 +5453,78 @@ function fillRadarProfileForm(p) {
     set('rpNivel', p.nivel_alvo);
     set('rpModalidade', p.modalidade_pref);
     set('rpLocalizacao', p.localizacao);
-    set('rpCore', _arrToLines(p.skills_core));
-    set('rpEvolucao', _arrToLines(p.skills_evolucao));
-    set('rpGaps', _arrToLines(p.gaps));
-    set('rpSetores', _arrToLines(p.setores));
-    set('rpKeywords', _arrToLines(p.keywords));
-    // Contratação prefs (array)
-    const prefs = Array.isArray(p.contratacao_prefs) ? p.contratacao_prefs :
-        (p.contratacao_pref ? [p.contratacao_pref] : []);
-    ['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo'].forEach(tipo => {
-        const el = document.getElementById(`rpContr${tipo.replace(/[^a-zA-Z]/g,'')}`);
-        if (el) el.checked = prefs.includes(tipo);
-    });
-    // CNH
+
+    // Tag-inputs
+    _tagInputInit(document.getElementById('rpCore'), p.skills_core);
+    _tagInputInit(document.getElementById('rpEvolucao'), p.skills_evolucao);
+    _tagInputInit(document.getElementById('rpGaps'), p.gaps);
+    _tagInputInit(document.getElementById('rpSetores'), p.setores);
+    _tagInputInit(document.getElementById('rpKeywords'), p.keywords);
+
+    // Tipos de contratação como chips
+    const tipos = ['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo'];
+    const prefs = Array.isArray(p.contratacao_prefs) ? p.contratacao_prefs : (p.contratacao_pref ? [p.contratacao_pref] : []);
+    _chipsRender(document.getElementById('rpContratacaoChips'), tipos, prefs);
+
+    // CNH: toggle + categorias condicionais como chips
     const cnh = p.cnh || { has: false, categories: [] };
     const cnhHasEl = document.getElementById('rpCnhHas');
     if (cnhHasEl) cnhHasEl.checked = !!cnh.has;
-    ['A','B','C','D','E'].forEach(cat => {
-        const el = document.getElementById(`rpCnhCat${cat}`);
-        if (el) el.checked = (cnh.categories || []).includes(cat);
-    });
-    // Platforms (rendered dynamically)
+    _chipsRender(document.getElementById('rpCnhCategories'), ['A','B','C','D','E'], cnh.categories || []);
+    const catField = document.getElementById('rpCnhCategoriesField');
+    if (catField) catField.hidden = !cnh.has;
+
+    // Plataformas de busca como chips (com label + id como value)
     const platforms = Array.isArray(p.search_platforms) ? p.search_platforms : [];
     const cont = document.getElementById('rpPlatformsContainer');
     if (cont) {
         if (platforms.length) {
-            cont.innerHTML = platforms.map(plat =>
-                `<label class="radar-check-label"><input type="checkbox" id="rpPlat${esc(plat.id)}" ${plat.enabled ? 'checked' : ''}> ${esc(plat.label || plat.id)}</label>`
-            ).join('');
+            _chipsRender(cont, platforms.map(plat => ({ value: plat.id, label: plat.label || plat.id })), platforms.filter(p => p.enabled !== false).map(p => p.id));
         } else {
             cont.innerHTML = '<span style="font-size:0.75rem;color:var(--text-dim)">Nenhuma plataforma configurada no perfil.</span>';
         }
     }
+
+    // Esconde hint "Salvo" — usuário voltou a editar
+    const hint = document.getElementById('rpSavedHint');
+    if (hint) hint.classList.remove('visible');
 }
+
+let _rpSavedTimer = null;
+function _rpShowSaved() {
+    const hint = document.getElementById('rpSavedHint');
+    const txtEl = document.getElementById('rpSavedHintText');
+    if (!hint || !txtEl) return;
+    clearInterval(_rpSavedTimer);
+    const ts = Date.now();
+    const update = () => {
+        const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        txtEl.textContent = s < 5 ? 'Salvo agora' : s < 60 ? `Salvo há ${s}s` : `Salvo há ${Math.floor(s/60)}min`;
+    };
+    update();
+    hint.classList.add('visible');
+    _rpSavedTimer = setInterval(update, 1000);
+}
+
 async function saveRadarProfile(btn) {
     const val = id => (document.getElementById(id) || {}).value || '';
     const cnhHas = document.getElementById('rpCnhHas')?.checked || false;
-    const cnhCategories = ['A','B','C','D','E'].filter(cat => document.getElementById(`rpCnhCat${cat}`)?.checked);
-    const contratacaoPrefs = ['CLT','PJ','Freelancer','Cooperado','Temporário','Estágio','Autônomo']
-        .filter(tipo => document.getElementById(`rpContr${tipo.replace(/[^a-zA-Z]/g,'')}`)?.checked);
+    const cnhCategories = cnhHas ? _chipsGetSelected(document.getElementById('rpCnhCategories')) : [];
+    const contratacaoPrefs = _chipsGetSelected(document.getElementById('rpContratacaoChips'));
+    const selectedPlats = new Set(_chipsGetSelected(document.getElementById('rpPlatformsContainer')));
     const updatedPlatforms = (_radarProfile.search_platforms || []).map(plat => ({
         ...plat,
-        enabled: document.getElementById(`rpPlat${plat.id}`)?.checked ?? plat.enabled,
+        enabled: selectedPlats.has(plat.id),
     }));
     const payload = {
         nivel_alvo: val('rpNivel').trim(),
         modalidade_pref: val('rpModalidade').trim(),
         localizacao: val('rpLocalizacao').trim(),
-        skills_core: _linesToArr(val('rpCore')),
-        skills_evolucao: _linesToArr(val('rpEvolucao')),
-        gaps: _linesToArr(val('rpGaps')),
-        setores: _linesToArr(val('rpSetores')),
-        keywords: _linesToArr(val('rpKeywords')),
+        skills_core: _tagInputGet(document.getElementById('rpCore')),
+        skills_evolucao: _tagInputGet(document.getElementById('rpEvolucao')),
+        gaps: _tagInputGet(document.getElementById('rpGaps')),
+        setores: _tagInputGet(document.getElementById('rpSetores')),
+        keywords: _tagInputGet(document.getElementById('rpKeywords')),
         diferenciais: _radarProfile.diferenciais || [],
         cnh: { has: cnhHas, categories: cnhCategories },
         contratacao_prefs: contratacaoPrefs,
@@ -5130,6 +5535,8 @@ async function saveRadarProfile(btn) {
             _radarProfile = await api('PUT', '/api/admin/profile', payload);
         }, 'Salvando…');
         renderRadarSearches(_radarProfile);
+        _rsqSyncPlatforms(_radarProfile);
+        _rpShowSaved();
         showToast('Perfil salvo.');
     } catch (e) { showToast(e.message, 'error'); }
 }

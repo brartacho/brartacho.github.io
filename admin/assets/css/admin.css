@@ -2587,3 +2587,152 @@
             padding:8px 12px; gap:8px; align-items:center; z-index:1000;
             box-shadow:0 4px 20px rgba(0,0,0,0.4);
         }
+
+        /* ───────── Refresh radar UI/UX (parte 1-7) ───────── */
+        /* Fix do bug original: força flex-direction row em qualquer .radar-check-label */
+        .radar-check-label { flex-direction:row !important; }
+
+        /* ── Parte 1: Status dinâmico (progress bar + chips por plataforma) ── */
+        .rsq-progress-wrap { padding:10px 12px; border-radius:8px; border:1px solid var(--border); margin-top:2px; }
+        .rsq-progress-wrap.rsq-pending { border-color:rgba(34,211,238,0.2); }
+        .rsq-progress-wrap.rsq-running { border-color:rgba(34,211,238,0.35); }
+        .rsq-progress-header { display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; color:var(--muted, var(--text-dim)); margin-bottom:8px; }
+        .rsq-elapsed { font-variant-numeric:tabular-nums; font-size:0.78rem; opacity:0.7; }
+        .rsq-progress-count { font-variant-numeric:tabular-nums; opacity:0.7; margin-left:4px; font-weight:400; }
+        .rsq-bar-track { height:4px; background:rgba(255,255,255,0.07); border-radius:2px; overflow:hidden; margin-bottom:8px; }
+        .rsq-bar { height:100%; background:var(--cyan); border-radius:2px; transition:width 0.9s ease; }
+        .rsq-bar-pulse { width:30% !important; animation:rsq-bar-pulse 1.6s ease-in-out infinite; }
+        @keyframes rsq-bar-pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+        .rsq-progress-hint { font-size:0.72rem; color:var(--text-dim); opacity:0.6; margin-top:2px; }
+        .rsq-progress-hint.rsq-hint-warn { color:#fbbf24; opacity:0.95; font-weight:500; }
+        .rsq-plat-chip { font-size:0.73rem; padding:3px 9px; border-radius:12px; display:inline-flex; align-items:center; gap:5px; }
+        .rsq-plat-chip-wait   { color:var(--text-dim); background:rgba(255,255,255,0.05); }
+        .rsq-plat-chip-active { color:var(--cyan);     background:rgba(34,211,238,0.13); }
+        .rsq-plat-chip-done   { color:#4ade80;         background:rgba(74,222,128,0.12); }
+
+        /* ── Parte 2: Toggle switch para "incluir promovidas/descartadas" ── */
+        .radar-switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.78rem; color:var(--text-dim); user-select:none; transition:opacity 0.2s; }
+        .radar-switch input[type=checkbox] { position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
+        .radar-switch-track { position:relative; width:30px; height:16px; border-radius:9px; background:rgba(255,255,255,0.08); border:1px solid var(--border); transition:background 0.18s ease, border-color 0.18s ease; flex-shrink:0; }
+        .radar-switch-thumb { position:absolute; top:1px; left:1px; width:12px; height:12px; border-radius:50%; background:var(--text-dim); transition:transform 0.18s ease, background 0.18s ease; }
+        .radar-switch input:checked + .radar-switch-track { background:rgba(34,211,238,0.22); border-color:rgba(34,211,238,0.55); }
+        .radar-switch input:checked + .radar-switch-track .radar-switch-thumb { transform:translateX(14px); background:var(--cyan); }
+        .radar-switch input:focus-visible + .radar-switch-track { box-shadow:0 0 0 2px rgba(34,211,238,0.35); }
+        .radar-switch.loading { opacity:0.55; pointer-events:none; }
+        .radar-switch-label { white-space:nowrap; }
+
+        /* ── Parte 4: Card de perfil reorganizado ── */
+        .rp-section { margin-bottom:18px; }
+        .rp-section + .rp-section { padding-top:14px; border-top:1px solid var(--border); }
+        .rp-section-title { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin:0 0 10px; font-weight:600; }
+        .rp-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        .rp-row.cols-2 { grid-template-columns:repeat(2,1fr); }
+        .rp-field { display:flex; flex-direction:column; gap:5px; }
+        .rp-field > label { font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; font-weight:500; }
+        .rp-field select, .rp-field input[type=text], .rp-field input[type=number] {
+            background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:9px 12px;
+            color:var(--text); font-family:inherit; font-size:0.85rem; outline:none; transition:border-color 0.15s;
+            width:100%; box-sizing:border-box;
+        }
+        .rp-field select:focus, .rp-field input:focus { border-color:var(--cyan-mid); }
+
+        /* Chip selecionável (reusado em platforms, tipos contratação, CNH, plataformas de busca, etc.) */
+        .rp-chips { display:flex; flex-wrap:wrap; gap:6px; }
+        .rp-chip {
+            background:var(--bg-soft); border:1px solid var(--border); border-radius:16px;
+            padding:6px 12px; font-size:0.78rem; color:var(--text-soft); cursor:pointer;
+            transition:all 0.15s ease; user-select:none; font-family:inherit;
+        }
+        .rp-chip:hover { border-color:var(--cyan-mid); }
+        .rp-chip[data-selected="true"] {
+            background:rgba(34,211,238,0.15); border-color:var(--cyan);
+            color:var(--cyan); font-weight:500;
+        }
+
+        /* Tag input (skills, gaps, setores, keywords) */
+        .rp-tag-input {
+            display:flex; flex-wrap:wrap; gap:6px; background:var(--bg-soft);
+            border:1px solid var(--border); border-radius:8px; padding:8px; min-height:42px;
+            transition:border-color 0.15s;
+        }
+        .rp-tag-input:focus-within { border-color:var(--cyan-mid); }
+        .rp-tag {
+            display:inline-flex; align-items:center; gap:4px;
+            background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.3);
+            border-radius:14px; padding:3px 4px 3px 10px; font-size:0.78rem; color:var(--text);
+        }
+        .rp-tag-x {
+            background:none; border:none; color:var(--text-dim); cursor:pointer;
+            padding:0 6px; line-height:1; font-size:1rem; transition:color 0.15s;
+        }
+        .rp-tag-x:hover { color:#f87171; }
+        .rp-tag-add {
+            flex:1; min-width:120px; background:transparent; border:none; outline:none;
+            color:var(--text); font-family:inherit; font-size:0.82rem; padding:4px;
+        }
+
+        /* CNH toggle + categorias condicionais */
+        .rp-cnh-row { display:flex; flex-direction:column; gap:10px; }
+        .rp-cnh-toggle { display:flex; align-items:center; gap:10px; }
+
+        /* Botão salvar perfil + hint */
+        .rp-save-row { display:flex; align-items:center; gap:12px; margin-top:6px; }
+        .rp-saved-hint { display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; color:#4ade80; opacity:0; transition:opacity 0.2s; }
+        .rp-saved-hint.visible { opacity:1; }
+
+        @media (max-width:700px) {
+            .rp-row, .rp-row.cols-2 { grid-template-columns:1fr; }
+        }
+
+        /* ── Parte 5: Modal "Buscar vagas" reorganizado ── */
+        .rsq-section { display:flex; flex-direction:column; gap:12px; margin-bottom:14px; }
+        .rsq-section-title { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); font-weight:600; margin:0; }
+        .rsq-field { display:flex; flex-direction:column; gap:5px; }
+        .rsq-field > label { font-size:0.78rem; color:var(--text); display:flex; align-items:center; gap:6px; }
+        .rsq-field-hint { font-size:0.72rem; color:var(--text-dim); font-weight:400; }
+        .rsq-field input[type=text], .rsq-field input[type=number] {
+            background:var(--bg-soft); border:1px solid var(--border); border-radius:8px;
+            padding:9px 12px; color:var(--text); font-family:inherit; font-size:0.85rem;
+            outline:none; transition:border-color 0.15s; width:100%; box-sizing:border-box;
+        }
+        .rsq-field input:focus { border-color:var(--cyan-mid); }
+        .rsq-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
+        .rsq-checkbox-field { display:flex; align-items:center; gap:8px; font-size:0.82rem; cursor:pointer; padding-bottom:9px; user-select:none; }
+        .rsq-checkbox-field input { width:16px; height:16px; accent-color:var(--cyan); }
+        .rsq-divider { border:none; border-top:1px solid var(--border); margin:18px 0; }
+        .rsq-cta { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .rsq-hint { font-size:0.74rem; color:var(--text-dim); margin:8px 0 0; display:flex; align-items:center; gap:6px; }
+        .rsq-status-area { margin:14px 0; }
+        .rsq-history-details { margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+        .rsq-history-details > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; padding-bottom:8px; }
+        .rsq-history-details > summary::-webkit-details-marker { display:none; }
+        .rsq-history-details > summary::after { content:'▾'; margin-left:auto; transition:transform 0.2s; opacity:0.5; }
+        .rsq-history-details:not([open]) > summary::after { transform:rotate(-90deg); }
+        .rsq-history-details .rsq-history { max-height:200px; overflow-y:auto; padding-right:4px; border-top:none; margin-top:0; padding-top:0; }
+        .rsq-history-details .rsq-history::-webkit-scrollbar { width:6px; }
+        .rsq-history-details .rsq-history::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+        @media (max-width:540px) { .rsq-row-2 { grid-template-columns:1fr; } }
+
+        /* ── Parte 7: Limpeza otimizada — breakdown e modal ── */
+        .radar-stats-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px; font-size:0.78rem; color:var(--text-dim); }
+        .radar-stats-row .stat { display:inline-flex; align-items:center; gap:4px; }
+        .radar-stats-row .stat-divider { opacity:0.4; }
+        .radar-stats-row .stat-val { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+
+        .cleanup-preset-list { display:flex; flex-direction:column; gap:8px; }
+        .cleanup-preset {
+            display:flex; align-items:center; gap:10px; padding:10px 12px;
+            background:var(--bg-soft); border:1px solid var(--border); border-radius:8px;
+            cursor:pointer; transition:border-color 0.15s, background 0.15s;
+        }
+        .cleanup-preset:hover { border-color:var(--cyan-mid); }
+        .cleanup-preset.selected { border-color:var(--cyan); background:rgba(34,211,238,0.08); }
+        .cleanup-preset input[type=radio] { accent-color:var(--cyan); }
+        .cleanup-preset-body { flex:1; min-width:0; }
+        .cleanup-preset-label { font-size:0.85rem; color:var(--text); margin:0; }
+        .cleanup-preset-desc { font-size:0.72rem; color:var(--text-dim); margin:2px 0 0; }
+        .cleanup-preset-count { font-size:0.78rem; color:var(--text-soft); font-variant-numeric:tabular-nums; margin-left:auto; flex-shrink:0; }
+        .cleanup-preview { margin-top:14px; padding:10px 12px; background:rgba(34,211,238,0.06); border:1px solid rgba(34,211,238,0.2); border-radius:8px; font-size:0.82rem; color:var(--text-soft); }
+        .cleanup-preview.warn { background:rgba(251,191,36,0.06); border-color:rgba(251,191,36,0.2); color:#fbbf24; }
+        /* ───────── /Refresh radar UI/UX ───────── */
