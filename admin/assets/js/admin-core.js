@@ -4900,8 +4900,7 @@ async function loadRsqHistory() {
         const rows = await api('GET', '/api/admin/radar?action=search-history');
         if (!rows.length) { el.style.display = 'none'; return; }
         el.style.display = '';
-        el.innerHTML = `<div class="rsq-hist-title">Últimas execuções</div>` +
-            rows.map(r => {
+        el.innerHTML = rows.map(r => {
                 const ago = _timeAgo(r.ran_at);
                 const plat = { linkedin: 'LinkedIn', gupy: 'Gupy', maringa: 'Maringá', indeed: 'Indeed' }[r.platform] || r.platform;
                 return `<div class="rsq-hist-row">
