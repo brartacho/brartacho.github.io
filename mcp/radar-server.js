@@ -581,6 +581,9 @@ server.registerTool('search_all',
             if (!scraper) { console.error(`[search_all] Scraper desconhecido: ${plat.id}`); continue; }
 
             let leads = [];
+            let result = { newCount: 0, duplicateCount: 0, belowMinScore: 0 };
+
+            // --- Busca primária ---
             try {
                 leads = await scraper(plat);
             } catch (e) {
@@ -589,8 +592,28 @@ server.registerTool('search_all',
                 continue;
             }
 
-            const result = await ingestLeads(leads, profile, dry_run);
+            result = await ingestLeads(leads, profile, dry_run);
             await logSearch(plat.id, plat.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+
+            // --- Expansão: se poucos leads novos encontrados, tenta keywords mais amplos ---
+            const expandThreshold = plat.min_new_before_expand ?? 3;
+            const expansionKeywords = Array.isArray(plat.expansion_keywords) ? plat.expansion_keywords : [];
+            if (result.newCount < expandThreshold && expansionKeywords.length > 0) {
+                console.error(`[search_all] ${plat.id}: poucos leads (${result.newCount}), expandindo busca…`);
+                try {
+                    const expandLeads = await scraper({ ...plat, keywords: expansionKeywords, max_results: plat.max_results || 15 });
+                    const expandResult = await ingestLeads(expandLeads, profile, dry_run);
+                    await logSearch(plat.id + '_expand', expansionKeywords, expandLeads.length, expandResult.newCount, expandResult.duplicateCount, expandResult.belowMinScore);
+                    leads = [...leads, ...expandLeads];
+                    result.newCount       += expandResult.newCount;
+                    result.duplicateCount += expandResult.duplicateCount;
+                    result.belowMinScore  += expandResult.belowMinScore;
+                    console.error(`[search_all] ${plat.id} expandido: +${expandResult.newCount} novos`);
+                } catch (e) {
+                    console.error(`[search_all] Erro na expansão de ${plat.id}: ${e.message}`);
+                }
+            }
+
             if (!dry_run) await updatePlatformTimestamp(plat.id);
 
             summary.total_found      += leads.length;

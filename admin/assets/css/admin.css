@@ -2510,10 +2510,11 @@
         .radar-lead.status-promovida { opacity:.7; }
         .radar-lead.status-descartada { opacity:.5; }
         .radar-score { flex:0 0 46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; }
-        .badge-green { background:var(--success-soft); color:var(--success); }
+        .badge-green  { background:var(--success-soft); color:var(--success); }
         .badge-yellow { background:var(--warning-soft); color:var(--warning); }
-        .badge-red { background:var(--danger-soft); color:var(--danger); }
-        .badge-na { background:var(--bg-surface); color:var(--text-dim); }
+        .badge-orange { background:rgba(251,146,60,0.12); color:#fb923c; }
+        .badge-red    { background:var(--danger-soft);   color:var(--danger); }
+        .badge-na     { background:var(--bg-surface);    color:var(--text-dim); }
         .radar-lead-body { flex:1; min-width:0; }
         .radar-lead-head { font-size:0.92rem; color:var(--text); margin-bottom:8px; }
         .radar-lead-head a { color:var(--cyan); margin-left:4px; }

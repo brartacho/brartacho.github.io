@@ -37,7 +37,8 @@ jobs:
         run: |
           set -e
           fail=0
-          for f in $(find . -maxdepth 3 -name "*.html" -not -path "./node_modules/*" -not -path "./.vercel/*"); do
+          # admin/assets contém fragmentos compartilhados (ex.: admin-shell.html) — não são documentos completos.
+          for f in $(find . -maxdepth 3 -name "*.html" -not -path "./node_modules/*" -not -path "./.vercel/*" -not -path "./admin/assets/*"); do
             if ! grep -q '</html>' "$f"; then
               echo "MISSING </html> in $f"
               fail=1

@@ -77,18 +77,47 @@ async function extractJobCards(page) {
 
 async function fetchJobDescription(page, link) {
     try {
-        await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+        await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 25_000 });
         await randomDelay();
 
-        return page.evaluate(() => {
-            const el = document.querySelector([
-                '.jobs-description-content__text',
+        // Aguarda descrição renderizar (LinkedIn carrega via JS)
+        const descSel = [
+            '.jobs-description__content',
+            '.jobs-description-content__text',
+            '.show-more-less-html__markup',
+            '.jobs-box__html-content',
+            '#job-details',
+            '.description__text',
+            '[class*="description"]',
+        ].join(',');
+
+        await page.waitForSelector(descSel, { timeout: 8_000 }).catch(() => {});
+
+        const text = await page.evaluate(() => {
+            const selectors = [
                 '.jobs-description__content',
-                '.description__text',
+                '.jobs-description-content__text',
+                '.show-more-less-html__markup',
+                '.jobs-box__html-content',
                 '#job-details',
-            ].join(','));
-            return el?.innerText?.trim() || null;
+                '.description__text',
+            ];
+            for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                const t = el?.innerText?.trim();
+                if (t && t.length > 50) return t;
+            }
+            // Fallback: maior bloco de texto na página
+            const candidates = [...document.querySelectorAll('section, article, div')];
+            const best = candidates
+                .map(el => ({ el, len: (el.innerText || '').trim().length }))
+                .filter(({ len }) => len > 100 && len < 8000)
+                .sort((a, b) => b.len - a.len)[0];
+            return best?.el?.innerText?.trim() || null;
         });
+
+        if (!text) console.error(`[linkedin] Descrição não encontrada: ${link}`);
+        return text || null;
     } catch {
         return null;
     }

@@ -4574,8 +4574,9 @@ const _arrToLines = a => (Array.isArray(a) ? a : []).join('\n');
 
 function radarBadge(score) {
     if (score == null) return { cls: 'na', label: '—' };
-    if (score >= 8) return { cls: 'green', label: score };
+    if (score >= 7) return { cls: 'green',  label: score };
     if (score >= 5) return { cls: 'yellow', label: score };
+    if (score >= 3) return { cls: 'orange', label: score };
     return { cls: 'red', label: score };
 }
 
