@@ -4573,11 +4573,11 @@ const _linesToArr = s => String(s || '').split(/[\n;]+/).map(x => x.trim()).filt
 const _arrToLines = a => (Array.isArray(a) ? a : []).join('\n');
 
 function radarBadge(score) {
-    if (score == null) return { cls: 'na', label: '—' };
-    if (score >= 7) return { cls: 'green',  label: score };
-    if (score >= 5) return { cls: 'yellow', label: score };
-    if (score >= 3) return { cls: 'orange', label: score };
-    return { cls: 'red', label: score };
+    if (score == null) return { cls: 'na',     num: '—',    tier: ''       };
+    if (score >= 7)    return { cls: 'green',  num: score,  tier: 'forte'  };
+    if (score >= 5)    return { cls: 'yellow', num: score,  tier: 'ok'     };
+    if (score >= 3)    return { cls: 'orange', num: score,  tier: 'revisar'};
+    return                    { cls: 'red',    num: score,  tier: 'fraco'  };
 }
 
 async function loadRadar() {
@@ -4666,7 +4666,7 @@ function renderRadarList(leads) {
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
         return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
             ${_radarSelecting ? `<input type="checkbox" class="radar-row-check" ${isSelected ? 'checked' : ''} onchange="toggleRadarSelect('${l.id}')" style="margin:8px;align-self:center" onclick="event.stopPropagation()">` : ''}
-            <div class="radar-score badge-${b.cls}">${b.label}</div>
+            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
                     <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}

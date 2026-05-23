@@ -2509,12 +2509,19 @@
         .radar-lead { display:flex; gap:14px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
         .radar-lead.status-promovida { opacity:.7; }
         .radar-lead.status-descartada { opacity:.5; }
-        .radar-score { flex:0 0 46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; }
+        .radar-score { flex:0 0 52px; width:52px; min-height:52px; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0; }
+        .radar-score .rs-num  { font-size:1.25rem; font-weight:700; line-height:1; }
+        .radar-score .rs-tier { font-size:0.55rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; opacity:0.85; line-height:1; }
         .badge-green  { background:var(--success-soft); color:var(--success); }
         .badge-yellow { background:var(--warning-soft); color:var(--warning); }
         .badge-orange { background:rgba(251,146,60,0.12); color:#fb923c; }
         .badge-red    { background:var(--danger-soft);   color:var(--danger); }
         .badge-na     { background:var(--bg-surface);    color:var(--text-dim); }
+        .radar-score.badge-green  { background:rgba(74,222,128,0.22);  color:#4ade80; }
+        .radar-score.badge-yellow { background:rgba(245,158,11,0.22);  color:#fbbf24; }
+        .radar-score.badge-orange { background:rgba(251,146,60,0.28);  color:#fb923c; }
+        .radar-score.badge-red    { background:rgba(239,68,68,0.22);   color:#f87171; }
+        .radar-score.badge-na     { background:var(--bg-surface);      color:var(--text-dim); }
         .radar-lead-body { flex:1; min-width:0; }
         .radar-lead-head { font-size:0.92rem; color:var(--text); margin-bottom:8px; }
         .radar-lead-head a { color:var(--cyan); margin-left:4px; }
