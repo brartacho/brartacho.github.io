@@ -101,6 +101,13 @@ MCP tools: search_all / search_linkedin / search_gupy / search_maringa / search_
 - `search_min_score: 3` (configurável no perfil do candidato)
 - **Expansão automática**: se uma plataforma retorna poucos leads novos, ativa `expansion_keywords` mais amplos e registra o run separado no `search_log`
 
+| Badge | Score | Significado |
+|-------|-------|-------------|
+| 🟢 Verde — `FORTE` | 7–10 | Match forte, candidatar |
+| 🩵 Ciano — `OK` | 5–6 | Compatível, vale analisar |
+| 🟡 Amarelo — `REVISAR` | 3–4 | Relevância baixa, decidir |
+| 🔴 Vermelho — `FRACO` | 0–2 | Irrelevante (filtrado por padrão) |
+
 ### Sessão LinkedIn
 
 ```bash
