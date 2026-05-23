@@ -67,9 +67,21 @@ if ($LASTEXITCODE -ne 0) {
 # --- 7. Persiste lista de processos (salva env vars no dump) ---
 pm2 save
 
-# --- 8. Configura startup automatico no Windows (Task Scheduler) ---
+# --- 8. Configura startup automatico via Task Scheduler ---
 Write-Host "[setup] Configurando startup automatico do Windows..."
-pm2 startup windows --service-name "RadarMCP" 2>&1 | Write-Host
+$pm2Path = (Get-Command pm2).Source -replace '\.ps1$', '.cmd'
+if (-not (Test-Path $pm2Path)) { $pm2Path = (Get-Command pm2).Source }
+$action  = New-ScheduledTaskAction -Execute $pm2Path -Argument "resurrect" -WorkingDirectory $PSScriptRoot\..
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+try {
+    Unregister-ScheduledTask -TaskName "RadarMCP" -Confirm:$false -ErrorAction SilentlyContinue
+    Register-ScheduledTask -TaskName "RadarMCP" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force | Out-Null
+    Write-Host "[setup] Tarefa 'RadarMCP' criada no Task Scheduler." -ForegroundColor Green
+} catch {
+    Write-Warning "[setup] Nao foi possivel criar tarefa no Task Scheduler: $_"
+    Write-Warning "[setup] O servidor esta rodando agora, mas nao iniciara automaticamente no reboot."
+}
 
 # --- 9. Resumo final ---
 Write-Host ""
