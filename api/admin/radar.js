@@ -206,6 +206,21 @@ export default async function handler(req, res) {
     }
 
     // ---------------------------------------------------------
+    // MCP-STATUS — frontend usa pra mostrar se o MCP server está rodando
+    // ---------------------------------------------------------
+    if (req.method === 'GET' && req.query.action === 'mcp-status') {
+        const { data } = await supabase.from('candidate_profile')
+            .select('mcp_heartbeat_at')
+            .order('updated_at', { ascending: false }).limit(1).maybeSingle();
+        const lastSeen = data?.mcp_heartbeat_at || null;
+        const secondsAgo = lastSeen
+            ? Math.floor((Date.now() - new Date(lastSeen).getTime()) / 1000)
+            : null;
+        const online = secondsAgo !== null && secondsAgo < 45;
+        return res.json({ online, seconds_ago: secondsAgo, last_seen: lastSeen });
+    }
+
+    // ---------------------------------------------------------
     // STATS — breakdown de contadores no header do radar
     // ---------------------------------------------------------
     if (req.method === 'GET' && req.query.action === 'stats') {

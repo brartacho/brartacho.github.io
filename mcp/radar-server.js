@@ -687,71 +687,189 @@ server.registerTool('clear_linkedin_session',
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
 
-// ── Polling de search_requests: processa pedidos feitos pelo admin ──────────
-async function processPendingRequests() {
-    const { data } = await supabase.from('search_requests')
-        .select('*').eq('status', 'pending').order('created_at').limit(1).maybeSingle();
-    if (!data) return;
+// ============================================================
+// Daemon: heartbeat, Realtime subscriber, graceful shutdown, recovery
+// ============================================================
 
-    console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})`);
-    await supabase.from('search_requests')
-        .update({
-            status: 'running',
-            started_at: new Date().toISOString(),
-            progress: { current: null, done: [], total: data.platforms.length, platforms: data.platforms },
-        })
-        .eq('id', data.id);
+const HEARTBEAT_INTERVAL_MS = 15_000;
+const SAFETY_POLL_INTERVAL_MS = 60_000;     // Realtime já notifica; safety net pega o que escapar
+const ORPHAN_JOB_THRESHOLD_MS = 10 * 60_000; // 10min em 'running' = órfão
 
-    const profile = await getProfile();
-    const summary = { total_found: 0, total_new: 0, by_platform: {} };
-    const donePlatforms = [];
+let _heartbeatTimer = null;
+let _safetyPollTimer = null;
+let _realtimeChannel = null;
+let _shuttingDown = false;
+let _activeJobId = null;
+let _processingLock = false;
+
+async function writeHeartbeat() {
+    if (_shuttingDown) return;
     try {
-        for (const platId of data.platforms) {
-            // Atualiza progress antes de cada plataforma — frontend renderiza chip ciano girando
-            await supabase.from('search_requests')
-                .update({ progress: { current: platId, done: [...donePlatforms], total: data.platforms.length, platforms: data.platforms } })
-                .eq('id', data.id);
+        await supabase.from('candidate_profile')
+            .update({ mcp_heartbeat_at: new Date().toISOString() })
+            .not('id', 'is', null);
+    } catch (_) { /* silencioso — não interrompe loop */ }
+}
 
-            const scraper = SCRAPERS[platId];
-            if (!scraper) {
-                console.error(`[radar-mcp] scraper desconhecido: ${platId}`);
-                donePlatforms.push(platId);
-                continue;
-            }
-            const cfg = {
-                keywords:    data.keywords?.length ? data.keywords : undefined,
-                max_results: data.max_results || undefined,
-            };
-            let leads = [];
-            try {
-                leads = await scraper(cfg);
-            } catch (e) {
-                console.error(`[radar-mcp] erro em ${platId}: ${e.message}`);
-                summary.by_platform[platId] = { error: e.message };
-                donePlatforms.push(platId);
-                continue;
-            }
-            const result = await ingestLeads(leads, profile, data.dry_run);
-            await logSearch(platId, cfg.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
-            summary.by_platform[platId] = { found: leads.length, new: result.newCount };
-            summary.total_found += leads.length;
-            summary.total_new   += result.newCount;
-            donePlatforms.push(platId);
-        }
-        await supabase.from('search_requests')
-            .update({
-                status: 'done',
-                result: summary,
-                finished_at: new Date().toISOString(),
-                progress: { current: null, done: donePlatforms, total: data.platforms.length, platforms: data.platforms },
-            })
-            .eq('id', data.id);
-        console.error(`[radar-mcp] search_request ${data.id} concluída: ${summary.total_new} novas vagas`);
-    } catch (e) {
-        await supabase.from('search_requests')
-            .update({ status: 'error', error_message: e.message, finished_at: new Date().toISOString() }).eq('id', data.id);
-        console.error(`[radar-mcp] search_request ${data.id} falhou: ${e.message}`);
+async function recoverOrphanedJobs() {
+    const cutoff = new Date(Date.now() - ORPHAN_JOB_THRESHOLD_MS).toISOString();
+    const { data } = await supabase.from('search_requests')
+        .update({
+            status: 'error',
+            error_message: 'Job órfão recuperado no startup (servidor reiniciou)',
+            finished_at: new Date().toISOString(),
+        })
+        .eq('status', 'running')
+        .lt('started_at', cutoff)
+        .select('id');
+    if (data?.length) {
+        console.error(`[radar-mcp] [recovery] ${data.length} job(s) órfão(s) marcados como error: ${data.map(d => d.id).join(', ')}`);
     }
 }
 
-setInterval(() => processPendingRequests().catch(e => console.error('[radar-mcp] poll error:', e.message)), 20_000);
+// Processa um search_request específico (chamado pelo Realtime ou pelo safety poll)
+async function processSearchRequest(reqId) {
+    if (_shuttingDown || _processingLock) return;
+    _processingLock = true;
+
+    try {
+        // Buscar e travar o request (CAS via update + select)
+        const { data, error } = await supabase.from('search_requests')
+            .update({
+                status: 'running',
+                started_at: new Date().toISOString(),
+                progress: { current: null, done: [], total: 0, platforms: [] },
+            })
+            .eq('id', reqId)
+            .eq('status', 'pending')  // só processa se ainda estiver pendente (CAS)
+            .select('*')
+            .maybeSingle();
+
+        if (error || !data) return; // já foi processado por outro worker ou não existe
+
+        // popula progress correto agora que sabemos as plataformas
+        await supabase.from('search_requests')
+            .update({ progress: { current: null, done: [], total: data.platforms.length, platforms: data.platforms } })
+            .eq('id', data.id);
+
+        _activeJobId = data.id;
+        console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})`);
+
+        const profile = await getProfile();
+        const summary = { total_found: 0, total_new: 0, by_platform: {} };
+        const donePlatforms = [];
+
+        try {
+            for (const platId of data.platforms) {
+                if (_shuttingDown) break;
+
+                await supabase.from('search_requests')
+                    .update({ progress: { current: platId, done: [...donePlatforms], total: data.platforms.length, platforms: data.platforms } })
+                    .eq('id', data.id);
+
+                const scraper = SCRAPERS[platId];
+                if (!scraper) {
+                    console.error(`[radar-mcp] scraper desconhecido: ${platId}`);
+                    donePlatforms.push(platId);
+                    continue;
+                }
+                const cfg = {
+                    keywords:    data.keywords?.length ? data.keywords : undefined,
+                    max_results: data.max_results || undefined,
+                };
+                let leads = [];
+                try {
+                    leads = await scraper(cfg);
+                } catch (e) {
+                    console.error(`[radar-mcp] erro em ${platId}: ${e.message}`);
+                    summary.by_platform[platId] = { error: e.message };
+                    donePlatforms.push(platId);
+                    continue;
+                }
+                const result = await ingestLeads(leads, profile, data.dry_run);
+                await logSearch(platId, cfg.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+                summary.by_platform[platId] = { found: leads.length, new: result.newCount };
+                summary.total_found += leads.length;
+                summary.total_new   += result.newCount;
+                donePlatforms.push(platId);
+            }
+
+            const finalStatus = _shuttingDown ? 'error' : 'done';
+            const errorMessage = _shuttingDown ? 'Interrompido por shutdown do servidor' : null;
+            await supabase.from('search_requests')
+                .update({
+                    status: finalStatus,
+                    result: summary,
+                    error_message: errorMessage,
+                    finished_at: new Date().toISOString(),
+                    progress: { current: null, done: donePlatforms, total: data.platforms.length, platforms: data.platforms },
+                })
+                .eq('id', data.id);
+            console.error(`[radar-mcp] search_request ${data.id} ${finalStatus}: ${summary.total_new} novas vagas`);
+        } catch (e) {
+            await supabase.from('search_requests')
+                .update({ status: 'error', error_message: e.message, finished_at: new Date().toISOString() }).eq('id', data.id);
+            console.error(`[radar-mcp] search_request ${data.id} falhou: ${e.message}`);
+        }
+    } finally {
+        _activeJobId = null;
+        _processingLock = false;
+    }
+}
+
+// Safety net: varre pedidos pending eventualmente perdidos (ex: reconexão de WS)
+async function processPendingFromQueue() {
+    if (_shuttingDown || _processingLock) return;
+    const { data } = await supabase.from('search_requests')
+        .select('id').eq('status', 'pending').order('created_at').limit(1).maybeSingle();
+    if (data) await processSearchRequest(data.id);
+}
+
+function startRealtimeSubscriber() {
+    _realtimeChannel = supabase
+        .channel('search_requests_inserts')
+        .on('postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'search_requests', filter: 'status=eq.pending' },
+            payload => {
+                console.error(`[radar-mcp] [realtime] novo pedido: ${payload.new.id}`);
+                processSearchRequest(payload.new.id).catch(e => console.error('[radar-mcp] error:', e.message));
+            })
+        .subscribe(status => console.error(`[radar-mcp] [realtime] status: ${status}`));
+}
+
+async function gracefulShutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.error(`[radar-mcp] [shutdown] sinal ${signal} recebido`);
+    clearInterval(_heartbeatTimer);
+    clearInterval(_safetyPollTimer);
+    if (_realtimeChannel) supabase.removeChannel(_realtimeChannel).catch(() => {});
+
+    if (_activeJobId) {
+        console.error(`[radar-mcp] [shutdown] aguardando job ${_activeJobId} terminar (max 30s)...`);
+        const deadline = Date.now() + 30_000;
+        while (_activeJobId && Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+        if (_activeJobId) {
+            await supabase.from('search_requests')
+                .update({ status: 'error', error_message: 'Interrompido por shutdown', finished_at: new Date().toISOString() })
+                .eq('id', _activeJobId);
+            console.error(`[radar-mcp] [shutdown] job ${_activeJobId} forçado para error`);
+        }
+    }
+    console.error('[radar-mcp] [shutdown] OK');
+    process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
+// Startup
+await recoverOrphanedJobs();
+writeHeartbeat();
+_heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS);
+startRealtimeSubscriber();
+_safetyPollTimer = setInterval(() => processPendingFromQueue().catch(e => console.error('[radar-mcp] safety poll:', e.message)), SAFETY_POLL_INTERVAL_MS);
+// Primeira varredura imediata para pegar qualquer pendente acumulado
+processPendingFromQueue().catch(() => {});
