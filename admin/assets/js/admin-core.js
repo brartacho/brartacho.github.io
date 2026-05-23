@@ -1763,6 +1763,15 @@ function loadAll() {
 
 // ─── STORAGE STATS ────────────────────────────────────────
 let _storageAlertShown = false;
+function _timeAgo(iso) {
+    if (!iso) return '';
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60)   return 'agora';
+    if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
+    return `há ${Math.floor(diff / 86400)}d`;
+}
+
 function fmtBytes(b) {
     if (b < 1024) return `${b} B`;
     if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -4585,7 +4594,10 @@ async function loadRadar() {
         _radarProfile = await api('GET', '/api/admin/profile');
         fillRadarProfileForm(_radarProfile);
         renderRadarSearches(_radarProfile);
+        _rsqSyncPlatforms(_radarProfile);
     } catch (e) { /* perfil ainda não criado — segue */ }
+
+    loadRsqHistory();
 
     const all = document.getElementById('radarShowAll')?.checked ? '?all=1' : '';
     const list = document.getElementById('radarList');
@@ -4596,6 +4608,114 @@ async function loadRadar() {
     } catch (e) {
         if (list) list.innerHTML = `<div class="radar-empty">Erro: ${esc(e.message)}</div>`;
     }
+}
+
+// ── Buscar vagas ─────────────────────────────────────────────────────────────
+
+function _rsqPlatforms() {
+    return [...document.querySelectorAll('#rsqPlatforms input[type=checkbox]')]
+        .filter(c => c.checked).map(c => c.value);
+}
+
+function _rsqKeywords() {
+    const v = document.getElementById('rsqKeywords')?.value.trim();
+    return v ? v.split(',').map(k => k.trim()).filter(Boolean) : null;
+}
+
+function _rsqSyncPlatforms(profile) {
+    const plats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
+    if (!plats.length) return;
+    document.querySelectorAll('#rsqPlatforms input[type=checkbox]').forEach(cb => {
+        const p = plats.find(p => p.id === cb.value);
+        if (p) cb.checked = !!p.enabled;
+    });
+}
+
+async function requestRadarSearch(btn) {
+    const platforms = _rsqPlatforms();
+    if (!platforms.length) { showToast('Selecione ao menos uma plataforma.', 'error'); return; }
+    const payload = {
+        platforms,
+        keywords:    _rsqKeywords(),
+        max_results: parseInt(document.getElementById('rsqMaxResults')?.value) || 20,
+        dry_run:     document.getElementById('rsqDryRun')?.checked || false,
+    };
+    try {
+        await withLoading(btn, async () => {
+            const res = await api('POST', '/api/admin/radar?action=request-search', payload);
+            _rsqShowStatus('pending');
+            _rsqPoll(res.id);
+        }, 'Solicitando…');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+function copyRadarSearchCmd() {
+    const platforms = _rsqPlatforms();
+    const keywords  = _rsqKeywords();
+    const max       = parseInt(document.getElementById('rsqMaxResults')?.value) || 20;
+    let cmd;
+    if (platforms.length === 1) {
+        const kw = keywords ? `, keywords: ${JSON.stringify(keywords)}` : '';
+        cmd = `search_${platforms[0]}({ max_results: ${max}${kw} })`;
+    } else {
+        const plStr = platforms.length ? `, platforms: ${JSON.stringify(platforms)}` : '';
+        cmd = `search_all({${plStr} })`;
+    }
+    navigator.clipboard.writeText(cmd)
+        .then(() => showToast('Comando copiado!'))
+        .catch(() => showToast('Não foi possível copiar.', 'error'));
+}
+
+function _rsqShowStatus(status, extra) {
+    const el = document.getElementById('rsqStatus');
+    if (!el) return;
+    const icons  = { pending: 'fa-clock', running: 'fa-circle-notch fa-spin', done: 'fa-check', error: 'fa-triangle-exclamation' };
+    const labels = { pending: 'Na fila…', running: 'Executando scrapers…', done: extra || 'Concluída!', error: extra || 'Erro na busca' };
+    el.style.display = '';
+    el.innerHTML = `<span class="rsq-badge rsq-${status}"><i class="fa-solid ${icons[status]}"></i> ${labels[status]}</span>`;
+}
+
+let _rsqPollTimer = null;
+async function _rsqPoll(id) {
+    clearTimeout(_rsqPollTimer);
+    try {
+        const res = await api('GET', `/api/admin/radar?action=search-status&id=${id}`);
+        if (res.status === 'done') {
+            const n = res.result?.total_new ?? 0;
+            _rsqShowStatus('done', `${n} nova${n !== 1 ? 's' : ''} vaga${n !== 1 ? 's' : ''}`);
+            showToast(`Busca concluída: ${n} novas vagas`);
+            loadRadar();
+        } else if (res.status === 'error') {
+            _rsqShowStatus('error', res.error_message || 'Erro desconhecido');
+            showToast(res.error_message || 'Erro na busca', 'error');
+        } else {
+            _rsqShowStatus(res.status);
+            _rsqPollTimer = setTimeout(() => _rsqPoll(id), 5000);
+        }
+    } catch (_) {
+        _rsqPollTimer = setTimeout(() => _rsqPoll(id), 10000);
+    }
+}
+
+async function loadRsqHistory() {
+    const el = document.getElementById('rsqHistory');
+    if (!el) return;
+    try {
+        const rows = await api('GET', '/api/admin/radar?action=search-history');
+        if (!rows.length) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        el.innerHTML = `<div class="rsq-hist-title">Últimas execuções</div>` +
+            rows.map(r => {
+                const ago = _timeAgo(r.ran_at);
+                const plat = { linkedin: 'LinkedIn', gupy: 'Gupy', maringa: 'Maringá', indeed: 'Indeed' }[r.platform] || r.platform;
+                return `<div class="rsq-hist-row">
+                    <span class="rsq-hist-plat">${esc(plat)}</span>
+                    <span>${esc(ago)}</span>
+                    <span>${r.found_count} encontradas</span>
+                    <span class="rsq-hist-new">+${r.new_count} novas</span>
+                </div>`;
+            }).join('');
+    } catch (_) { el.style.display = 'none'; }
 }
 
 function renderRadarSearches(profile) {

@@ -613,6 +613,42 @@
                 <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
             </div>
 
+            <!-- Buscar vagas -->
+            <div class="radar-card" id="radarBuscarCard">
+                <h3><i class="fa-solid fa-satellite-dish"></i> Buscar vagas</h3>
+                <div class="rsq-form">
+                    <div class="radar-profile-group radar-col-2">
+                        <div class="radar-group-label">Plataformas</div>
+                        <div class="radar-check-row" id="rsqPlatforms">
+                            <label class="radar-check-label"><input type="checkbox" value="linkedin" checked> LinkedIn</label>
+                            <label class="radar-check-label"><input type="checkbox" value="gupy" checked> Gupy</label>
+                            <label class="radar-check-label"><input type="checkbox" value="maringa" checked> Maringá</label>
+                            <label class="radar-check-label"><input type="checkbox" value="indeed"> Indeed</label>
+                        </div>
+                    </div>
+                    <label class="radar-col-2">Keywords <span style="font-weight:400;color:var(--text-soft);font-size:0.75rem">(opcional — usa as do perfil por padrão, separadas por vírgula)</span>
+                        <input type="text" id="rsqKeywords" placeholder="ex: analista de qa, implantação, suporte técnico">
+                    </label>
+                    <label>Máx. resultados / plataforma
+                        <input type="number" id="rsqMaxResults" value="20" min="5" max="50" style="width:80px">
+                    </label>
+                    <label class="radar-check-label" style="align-self:flex-end;padding-bottom:4px">
+                        <input type="checkbox" id="rsqDryRun"> Simulação (não salva)
+                    </label>
+                </div>
+                <div class="rsq-actions">
+                    <button class="btn btn-cyan" onclick="requestRadarSearch(this)">
+                        <i class="fa-solid fa-satellite-dish"></i> Solicitar busca
+                    </button>
+                    <button class="btn btn-sm" onclick="copyRadarSearchCmd()">
+                        <i class="fa-solid fa-copy"></i> Copiar comando MCP
+                    </button>
+                    <span class="rsq-mcp-hint"><i class="fa-solid fa-circle-info"></i> "Solicitar" requer o MCP server local em execução</span>
+                </div>
+                <div id="rsqStatus" style="display:none"></div>
+                <div class="rsq-history" id="rsqHistory" style="display:none"></div>
+            </div>
+
             <!-- Adicionar vaga ao Radar -->
             <div class="radar-card">
                 <h3>Adicionar vaga</h3>

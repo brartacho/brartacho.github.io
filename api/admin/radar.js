@@ -160,6 +160,42 @@ export default async function handler(req, res) {
     }
 
     // ---------------------------------------------------------
+    // FILA DE BUSCA — search_requests
+    // ---------------------------------------------------------
+    if (req.method === 'POST' && req.query.action === 'request-search') {
+        const { platforms, keywords, max_results, dry_run } = req.body || {};
+        if (!Array.isArray(platforms) || !platforms.length)
+            return res.status(400).json({ error: 'platforms obrigatório' });
+        const validPlats = new Set(['linkedin', 'gupy', 'maringa', 'indeed']);
+        const filteredPlats = platforms.filter(p => validPlats.has(p));
+        if (!filteredPlats.length)
+            return res.status(400).json({ error: 'Nenhuma plataforma válida' });
+        const kw = Array.isArray(keywords) ? keywords.map(k => String(k).trim()).filter(Boolean).slice(0, 20) : null;
+        const mr = Number.isInteger(max_results) && max_results > 0 ? Math.min(max_results, 50) : null;
+        const { data, error } = await supabase.from('search_requests')
+            .insert({ platforms: filteredPlats, keywords: kw, max_results: mr, dry_run: !!dry_run })
+            .select('id').single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(201).json({ id: data.id });
+    }
+
+    if (req.method === 'GET' && req.query.action === 'search-status') {
+        if (!req.query.id) return res.status(400).json({ error: 'id obrigatório' });
+        const { data, error } = await supabase.from('search_requests')
+            .select('id,status,result,error_message,created_at,started_at,finished_at')
+            .eq('id', req.query.id).single();
+        if (error || !data) return res.status(404).json({ error: 'não encontrado' });
+        return res.json(data);
+    }
+
+    if (req.method === 'GET' && req.query.action === 'search-history') {
+        const { data } = await supabase.from('search_log')
+            .select('id,platform,keywords_used,found_count,new_count,ran_at')
+            .order('ran_at', { ascending: false }).limit(10);
+        return res.json(data || []);
+    }
+
+    // ---------------------------------------------------------
     // LEADS — vaga_radar
     // ---------------------------------------------------------
     if (req.method === 'GET') {
