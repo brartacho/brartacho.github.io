@@ -96,9 +96,16 @@ function revealApp() {
     // (desktop .tab-btn + mobile .mobile-nav-btn) — usam a mesma chave data-tab.
     const enabledTabs = window.ADMIN_CONFIG?.enabledTabs;
     if (Array.isArray(enabledTabs) && enabledTabs.length > 0) {
-        document.querySelectorAll('.tab-btn[data-tab], .mobile-nav-btn[data-tab]').forEach(btn => {
+        document.querySelectorAll('.tab-btn[data-tab], .mobile-nav-btn[data-tab], .mais-menu-btn[data-tab]').forEach(btn => {
             btn.style.display = enabledTabs.includes(btn.dataset.tab) ? '' : 'none';
         });
+        // Oculta botão "Mais" se nenhuma aba de overflow estiver habilitada
+        const maisBtn = document.querySelector('.mobile-nav-mais');
+        if (maisBtn) {
+            const anyOverflow = [...document.querySelectorAll('.mais-menu-btn[data-tab]')]
+                .some(b => b.style.display !== 'none');
+            maisBtn.style.display = anyOverflow ? '' : 'none';
+        }
     }
 
     // Painel "Configurar Demo" é exclusivo do prod — oculta no demo

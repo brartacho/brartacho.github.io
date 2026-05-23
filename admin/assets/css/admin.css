@@ -303,14 +303,40 @@
             border-top: 1px solid var(--border-soft);
             padding-bottom: env(safe-area-inset-bottom, 0px);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
         }
-        .mobile-bottom-nav::-webkit-scrollbar { display: none; }
+
+        /* ─── "Mais" overflow menu ─────────────────────────── */
+        .mais-menu {
+            display: none;
+            position: fixed;
+            bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+            left: 0; right: 0;
+            background: var(--bg-elevated);
+            border-top: 1px solid var(--border);
+            z-index: 498;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.35);
+            transform: translateY(calc(100% + 4px));
+            transition: transform 0.2s ease;
+            pointer-events: none;
+        }
+        .mais-menu.open { transform: translateY(0); pointer-events: auto; }
+        .mais-menu-btn {
+            display: flex; align-items: center; gap: 14px;
+            width: 100%; padding: 14px 20px;
+            background: none; border: none; border-bottom: 1px solid var(--border-soft);
+            color: var(--text-soft); font-size: 0.9rem; cursor: pointer; text-align: left;
+            font-family: inherit;
+            transition: color 0.15s, background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mais-menu-btn:last-child { border-bottom: none; }
+        .mais-menu-btn.active { color: var(--cyan); }
+        .mais-menu-btn i { width: 20px; text-align: center; font-size: 1rem; }
+        .mais-menu-btn:active { background: rgba(255,255,255,0.05); }
 
         .mobile-nav-btn {
-            flex: 0 0 72px;
+            flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1390,6 +1416,7 @@
         @media (max-width: 600px) {
             /* ── Bottom nav: visível; top tabs: ocultas ── */
             .mobile-bottom-nav { display: flex; }
+            .mais-menu { display: block; }
             .app-tabs { display: none !important; }
 
             /* ── CVs tab: lista primeiro, upload em accordion ── */

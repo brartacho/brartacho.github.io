@@ -1710,6 +1710,9 @@ document.addEventListener('click', e => {
             s.querySelector('.custom-select-btn')?.setAttribute('aria-expanded', 'false');
         });
     }
+    if (!e.target.closest('#maisMenu') && !e.target.closest('.mobile-nav-mais')) {
+        toggleMaisMenu(false);
+    }
 });
 
 // ─── TABS ─────────────────────────────────────────────────
@@ -1727,6 +1730,11 @@ function switchTab(name) {
     if (vagasOverlay) vagasOverlay.classList.remove('open');
     const logDrawerOverlay = document.getElementById('logDrawerOverlay');
     if (logDrawerOverlay) logDrawerOverlay.classList.remove('open');
+
+    // Fecha painel "Mais" e sincroniza estado do botão
+    toggleMaisMenu(false);
+    const _maisBtn = document.querySelector('.mobile-nav-mais');
+    if (_maisBtn) _maisBtn.classList.toggle('active', ADMIN_TABS.filter(t => t.mobileOverflow).some(t => t.key === name));
 
     // Sair de Vagas com modo de seleção ativo: desliga e remove a bulk bar flutuante
     if (name !== 'vagas' && typeof _vagasSelecting !== 'undefined' && _vagasSelecting) {
@@ -4544,33 +4552,61 @@ async function revokeAllSessions() {
 // Fonte única das abas. Renderiza desktop tab bar + mobile-bottom-nav.
 // Para adicionar/remover/reordenar uma aba, edite SÓ este array.
 const ADMIN_TABS = [
-    { key: 'cvs',       label: 'Currículos',      shortLabel: 'Currículos', icon: 'fa-file-pdf',       demoEligible: true  },
-    { key: 'tokens',    label: 'Tokens',          shortLabel: 'Tokens',     icon: 'fa-key',            demoEligible: true  },
-    { key: 'logs',      label: 'Logs',            shortLabel: 'Logs',       icon: 'fa-chart-bar',      demoEligible: true  },
-    { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true  },
-    { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true  },
-    { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true  },
-    { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true  },
+    { key: 'cvs',       label: 'Currículos',      shortLabel: 'Currículos', icon: 'fa-file-pdf',       demoEligible: true,  mobileOverflow: false },
+    { key: 'tokens',    label: 'Tokens',          shortLabel: 'Tokens',     icon: 'fa-key',            demoEligible: true,  mobileOverflow: true  },
+    { key: 'logs',      label: 'Logs',            shortLabel: 'Logs',       icon: 'fa-chart-bar',      demoEligible: true,  mobileOverflow: true  },
+    { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true,  mobileOverflow: false },
+    { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true,  mobileOverflow: false },
+    { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true,  mobileOverflow: false },
+    { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true,  mobileOverflow: true  },
 ];
 
 function renderAdminTabs() {
     const desktopBar = document.querySelector('.app-tabs');
     const mobileBar  = document.getElementById('mobileBottomNav');
+    const maisMenu   = document.getElementById('maisMenu');
     const activeKey  = _activeTab || 'cvs';
 
+    // Desktop: todas as abas
     if (desktopBar) {
         desktopBar.innerHTML = ADMIN_TABS.map(t => `
             <button class="tab-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
                 <i class="fa-solid ${t.icon}"></i> ${t.label}
             </button>`).join('');
     }
+
+    // Mobile: abas primárias + botão "Mais" com overflow
+    const primary  = ADMIN_TABS.filter(t => !t.mobileOverflow);
+    const overflow = ADMIN_TABS.filter(t => t.mobileOverflow);
+    const overflowActive = overflow.some(t => t.key === activeKey);
+
     if (mobileBar) {
-        mobileBar.innerHTML = ADMIN_TABS.map(t => `
+        const primaryBtns = primary.map(t => `
             <button class="mobile-nav-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
                 <i class="fa-solid ${t.icon}"></i>
                 <span>${t.shortLabel}</span>
             </button>`).join('');
+        const maisBtnHtml = overflow.length ? `
+            <button class="mobile-nav-btn mobile-nav-mais${overflowActive ? ' active' : ''}" onclick="toggleMaisMenu()">
+                <i class="fa-solid fa-ellipsis"></i>
+                <span>Mais</span>
+            </button>` : '';
+        mobileBar.innerHTML = primaryBtns + maisBtnHtml;
     }
+
+    if (maisMenu) {
+        maisMenu.innerHTML = overflow.map(t => `
+            <button class="mais-menu-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
+                <i class="fa-solid ${t.icon}"></i> ${t.label}
+            </button>`).join('');
+    }
+}
+
+function toggleMaisMenu(force) {
+    const menu = document.getElementById('maisMenu');
+    if (!menu) return;
+    const open = force !== undefined ? force : !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
 }
 
 // ─── DEMO SETTINGS ────────────────────────────────────────
