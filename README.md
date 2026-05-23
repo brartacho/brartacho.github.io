@@ -3,7 +3,7 @@
 Portfólio profissional de Bruno Artacho — QA Engineer e automation specialist. Reúne apresentação pública, estudos de caso, currículo interativo e um painel administrativo completo para gestão de candidaturas, tokens e métricas.
 
 > Produção: https://bruno-artacho.vercel.app
-> Última atualização: 2026-05-18 — veja [STATUS.md](STATUS.md) para o resumo de entregas.
+> Última atualização: 2026-05-23 — veja [STATUS.md](STATUS.md) para o resumo de entregas.
 
 ---
 
@@ -72,6 +72,49 @@ SPA leve em HTML/CSS/JS vanilla autenticada com cookie httpOnly + JTI revogável
 
 ---
 
+## Radar de Vagas (busca automática)
+
+MCP server local (`mcp/radar-server.js`) que orquestra scrapers de vagas e os integra ao painel admin via Supabase.
+
+### Plataformas suportadas
+
+| Plataforma | Mecanismo | Observações |
+|---|---|---|
+| **Gupy** | API REST (`employability-portal.gupy.io`) | Retorna descrição nativamente — scores mais confiáveis |
+| **LinkedIn** | Playwright + cookie `li_at` | Sessão autenticada salva em `mcp/.linkedin-session.json` (TTL 25 dias) |
+| **Maringá.com** | Playwright + stealth plugin | Cloudflare Turnstile bypassado via `playwright-extra` + `puppeteer-extra-plugin-stealth` |
+| **Indeed** | Playwright + Chrome real | Habilitado sob demanda (`enabled: false` no perfil) |
+
+### Arquitetura
+
+```
+MCP tools: search_all / search_linkedin / search_gupy / search_maringa / search_indeed
+  └→ mcp/search/{linkedin,gupy,maringa,indeed}.js   scrapers por plataforma
+  └→ mcp/search/normalizer.js                        formato canônico de lead
+  └→ ingestLeads()                                   dedup + score + salvar no Supabase
+  └→ tabela search_log                               histórico de execuções
+```
+
+### Scoring e tiers de expansão
+
+- Score 0–10 calculado por regras + palavras-chave do perfil
+- `search_min_score: 3` (configurável no perfil do candidato)
+- **Expansão automática**: se uma plataforma retorna poucos leads novos, ativa `expansion_keywords` mais amplos e registra o run separado no `search_log`
+
+### Sessão LinkedIn
+
+```bash
+node scripts/linkedin-login.mjs   # abre Chrome visível para login manual
+```
+
+Cookie salvo em `mcp/.linkedin-session.json` (gitignored). TTL ~25 dias. Quando a sessão expira, o scraper do LinkedIn para de retornar resultados — basta rodar o comando acima novamente para renovar.
+
+### Bypass Cloudflare (Maringá)
+
+Ver [`docs/bypass-cloudflare-turnstile.md`](docs/bypass-cloudflare-turnstile.md) para detalhes do stealth plugin.
+
+---
+
 ## Segurança
 
 Implementação em duas fases de hardening (ver [SECURITY.md](SECURITY.md)):
@@ -102,7 +145,7 @@ Implementação em duas fases de hardening (ver [SECURITY.md](SECURITY.md)):
 
 ## Banco de dados
 
-21 migrations versionadas em `supabase/` cobrindo:
+32+ migrations versionadas em `supabase/` cobrindo:
 
 - Credenciais e tokens (002, 004)
 - Snapshot de CVs (003, 019)
