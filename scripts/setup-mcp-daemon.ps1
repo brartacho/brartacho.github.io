@@ -54,7 +54,7 @@ if (Test-Path .env) {
 }
 
 # --- 5. Para instancia anterior do radar-mcp (se existir) ---
-pm2 delete radar-mcp 2>&1 | Out-Null
+try { pm2 delete radar-mcp 2>&1 | Out-Null } catch { <# ignorar — processo pode nao existir ainda #> }
 
 # --- 6. Inicia processo ---
 Write-Host "[setup] Iniciando radar-mcp..."
