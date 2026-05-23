@@ -2519,7 +2519,7 @@
         .badge-na     { background:var(--bg-surface);    color:var(--text-dim); }
         .radar-score.badge-green  { background:rgba(74,222,128,0.22);  color:#4ade80; }
         .radar-score.badge-yellow { background:rgba(34,211,238,0.18);  color:#22d3ee; }
-        .radar-score.badge-orange { background:rgba(251,146,60,0.28);  color:#fb923c; }
+        .radar-score.badge-orange { background:rgba(234,179,8,0.25);   color:#eab308; }
         .radar-score.badge-red    { background:rgba(239,68,68,0.22);   color:#f87171; }
         .radar-score.badge-na     { background:var(--bg-surface);      color:var(--text-dim); }
         .radar-lead-body { flex:1; min-width:0; }
