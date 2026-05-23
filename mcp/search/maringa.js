@@ -43,11 +43,12 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
             const url = `${BASE_URL}/?text=${encodeURIComponent(keyword)}&ordem=publicacao`;
 
             try {
-                await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+                await new Promise(r => setTimeout(r, 1500)); // aguarda JS renderizar cards
             } catch {
-                // networkidle pode expirar — continua mesmo assim
+                console.error(`[maringa] Timeout ao navegar para "${keyword}", tentando mesmo assim`);
+                await new Promise(r => setTimeout(r, 1500));
             }
-            await new Promise(r => setTimeout(r, 1000));
 
             const cards = await page.evaluate(() =>
                 [...document.querySelectorAll('.card-anuncio')].map(card => {
@@ -73,7 +74,7 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
                     empresa:    card.company || 'Empresa não informada',
                     vaga:       card.title,
                     link_vaga:  card.link,
-                    descricao:  null,
+                    descricao:  null, // páginas individuais são protegidas por Cloudflare
                     localizacao: parseLocation(card.lines),
                 }, 'maringa'));
             }
