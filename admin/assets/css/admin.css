@@ -2481,6 +2481,7 @@
         .radar-sub { margin:4px 0 0; color:var(--text-dim); font-size:0.85rem; }
         .radar-head-actions { display:flex; align-items:center; gap:10px; }
         .radar-provider { font-size:0.72rem; color:var(--text-dim); }
+        .radar-action-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
         .radar-card { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
         .radar-card h3 { margin:0 0 12px; font-size:0.95rem; color:var(--text-soft); }
         .radar-searches summary { cursor:pointer; font-size:0.92rem; color:var(--text-soft); padding:4px 0; }
@@ -2546,7 +2547,7 @@
         }
 
         /* ── Radar filter bar ── */
-        .radar-filter-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 0 4px; }
+        .radar-filter-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 0 6px; position:sticky; top:52px; z-index:10; background:var(--bg-base); border-bottom:1px solid var(--border); margin-bottom:8px; }
         .radar-filter-group { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
         .radar-filter-label { font-size:0.7rem; color:var(--text-dim); white-space:nowrap; }
         .radar-score-range { width:80px; accent-color:var(--cyan); }

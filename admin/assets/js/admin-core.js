@@ -4946,6 +4946,20 @@ function closeRadarAdaptarCv() {
     }
 }
 
+function openBuscarModal() {
+    document.getElementById('radarBuscarModal').classList.add('open');
+    loadRsqHistory();
+}
+function closeBuscarModal() {
+    document.getElementById('radarBuscarModal').classList.remove('open');
+}
+function openAdicionarModal() {
+    document.getElementById('radarAdicionarModal').classList.add('open');
+}
+function closeAdicionarModal() {
+    document.getElementById('radarAdicionarModal').classList.remove('open');
+}
+
 async function addRadarVaga(btn) {
     const empresa = document.getElementById('raEmpresa').value.trim();
     if (!empresa) { showToast('Informe a empresa.', 'error'); return; }
@@ -4966,6 +4980,7 @@ async function addRadarVaga(btn) {
         document.getElementById('raModalidade').value = '';
         document.getElementById('raTipo').value = '';
         showToast('Vaga adicionada ao Radar.');
+        closeAdicionarModal();
         loadRadar();
     } catch (e) { showToast(e.message, 'error'); }
 }
