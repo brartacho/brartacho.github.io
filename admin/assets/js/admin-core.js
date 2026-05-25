@@ -1037,6 +1037,7 @@ function renderDrawerBody(app) {
             <button class="btn btn-sm" onclick="startVoiceMemo('${app.id}')" title="Adicionar nota por voz (Web Speech API)"><i class="fa-solid fa-microphone"></i></button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
+            <button class="btn btn-sm" onclick="openBriefing('${app.id}')" title="Briefing pré-entrevista: dados consolidados da candidatura e vaga"><i class="fa-solid fa-file-lines"></i> Briefing</button>
             <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
             <button class="btn btn-sm" onclick="openEmailThreads('${app.id}')" title="E-mails vinculados a esta candidatura"><i class="fa-solid fa-envelope"></i> E-mails</button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
@@ -1050,6 +1051,7 @@ function renderDrawerBody(app) {
         <div id="interviewSection" hidden></div>
         <div id="contextNotesSection" hidden></div>
         <div id="emailThreadsSection" hidden></div>
+        <div id="briefingSection" hidden></div>
     `;
 }
 
@@ -2510,6 +2512,17 @@ async function saveNovaVaga() {
     const msg = document.getElementById('vfMsg');
     const data = _collectVagaFormData();
     if (!data.empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
+
+    // N32 — Alerta de overload: >10 candidaturas nas últimas 24h
+    const recent = (_applications || []).filter(a => {
+        const ts = a.created_at ? new Date(a.created_at).getTime() : 0;
+        return Date.now() - ts < 86400000;
+    });
+    if (recent.length >= 10) {
+        const overloadOk = confirm(`Você já aplicou ${recent.length} vezes nas últimas 24h.\n\nCandidaturas em quantidade podem reduzir a qualidade das mensagens.\n\nDeseja criar mesmo assim?`);
+        if (!overloadOk) return;
+    }
+
     try {
         await api('POST', '/api/admin/applications', data);
         closeNovaVaga();
@@ -6355,10 +6368,15 @@ async function promoteRadar(id) {
         } catch { /* não bloqueia por falha no check */ }
     }
 
-    switchTab('vagas');
-    await new Promise(r => setTimeout(r, 100));
-    openNovaVaga(lead || { id, empresa: '', vaga: '', link_vaga: '' });
-    showToast('Preencha a mensagem e clique em "Criar candidatura".');
+    const doOpen = async () => {
+        switchTab('vagas');
+        await new Promise(r => setTimeout(r, 100));
+        openNovaVaga(lead || { id, empresa: '', vaga: '', link_vaga: '' });
+        showToast('Preencha a mensagem e clique em "Criar candidatura".');
+    };
+
+    // N2: pré-screening de confiança antes de abrir o formulário
+    showAdvanceConfidence(id, doOpen);
 }
 
 async function discardRadar(id) {
@@ -6915,6 +6933,118 @@ function startVoiceMemo(appId) {
             }
         }
     });
+
+    // ─── BRIEFING PRÉ-ENTREVISTA (N11) ───────────────────────
+    async function openBriefing(appId) {
+        const sec = document.getElementById('briefingSection');
+        if (!sec) return;
+        if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; return; }
+        sec.dataset.appId = appId;
+        sec.hidden = false;
+        sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i> Montando briefing…</div>';
+        try {
+            const r = await apiFetch(`/api/admin/applications?__h=briefing-build&application_id=${appId}`);
+            sec.innerHTML = _renderBriefing(r);
+        } catch(e) {
+            sec.innerHTML = `<div style="color:#f87171;padding:8px;font-size:0.82rem">${esc(e.message)}</div>`;
+        }
+    }
+
+    function _renderBriefing(r) {
+        const { app, interview, stages, notes, qa, radar, profile } = r;
+        const itvDate = interview?.interview_at ? new Date(interview.interview_at) : null;
+        const now = Date.now();
+        const minLeft = itvDate ? Math.round((itvDate.getTime() - now) / 60000) : null;
+
+        const interviewBlock = interview ? `
+            <div style="padding:8px 10px;border-radius:6px;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2);margin-bottom:8px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--cyan);letter-spacing:0.07em;margin-bottom:4px"><i class="fa-solid fa-calendar-check" style="margin-right:4px"></i>Próxima entrevista</div>
+                <div style="font-size:0.88rem;color:var(--text);font-weight:600">${esc(interview.stage_name||'Entrevista')} ${interview.interviewer_name?'com '+esc(interview.interviewer_name):''}</div>
+                <div style="font-size:0.76rem;color:var(--text-soft)">${itvDate?itvDate.toLocaleString('pt-BR'):''} ${minLeft!==null&&minLeft>0?`<span style="color:#fb923c">— em ${minLeft < 60 ? minLeft+'min' : Math.round(minLeft/60)+'h'}</span>`:''}</div>
+                ${interview.location?`<div style="font-size:0.72rem;color:var(--text-dim);margin-top:2px"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i>${esc(interview.location)}</div>`:''}
+            </div>` : `<div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px"><i class="fa-solid fa-calendar-xmark" style="margin-right:4px"></i>Nenhuma entrevista agendada. <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="openInterviewPanel('${app.id}')">Agendar</button></div>`;
+
+        const radarBlock = (radar.fit_score || radar.gaps?.length) ? `
+            <div style="margin-bottom:8px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Vaga</div>
+                ${radar.fit_score ? `<div style="font-size:0.82rem;color:var(--text)">Fit score: <span style="color:${radar.fit_score>=7?'#4ade80':radar.fit_score>=5?'#fb923c':'#f87171'};font-weight:700">${radar.fit_score}</span></div>` : ''}
+                ${radar.faixa_salarial ? `<div style="font-size:0.76rem;color:var(--text-soft)">Faixa: ${esc(radar.faixa_salarial)}</div>` : ''}
+                ${radar.gaps?.length ? `<div style="font-size:0.76rem;color:#fb923c;margin-top:3px"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>Gaps: ${radar.gaps.slice(0,5).map(g=>esc(g)).join(', ')}</div>` : ''}
+                ${radar.suspicious_flags?.length ? `<div style="font-size:0.72rem;color:#f87171;margin-top:2px"><i class="fa-solid fa-flag" style="margin-right:3px"></i>${radar.suspicious_flags.slice(0,3).map(f=>esc(f.label||f)).join(' · ')}</div>` : ''}
+            </div>` : '';
+
+        const stagesBlock = stages.length ? `
+            <div style="margin-bottom:8px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Histórico</div>
+                ${stages.map(s => `<div style="font-size:0.76rem;color:var(--text-soft);margin-bottom:2px"><i class="fa-solid fa-circle-check" style="color:var(--cyan);margin-right:4px;font-size:0.65rem"></i>${esc(s.name||s)}${s.completed_at?' · '+new Date(s.completed_at).toLocaleDateString('pt-BR'):''}</div>`).join('')}
+            </div>` : '';
+
+        const notesBlock = notes.length ? `
+            <div style="margin-bottom:8px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Notas</div>
+                ${notes.slice(0,3).map(n => `<div style="font-size:0.78rem;color:var(--text);margin-bottom:4px;padding:4px 8px;background:var(--bg);border-radius:4px">${esc(n.content||n.note||'').slice(0,120)}${(n.content||n.note||'').length>120?'…':''}</div>`).join('')}
+            </div>` : '';
+
+        const qaBlock = qa.length ? `
+            <div>
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Perguntas prováveis</div>
+                ${qa.slice(0,5).map(q => `<div style="font-size:0.78rem;margin-bottom:4px">
+                    <div style="color:var(--text);font-weight:500">${esc(q.question||'')}</div>
+                    ${q.answer?`<div style="color:var(--text-soft);font-size:0.72rem;margin-top:1px">${esc(q.answer||'').slice(0,100)}…</div>`:''}
+                </div>`).join('')}
+            </div>` : '';
+
+        return `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);font-weight:700"><i class="fa-solid fa-file-lines" style="color:var(--cyan);margin-right:4px"></i>Briefing — ${esc(app.empresa)}</div>
+                <button class="btn btn-sm" style="padding:2px 6px;font-size:0.72rem" onclick="openContextNotes('${app.id}')" title="Adicionar nota"><i class="fa-solid fa-plus"></i> Nota</button>
+            </div>
+            ${interviewBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}
+        </div>`;
+    }
+
+    // ─── ADVANCE CONFIDENCE (N2) ──────────────────────────────
+    async function showAdvanceConfidence(radarId, onContinue) {
+        let data;
+        try {
+            data = await apiFetch(`/api/admin/applications?__h=advance-confidence&radar_id=${radarId}`);
+        } catch { onContinue(); return; }
+
+        const { fit_score, gaps, suspicious_flags, advance_confidence, total_concluded, empresa, vaga } = data;
+        if (advance_confidence === null && !gaps?.length && !suspicious_flags?.length) { onContinue(); return; }
+
+        const confColor = advance_confidence >= 50 ? '#4ade80' : advance_confidence >= 25 ? '#fb923c' : '#f87171';
+        const confText  = advance_confidence !== null ? `${advance_confidence}%` : 'Sem dados históricos';
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px';
+        overlay.innerHTML = `<div style="max-width:480px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h4 style="margin:0 0 12px;font-size:0.95rem;color:var(--text)"><i class="fa-solid fa-chart-line" style="color:var(--cyan);margin-right:6px"></i>Pré-análise da candidatura</h4>
+            <div style="display:flex;gap:16px;margin-bottom:14px">
+                <div style="text-align:center">
+                    <div style="font-size:1.4rem;font-weight:700;color:${radar_score_color(fit_score||0)}">${fit_score||'—'}</div>
+                    <div style="font-size:0.68rem;color:var(--text-dim)">Fit score</div>
+                </div>
+                <div style="text-align:center">
+                    <div style="font-size:1.4rem;font-weight:700;color:${confColor}">${confText}</div>
+                    <div style="font-size:0.68rem;color:var(--text-dim)">Estimativa de avançar</div>
+                </div>
+                ${total_concluded ? `<div style="text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--text)">${total_concluded}</div><div style="font-size:0.68rem;color:var(--text-dim)">Candidaturas no histórico</div></div>` : ''}
+            </div>
+            ${gaps?.length ? `<div style="font-size:0.78rem;margin-bottom:8px"><span style="color:#fb923c;font-weight:600">Gaps detectados:</span> ${gaps.slice(0,5).map(g=>esc(g)).join(', ')}</div>` : ''}
+            ${suspicious_flags?.length ? `<div style="font-size:0.78rem;margin-bottom:10px"><span style="color:#f87171;font-weight:600">Flags suspeitos:</span> ${suspicious_flags.slice(0,3).map(f=>esc(f.label||f)).join(' · ')}</div>` : ''}
+            <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+                <button class="btn btn-sm" id="confCancel">Cancelar</button>
+                <button class="btn btn-cyan btn-sm" id="confContinue"><i class="fa-solid fa-rocket"></i> Aplicar mesmo assim</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#confCancel').onclick  = () => { overlay.remove(); };
+        overlay.querySelector('#confContinue').onclick = () => { overlay.remove(); onContinue(); };
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    function radar_score_color(s) { return s >= 7 ? '#4ade80' : s >= 5 ? '#fb923c' : '#f87171'; }
 
     // ─── INBOX (N7) ───────────────────────────────────────
     const _inboxPriorityColors = { critico:'#f87171', alto:'#fb923c', medio:'var(--cyan)', baixo:'var(--text-dim)' };

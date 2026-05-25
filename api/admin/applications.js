@@ -1223,6 +1223,75 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── briefing-build (N11) ──────────────────────────────────
+    if (req.query.__h === 'briefing-build') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { application_id } = req.query;
+        if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+
+        const [appRes, interviewRes, notesRes, qaRes, profileRes] = await Promise.allSettled([
+            supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel_alvo, modalidade, faixa_salarial, descricao_vaga)').eq('id', application_id).single(),
+            supabase.from('interview_sessions').select('*').eq('application_id', application_id).eq('status', 'planned').gte('interview_at', new Date().toISOString()).order('interview_at').limit(1),
+            supabase.from('context_notes').select('*').eq('application_id', application_id).order('created_at', { ascending: false }).limit(5),
+            supabase.from('interview_qa').select('question,answer,category,difficulty').order('use_count', { ascending: false }).limit(10),
+            supabase.from('candidate_profile').select('nome,nivel_atual,skills_core,skills_evolucao,candidate_areas(nome,descricao)').single(),
+        ]);
+
+        const app      = appRes.status === 'fulfilled' ? appRes.value.data : null;
+        if (!app) return res.status(404).json({ error: 'Candidatura não encontrada' });
+
+        const interview = interviewRes.status === 'fulfilled' ? (interviewRes.value.data?.[0] || null) : null;
+        const notes     = notesRes.status === 'fulfilled' ? (notesRes.value.data ?? []) : [];
+        const qa        = qaRes.status === 'fulfilled' ? (qaRes.value.data ?? []) : [];
+        const profile   = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
+        const radar     = app.vaga_radar || {};
+
+        const stages = (app.stages || []).filter(s => s.active !== false);
+        const completedStages = stages.filter(s => s.completed_at || s.notes);
+
+        return res.status(200).json({
+            app: { id: app.id, empresa: app.empresa, vaga: app.vaga, data_envio: app.data_envio, result: app.result, gestor_nome: app.gestor_nome, gestor_email: app.gestor_email, link_vaga: app.link_vaga },
+            interview,
+            stages: completedStages,
+            notes,
+            qa,
+            radar: { fit_score: radar.fit_score, gaps: radar.gaps, suspicious_flags: radar.suspicious_flags, nivel_alvo: radar.nivel_alvo, modalidade: radar.modalidade, faixa_salarial: radar.faixa_salarial },
+            profile: profile ? { nome: profile.nome, nivel: profile.nivel_atual, skills_core: profile.skills_core, skills_evolucao: profile.skills_evolucao } : null,
+        });
+    }
+
+    // ── advance-confidence (N2) ────────────────────────────────
+    if (req.query.__h === 'advance-confidence') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { radar_id } = req.query;
+        if (!radar_id) return res.status(400).json({ error: 'radar_id obrigatório' });
+
+        const { data: lead } = await supabase.from('vaga_radar').select('fit_score, gaps, suspicious_flags, empresa, vaga, nivel_alvo').eq('id', radar_id).single();
+        if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
+
+        // Histórico de candidaturas com origin_radar_id (tem fit_score correlato)
+        const { data: history } = await supabase.from('job_applications').select('result, origin_radar_id, vaga_radar(fit_score)').not('origin_radar_id', 'is', null).order('created_at', { ascending: false }).limit(50);
+        const concluded = (history || []).filter(a => a.result && a.result !== 'em_processo');
+        const advanced  = concluded.filter(a => !['recusado', 'desistência', 'ghost'].includes(a.result));
+        const rate = concluded.length > 0 ? Math.round((advanced.length / concluded.length) * 100) : null;
+
+        // Fator de ajuste pelo fit_score da vaga atual vs média das avançadas
+        const fitScore = lead.fit_score || 0;
+        const confidenceAdjusted = rate !== null ? Math.min(95, Math.max(5, Math.round(rate * (0.5 + fitScore / 20)))) : null;
+
+        return res.status(200).json({
+            fit_score:          fitScore,
+            gaps:               lead.gaps || [],
+            suspicious_flags:   lead.suspicious_flags || [],
+            total_concluded:    concluded.length,
+            total_advanced:     advanced.length,
+            historical_rate:    rate,
+            advance_confidence: confidenceAdjusted,
+            empresa:            lead.empresa,
+            vaga:               lead.vaga,
+        });
+    }
+
     // ── inbox ─────────────────────────────────────────────────
     // N7 — Smart Inbox: agrega todos os itens pendentes por prioridade
     if (req.query.__h === 'inbox') {
