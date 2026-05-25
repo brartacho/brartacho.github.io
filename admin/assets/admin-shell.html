@@ -1250,6 +1250,26 @@
                     <div id="summaryOutput"></div>
                 </div>
 
+                <!-- Meta semanal (N31) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bullseye" style="color:var(--cyan);margin-right:6px"></i> Meta semanal</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveWeeklyGoals()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Progresso sem pressão — só para manter cadência.</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">Candidaturas/semana</label>
+                            <input id="goalCandidaturas" type="number" min="1" max="30" value="3" class="mock-input" style="padding:5px 8px">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">Follow-ups/semana</label>
+                            <input id="goalFollowups" type="number" min="0" max="10" value="1" class="mock-input" style="padding:5px 8px">
+                        </div>
+                    </div>
+                    <div id="weeklyProgressBars"></div>
+                </div>
+
                 <!-- Vault de documentos (N4) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">

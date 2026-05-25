@@ -1223,6 +1223,41 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── weekly-goals (N31) ────────────────────────────────────
+    if (req.query.__h === 'weekly-goals') {
+        if (req.method === 'GET') {
+            const { data: prof } = await supabase.from('candidate_profile').select('weekly_goals').single();
+            const goals = prof?.weekly_goals || { candidaturas_semana: 3, followups_semana: 1 };
+            // Progresso desta semana (seg-dom)
+            const now = new Date();
+            const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=seg
+            const weekStart = new Date(now); weekStart.setDate(now.getDate() - dayOfWeek); weekStart.setHours(0,0,0,0);
+            const [appsRes, followupRes] = await Promise.allSettled([
+                supabase.from('job_applications').select('id', { count: 'exact', head: true }).gte('created_at', weekStart.toISOString()),
+                supabase.from('followup_suggestions').select('id', { count: 'exact', head: true }).eq('status','sent').gte('sent_at', weekStart.toISOString()),
+            ]);
+            return res.status(200).json({
+                goals,
+                progress: {
+                    candidaturas: appsRes.status === 'fulfilled' ? (appsRes.value.count ?? 0) : 0,
+                    followups: followupRes.status === 'fulfilled' ? (followupRes.value.count ?? 0) : 0,
+                },
+                week_start: weekStart.toISOString(),
+            });
+        }
+        if (req.method === 'PUT') {
+            const { candidaturas_semana, followups_semana } = req.body || {};
+            const goals = {
+                candidaturas_semana: Math.min(30, Math.max(1, parseInt(candidaturas_semana, 10) || 3)),
+                followups_semana:    Math.min(10, Math.max(0, parseInt(followups_semana, 10) || 1)),
+            };
+            const { error } = await supabase.from('candidate_profile').update({ weekly_goals: goals, updated_at: new Date().toISOString() }).not('id', 'is', null);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true, goals });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // ── briefing-build (N11) ──────────────────────────────────
     if (req.query.__h === 'briefing-build') {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });

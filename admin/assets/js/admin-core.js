@@ -1711,7 +1711,47 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals()]);
+}
+
+async function loadWeeklyGoals() {
+    const bars = document.getElementById('weeklyProgressBars');
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=weekly-goals');
+        const { goals, progress, week_start } = r;
+        if (document.getElementById('goalCandidaturas')) document.getElementById('goalCandidaturas').value = goals.candidaturas_semana || 3;
+        if (document.getElementById('goalFollowups'))   document.getElementById('goalFollowups').value   = goals.followups_semana || 1;
+        if (!bars) return;
+        const weekDay = new Date(week_start).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+        const render = (label, done, goal) => {
+            const pct = goal > 0 ? Math.min(100, Math.round(done / goal * 100)) : 0;
+            const color = pct >= 100 ? '#4ade80' : pct >= 50 ? 'var(--cyan)' : '#fb923c';
+            return `<div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text);margin-bottom:3px">
+                    <span>${label}</span>
+                    <span style="color:${color};font-weight:600">${done}/${goal}</span>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.4s"></div>
+                </div>
+            </div>`;
+        };
+        bars.innerHTML = `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:8px">Semana de ${weekDay}</div>
+            ${render('Candidaturas', progress.candidaturas, goals.candidaturas_semana)}
+            ${render('Follow-ups enviados', progress.followups, goals.followups_semana)}`;
+    } catch(e) {
+        if (bars) bars.innerHTML = `<div style="color:#f87171;font-size:0.8rem">${esc(e.message)}</div>`;
+    }
+}
+
+async function saveWeeklyGoals() {
+    const cand = parseInt(document.getElementById('goalCandidaturas')?.value) || 3;
+    const fup  = parseInt(document.getElementById('goalFollowups')?.value) || 1;
+    try {
+        await apiFetch('/api/admin/applications?__h=weekly-goals', { method:'PUT', body: JSON.stringify({ candidaturas_semana: cand, followups_semana: fup }) });
+        showToast('Meta semanal salva');
+        loadWeeklyGoals();
+    } catch(e) { showToast(e.message,'error'); }
 }
 
 async function loadPipelineTemplate() {
