@@ -2036,8 +2036,10 @@ async function loadSearchAlerts() {
             <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.78rem">
                 <input type="checkbox" ${a.active?'checked':''} onchange="toggleAlert('${a.id}',this.checked)"> Ativo
             </label>
+            <button class="btn btn-sm" style="padding:3px 8px;font-size:0.72rem;color:var(--cyan)" onclick="runSearchAlert('${a.id}','${esc(a.name)}')" title="Buscar leads correspondentes agora"><i class="fa-solid fa-play"></i></button>
             <button class="btn btn-danger btn-sm" style="padding:3px 8px" onclick="deleteAlert('${a.id}')"><i class="fa-solid fa-trash"></i></button>
-        </div>`).join('');
+        </div>
+        <div id="alert-results-${a.id}" style="display:none;padding:6px 10px;font-size:0.78rem;color:var(--text-soft);border-top:1px solid var(--border)"></div>`).join('');
     } catch(e) { el.innerHTML = `<div style="color:#f87171;font-size:0.82rem">${esc(e.message)}</div>`; }
 }
 
@@ -2068,6 +2070,32 @@ async function saveAlert() {
         showToast('Alerta criado','success');
         loadSearchAlerts();
     } catch(e) { showToast(e.message,'error'); }
+}
+async function runSearchAlert(id, name) {
+    const resDiv = document.getElementById(`alert-results-${id}`);
+    if (!resDiv) return;
+    resDiv.style.display = 'block';
+    resDiv.innerHTML = '<span style="color:var(--text-dim)">Buscando...</span>';
+    try {
+        const r = await apiFetch(`/api/admin/applications?__h=search-alerts&id=${id}`, { method:'POST' });
+        const leads = r.leads || [];
+        if (!leads.length) {
+            resDiv.innerHTML = '<span style="color:var(--text-dim)">Nenhum lead encontrado para este alerta.</span>';
+            return;
+        }
+        resDiv.innerHTML = leads.map(l => {
+            const score = l.fit_score != null ? `<span style="color:var(--cyan);font-weight:600">${parseFloat(l.fit_score).toFixed(1)}</span>` : '';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+                <span style="flex:1;font-size:0.8rem">${esc(l.empresa||'')} — <em>${esc(l.vaga||'')}</em></span>
+                ${score}
+                <span style="font-size:0.7rem;color:var(--text-dim)">${l.modalidade||''}</span>
+                <button class="btn btn-sm" style="padding:2px 7px;font-size:0.7rem" onclick="openLeadDetail('${l.id}')">Ver</button>
+            </div>`;
+        }).join('');
+        showToast(`${leads.length} lead(s) encontrado(s) para "${name}"`,'success');
+    } catch(e) {
+        resDiv.innerHTML = `<span style="color:#f87171">${esc(e.message)}</span>`;
+    }
 }
 async function toggleAlert(id, active) {
     try {

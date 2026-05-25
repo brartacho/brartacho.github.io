@@ -398,6 +398,12 @@ export default async function handler(req, res) {
             .is('archived', false)
             .order('updated_at', { ascending: true });
 
+        // Reativa sugestões adiadas cujo snoozed_until já expirou
+        await supabase.from('followup_suggestions')
+            .update({ status: 'pending', snoozed_until: null })
+            .eq('status', 'snoozed')
+            .lt('snoozed_until', new Date().toISOString());
+
         if (!apps?.length) return res.status(200).json({ created: 0, skipped: 0 });
 
         const now = new Date();
@@ -1453,6 +1459,31 @@ Retorne JSON com:
             const { data, error } = await supabase.from('search_alerts').select('*').order('created_at', { ascending: false });
             if (error) return res.status(500).json({ error: error.message });
             return res.status(200).json({ alerts: data ?? [] });
+        }
+        if (req.method === 'POST' && req.query.id) {
+            const { id } = req.query;
+            const { data: alert } = await supabase.from('search_alerts').select('*').eq('id', id).single();
+            if (!alert) return res.status(404).json({ error: 'Alerta não encontrado' });
+
+            const keywords = (alert.keywords || []).map(k => k.toLowerCase());
+            const excludes = (alert.excludes || []).map(k => k.toLowerCase());
+            const minFit   = alert.min_fit_score || 6;
+
+            const { data: radarLeads } = await supabase.from('vaga_radar')
+                .select('id,empresa,vaga,fit_score,modalidade,fonte,created_at,status')
+                .gte('fit_score', minFit)
+                .order('fit_score', { ascending: false })
+                .limit(200);
+
+            const leads = (radarLeads || []).filter(l => {
+                const text = `${l.vaga || ''} ${l.empresa || ''}`.toLowerCase();
+                const hasKw = keywords.length === 0 || keywords.some(k => text.includes(k));
+                const hasExcl = excludes.some(k => text.includes(k));
+                const modalMatch = !alert.modalidade || !l.modalidade || l.modalidade.toLowerCase().includes(alert.modalidade.toLowerCase());
+                return hasKw && !hasExcl && modalMatch;
+            }).slice(0, 20);
+
+            return res.status(200).json({ leads, alert_name: alert.name, total: leads.length });
         }
         if (req.method === 'POST') {
             const { name, keywords, excludes, fontes, min_fit_score = 6, modalidade, frequencia_horas = 6, notification_mode = 'daily_digest', area_id } = req.body || {};
