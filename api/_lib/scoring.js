@@ -140,6 +140,71 @@ export function scoreVaga(vaga = {}, profile = {}) {
 }
 
 /**
+ * N24 — Fit reverso: quanto a EMPRESA/VAGA se alinha ao candidato.
+ * @param {object} vaga    { modalidade, tipo_contratacao, faixa_salarial, fit_score }
+ * @param {object} profile { modalidade_pref, reverse_fit_weights, nivel_alvo,
+ *                           expected_salary_min, expected_salary_max }
+ * @returns {{ score: number, breakdown: object, warnings: string[] }}
+ */
+export function computeReverseFit(vaga = {}, profile = {}) {
+    const weights = Object.assign({
+        modalidade: 0.25,
+        salario:    0.30,
+        contratacao: 0.20,
+        nivel:      0.25,
+    }, profile.reverse_fit_weights || {});
+
+    const warnings = [];
+    const breakdown = {};
+
+    // Modalidade
+    const modVaga = vaga.modalidade || '';
+    const modPref = profile.modalidade_pref || '';
+    if (!modVaga) {
+        breakdown.modalidade = 0.6;
+    } else if (modVaga === 'Remota') {
+        breakdown.modalidade = modPref === 'Remota' || !modPref ? 1 : 0.85;
+    } else if (modVaga === 'Híbrida') {
+        breakdown.modalidade = modPref === 'Híbrida' ? 1 : (modPref === 'Remota' ? 0.65 : 0.8);
+    } else {
+        breakdown.modalidade = modPref === 'Presencial' ? 1 : 0.4;
+        if (modPref === 'Remota') warnings.push('Presencial — preferência é remoto');
+    }
+
+    // Salário (heurística: parse faixa_salarial)
+    const fs = String(vaga.faixa_salarial || '');
+    const nums = [...fs.matchAll(/[\d.,]+/g)].map(m => parseFloat(m[0].replace(',','.')));
+    const salMin = nums[0] || 0;
+    const salMax = nums[1] || salMin;
+    const expMin = profile.expected_salary_min || 0;
+    const expMax = profile.expected_salary_max || expMin;
+    if (!salMin || !expMin) {
+        breakdown.salario = 0.5;
+    } else {
+        const overlap = Math.min(salMax, expMax) - Math.max(salMin, expMin);
+        const range = Math.max(salMax, expMax) - Math.min(salMin, expMin);
+        const ratio = range > 0 ? Math.max(0, overlap / range) : 0;
+        breakdown.salario = Math.min(1, ratio + (salMax >= expMin ? 0.2 : 0));
+        if (salMax < expMin) warnings.push('Faixa salarial abaixo da expectativa');
+    }
+
+    // Contratação
+    const tipoVaga = vaga.tipo_contratacao || '';
+    const tipoPref = profile.contratacao_pref || '';
+    breakdown.contratacao = !tipoVaga || !tipoPref ? 0.6 : tipoVaga === tipoPref ? 1 : 0.5;
+
+    // Nível
+    const nivelScore = vaga.fit_score ? Math.min(1, vaga.fit_score / 10) : 0.6;
+    breakdown.nivel = nivelScore;
+
+    // Score ponderado
+    const total = Object.entries(weights).reduce((sum, [k, w]) => sum + (breakdown[k] || 0.5) * w, 0);
+    const score = Math.max(0, Math.min(10, Math.round(total * 10)));
+
+    return { score, breakdown, warnings };
+}
+
+/**
  * Detecta flags de qualidade/suspeita em um lead.
  * @param {{ vaga: string, descricao: string, created_at: string, faixa_salarial: string }} vaga
  * @returns {string[]}  array de flag codes

@@ -1250,6 +1250,42 @@
                     <div id="summaryOutput"></div>
                 </div>
 
+                <!-- Notificações / DND (N29/N30) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bell-slash" style="color:var(--cyan);margin-right:6px"></i> Notificações e DND</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveNotificationSettings()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Configure horários de silêncio e modo pausa profissional.</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">DND início (dias úteis)</label>
+                            <input id="dndWeekdayStart" type="number" min="0" max="23" value="22" class="mock-input" style="padding:5px 8px">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">DND fim (dias úteis)</label>
+                            <input id="dndWeekdayEnd" type="number" min="0" max="23" value="8" class="mock-input" style="padding:5px 8px">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">DND início (fim de semana)</label>
+                            <input id="dndWeekendStart" type="number" min="0" max="23" value="23" class="mock-input" style="padding:5px 8px">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">DND fim (fim de semana)</label>
+                            <input id="dndWeekendEnd" type="number" min="0" max="23" value="10" class="mock-input" style="padding:5px 8px">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        <input type="checkbox" id="dndCriticalOverride" checked style="accent-color:var(--cyan)">
+                        <label for="dndCriticalOverride" style="font-size:0.82rem;color:var(--text)">Notificações críticas ignoram DND</label>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        <input type="checkbox" id="pauseMode" style="accent-color:var(--cyan)">
+                        <label for="pauseMode" style="font-size:0.82rem;color:var(--text)">Modo pausa profissional (suspende buscas e alertas)</label>
+                    </div>
+                    <div id="notifSettingsStatus" style="font-size:0.76rem;color:var(--text-dim)"></div>
+                </div>
+
                 <!-- Meta semanal (N31) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1934,6 +1970,45 @@
         <div style="flex:1;overflow:hidden;position:relative">
             <div id="pdfLoadingMsg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:0.85rem">Carregando PDF…</div>
             <iframe id="pdfPreviewFrame" style="width:100%;height:100%;border:none;display:none" onload="document.getElementById('pdfLoadingMsg').style.display='none';this.style.display='block'"></iframe>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL LINKEDIN UPDATE (N14) ──────────────────────── -->
+<div id="linkedinUpdateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
+    <div style="max-width:500px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <h4 style="margin:0 0 12px;font-size:1rem;color:var(--text)"><i class="fa-brands fa-linkedin" style="color:#0a66c2;margin-right:6px"></i>Atualizar LinkedIn</h4>
+        <p style="font-size:0.82rem;color:var(--text-soft);margin:0 0 16px;line-height:1.5">Você marcou esta candidatura como aprovada. Deseja atualizar seu perfil LinkedIn?</p>
+        <div id="linkedinUpdateBody">
+            <div class="form-group" style="margin:0 0 10px">
+                <label style="font-size:0.75rem">Nova headline (opcional)</label>
+                <input id="liHeadline" class="mock-input" placeholder="Ex: QA Sênior @ Stone | Playwright | Fintech" maxlength="220">
+            </div>
+            <div class="form-group" style="margin:0 0 10px">
+                <label style="font-size:0.75rem">Data de início</label>
+                <input id="liStartDate" type="date" class="mock-input" style="padding:5px 8px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <input type="checkbox" id="liCreateOnboarding" checked style="accent-color:var(--cyan)">
+                <label for="liCreateOnboarding" style="font-size:0.82rem;color:var(--text)">Criar checklist de onboarding</label>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button class="btn btn-sm" onclick="dismissLinkedinUpdate()">Depois</button>
+            <button class="btn btn-cyan btn-sm" onclick="applyLinkedinUpdate()"><i class="fa-solid fa-check"></i> Salvar e aplicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL ONBOARDING (N33) ───────────────────────────── -->
+<div id="onboardingModal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
+    <div style="max-width:560px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h4 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-rocket" style="color:var(--cyan);margin-right:6px"></i>Checklist de onboarding</h4>
+            <button class="btn btn-sm" style="padding:2px 8px" onclick="closeOnboardingModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="onboardingContent">
+            <div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>
         </div>
     </div>
 </div>

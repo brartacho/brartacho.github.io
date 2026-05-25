@@ -1535,6 +1535,9 @@ async function setAppResult(appId, result) {
         const seg = document.getElementById('drawerResult');
         if (seg) seg.innerHTML = renderResultSegmented(updated);
         renderApplicationsTable();
+        if (result === 'aprovado') {
+            openLinkedinUpdateModal(appId, updated.empresa, updated.vaga);
+        }
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -1711,7 +1714,7 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts(), loadStarStories()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts(), loadStarStories(), loadNotificationSettings()]);
 }
 
 // ─── HISTÓRIAS STAR (N6) ──────────────────────────────────────
@@ -2001,6 +2004,159 @@ async function saveWeeklyGoals() {
         await apiFetch('/api/admin/applications?__h=weekly-goals', { method:'PUT', body: JSON.stringify({ candidaturas_semana: cand, followups_semana: fup }) });
         showToast('Meta semanal salva');
         loadWeeklyGoals();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── NOTIFICAÇÕES / DND (N29/N30) ────────────────────────────
+async function loadNotificationSettings() {
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=notification-settings');
+        const s = r.settings || {};
+        const h = s.dnd_hours_weekday || [22, 8];
+        const w = s.dnd_hours_weekend || [23, 10];
+        if (document.getElementById('dndWeekdayStart')) document.getElementById('dndWeekdayStart').value = h[0] ?? 22;
+        if (document.getElementById('dndWeekdayEnd'))   document.getElementById('dndWeekdayEnd').value   = h[1] ?? 8;
+        if (document.getElementById('dndWeekendStart')) document.getElementById('dndWeekendStart').value = w[0] ?? 23;
+        if (document.getElementById('dndWeekendEnd'))   document.getElementById('dndWeekendEnd').value   = w[1] ?? 10;
+        if (document.getElementById('dndCriticalOverride')) document.getElementById('dndCriticalOverride').checked = s.critical_overrides_dnd !== false;
+        if (document.getElementById('pauseMode')) document.getElementById('pauseMode').checked = !!s.pause_mode;
+        const status = document.getElementById('notifSettingsStatus');
+        if (status && s.pause_mode) status.textContent = 'Modo pausa ativo — buscas e alertas suspensos.';
+    } catch(e) { /* silencioso */ }
+}
+
+async function saveNotificationSettings() {
+    const settings = {
+        dnd_hours_weekday: [
+            parseInt(document.getElementById('dndWeekdayStart')?.value) ?? 22,
+            parseInt(document.getElementById('dndWeekdayEnd')?.value) ?? 8,
+        ],
+        dnd_hours_weekend: [
+            parseInt(document.getElementById('dndWeekendStart')?.value) ?? 23,
+            parseInt(document.getElementById('dndWeekendEnd')?.value) ?? 10,
+        ],
+        critical_overrides_dnd: document.getElementById('dndCriticalOverride')?.checked !== false,
+        pause_mode: !!document.getElementById('pauseMode')?.checked,
+    };
+    try {
+        await apiFetch('/api/admin/applications?__h=notification-settings', { method:'PUT', body: JSON.stringify({ settings }) });
+        showToast('Configurações de notificação salvas.');
+        loadNotificationSettings();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── LINKEDIN UPDATE (N14) + ONBOARDING (N33) ────────────────
+let _linkedinUpdateAppId = null;
+let _onboardingProcessId = null;
+
+function openLinkedinUpdateModal(appId, empresa, vaga) {
+    _linkedinUpdateAppId = appId;
+    document.getElementById('liHeadline').value = vaga ? `${vaga} @ ${empresa}` : '';
+    document.getElementById('liStartDate').value = new Date().toISOString().slice(0,10);
+    const modal = document.getElementById('linkedinUpdateModal');
+    modal.style.display = 'flex';
+}
+
+function dismissLinkedinUpdate() {
+    document.getElementById('linkedinUpdateModal').style.display = 'none';
+}
+
+async function applyLinkedinUpdate() {
+    const appId = _linkedinUpdateAppId;
+    if (!appId) return;
+    const headline = document.getElementById('liHeadline')?.value.trim();
+    const startDate = document.getElementById('liStartDate')?.value;
+    const createOnboarding = document.getElementById('liCreateOnboarding')?.checked;
+    try {
+        if (headline) {
+            await apiFetch(`/api/admin/applications?__h=linkedin-update&id=${appId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ linkedin_update_status: 'applied', linkedin_update_applied_at: new Date().toISOString() })
+            });
+        }
+        if (createOnboarding) {
+            const appData = await apiFetch(`/api/admin/applications?id=${appId}`);
+            const r = await apiFetch('/api/admin/applications?__h=onboarding', {
+                method: 'POST',
+                body: JSON.stringify({ application_id: appId, company: appData.empresa, role: appData.vaga, start_date: startDate || null })
+            });
+            _onboardingProcessId = r.id;
+        }
+        dismissLinkedinUpdate();
+        showToast('Atualizado! ' + (createOnboarding ? 'Checklist de onboarding criado.' : ''));
+        if (createOnboarding && _onboardingProcessId) openOnboardingModal(_onboardingProcessId);
+        renderVagas?.();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function openOnboardingModal(onboardingId) {
+    const modal = document.getElementById('onboardingModal');
+    const content = document.getElementById('onboardingContent');
+    if (!modal || !content) return;
+    modal.style.display = 'flex';
+    content.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>';
+    try {
+        let data;
+        if (onboardingId) {
+            data = (await apiFetch(`/api/admin/applications?__h=onboarding&id=${onboardingId}`))?.onboarding;
+        }
+        if (!data) { content.innerHTML = '<div style="color:var(--text-dim)">Não encontrado.</div>'; return; }
+        _onboardingProcessId = data.id;
+        content.innerHTML = _renderOnboardingChecklist(data);
+    } catch(e) { content.innerHTML = `<div style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+
+function closeOnboardingModal() {
+    document.getElementById('onboardingModal').style.display = 'none';
+}
+
+function _renderOnboardingChecklist(data) {
+    const items = data.checklist || [];
+    const catLabels = { docs:'📄 Documentos', health:'🏥 Saúde', prep:'🚀 Preparação' };
+    const grouped = {};
+    for (const it of items) { const c = it.category || 'outros'; (grouped[c] = grouped[c] || []).push(it); }
+    return `<div>
+        <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:12px">
+            ${data.company ? `<strong>${esc(data.company)}</strong>` : ''}
+            ${data.start_date ? ` · Início: ${new Date(data.start_date+'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
+        </div>
+        ${Object.entries(grouped).map(([cat, its]) => `
+            <div style="margin-bottom:12px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:6px">${catLabels[cat] || cat}</div>
+                ${its.map(it => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                    <input type="checkbox" ${it.done?'checked':''} style="accent-color:var(--cyan)" onchange="toggleOnboardingItem('${data.id}','${it.id}',this.checked)">
+                    <span style="font-size:0.83rem;color:var(--text);${it.done?'text-decoration:line-through;color:var(--text-dim)':''}">${esc(it.label)}</span>
+                </div>`).join('')}
+            </div>
+        `).join('')}
+        <div style="margin-top:12px">
+            <textarea id="onboardingNotes" class="mock-input" rows="2" placeholder="Notas…" style="resize:vertical;font-size:0.82rem">${esc(data.notes||'')}</textarea>
+            <button class="btn btn-cyan btn-sm" style="margin-top:6px" onclick="saveOnboardingNotes('${data.id}')"><i class="fa-solid fa-check"></i> Salvar notas</button>
+        </div>
+    </div>`;
+}
+
+async function toggleOnboardingItem(processId, itemId, checked) {
+    try {
+        const r = await apiFetch(`/api/admin/applications?__h=onboarding&id=${processId}`);
+        const data = r?.onboarding;
+        if (!data) return;
+        const checklist = (data.checklist || []).map(it => it.id === itemId ? { ...it, done: checked } : it);
+        await apiFetch(`/api/admin/applications?__h=onboarding&id=${processId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ checklist })
+        });
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function saveOnboardingNotes(processId) {
+    const notes = document.getElementById('onboardingNotes')?.value || '';
+    try {
+        await apiFetch(`/api/admin/applications?__h=onboarding&id=${processId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ notes })
+        });
+        showToast('Notas salvas.');
     } catch(e) { showToast(e.message,'error'); }
 }
 
@@ -6364,11 +6520,12 @@ function renderRadarList(leads) {
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
         const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
+        const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${l.reverse_fit_score}</span>` : '';
         const isSelected = _radarSelected.has(l.id);
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
         return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
             ${_radarSelecting ? `<input type="checkbox" class="radar-row-check" ${isSelected ? 'checked' : ''} onchange="toggleRadarSelect('${l.id}')" style="margin:8px;align-self:center" onclick="event.stopPropagation()">` : ''}
-            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}</div>
+            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
                     <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}

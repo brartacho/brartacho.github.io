@@ -8,7 +8,7 @@
 import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
-import { scoreVaga, detectSuspiciousFlags } from '../_lib/scoring.js';
+import { scoreVaga, detectSuspiciousFlags, computeReverseFit } from '../_lib/scoring.js';
 import { isConfigured, analyze, providerInfo } from '../_lib/ai-provider.js';
 import { buildAnalysisPrompt, parseAnalysisJson } from '../_lib/radar-prompt.js';
 
@@ -340,6 +340,9 @@ export default async function handler(req, res) {
         lead.fit_score = r.score;
         lead.keywords_match = r.keywords_match;
         lead.gaps = r.gaps_preliminares;
+        const rev = computeReverseFit(lead, profile);
+        lead.reverse_fit_score = rev.score;
+        lead.reverse_fit_breakdown = rev;
 
         const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
         if (error) return res.status(500).json({ error: error.message });
@@ -393,6 +396,9 @@ export default async function handler(req, res) {
         lead.gaps = r.gaps_preliminares;
         if (!lead.nivel && r.seniority_inferred !== 'unknown') lead.nivel = r.seniority_inferred;
         lead.suspicious_flags = detectSuspiciousFlags(lead);
+        const rev = computeReverseFit(lead, profile);
+        lead.reverse_fit_score = rev.score;
+        lead.reverse_fit_breakdown = rev;
 
         const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
         if (error) return res.status(500).json({ error: error.message });

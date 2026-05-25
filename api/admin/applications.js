@@ -1709,6 +1709,99 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── notification-settings (N29/N30) ──────────────────────────
+    if (req.query.__h === 'notification-settings') {
+        if (req.method === 'GET') {
+            const { data: prof } = await supabase.from('candidate_profile').select('notification_settings').single();
+            return res.status(200).json({ settings: prof?.notification_settings || {} });
+        }
+        if (req.method === 'PUT') {
+            const { settings } = req.body || {};
+            if (!settings || typeof settings !== 'object') return res.status(400).json({ error: 'settings obrigatório' });
+            const { error } = await supabase.from('candidate_profile').update({ notification_settings: settings, updated_at: new Date().toISOString() }).not('id', 'is', null);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── linkedin-update (N14) ─────────────────────────────────────
+    if (req.query.__h === 'linkedin-update') {
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { linkedin_update_status, linkedin_update_applied_at } = req.body || {};
+            const patch = {};
+            if (linkedin_update_status) patch.linkedin_update_status = String(linkedin_update_status).slice(0,20);
+            if (linkedin_update_applied_at) patch.linkedin_update_applied_at = linkedin_update_applied_at;
+            const { data, error } = await supabase.from('job_applications').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── onboarding (N33) ──────────────────────────────────────────
+    if (req.query.__h === 'onboarding') {
+        if (req.method === 'GET') {
+            const { id, application_id } = req.query;
+            if (id) {
+                const { data, error } = await supabase.from('onboarding_processes').select('*').eq('id', id).single();
+                if (error) return res.status(404).json({ error: error.message });
+                return res.status(200).json({ onboarding: data });
+            }
+            if (application_id) {
+                const { data, error } = await supabase.from('onboarding_processes').select('*').eq('application_id', application_id).order('created_at', { ascending: false }).limit(1);
+                if (error) return res.status(500).json({ error: error.message });
+                return res.status(200).json({ onboarding: data?.[0] || null });
+            }
+            const { data, error } = await supabase.from('onboarding_processes').select('*, job_applications(empresa,vaga)').eq('status', 'in_progress').order('created_at', { ascending: false }).limit(20);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ items: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { application_id, start_date, company, role, documents_due_date, exam_date, first_day_at, notes } = req.body || {};
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            const DEFAULT_CHECKLIST = [
+                { id: 'rg', label: 'RG', done: false, category: 'docs' },
+                { id: 'cpf', label: 'CPF', done: false, category: 'docs' },
+                { id: 'comprov_end', label: 'Comprovante de endereço', done: false, category: 'docs' },
+                { id: 'ctps', label: 'Carteira de Trabalho', done: false, category: 'docs' },
+                { id: 'diploma', label: 'Diploma / comprovante escolaridade', done: false, category: 'docs' },
+                { id: 'foto', label: 'Foto 3x4', done: false, category: 'docs' },
+                { id: 'exame_adm', label: 'Exame admissional agendado', done: false, category: 'health' },
+                { id: 'calendar', label: 'Primeiro dia marcado no Calendar', done: false, category: 'prep' },
+                { id: 'linkedin', label: 'LinkedIn atualizado com nova empresa', done: false, category: 'prep' },
+                { id: 'setup', label: 'Setup de ambiente solicitado', done: false, category: 'prep' },
+            ];
+            const { data, error } = await supabase.from('onboarding_processes').insert({
+                application_id,
+                start_date: start_date || null,
+                company: company ? String(company).slice(0,200) : null,
+                role: role ? String(role).slice(0,200) : null,
+                checklist: DEFAULT_CHECKLIST,
+                documents_due_date: documents_due_date || null,
+                exam_date: exam_date || null,
+                first_day_at: first_day_at || null,
+                notes: notes ? String(notes).slice(0,2000) : null,
+                status: 'in_progress',
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['start_date','company','role','checklist','documents_due_date','exam_date','first_day_at','notes','status'];
+            const patch = { updated_at: new Date().toISOString() };
+            for (const k of allowed) { if (req.body?.[k] !== undefined) patch[k] = req.body[k]; }
+            const { data, error } = await supabase.from('onboarding_processes').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {
