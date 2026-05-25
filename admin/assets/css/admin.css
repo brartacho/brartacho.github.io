@@ -2792,7 +2792,7 @@
         }
 
         /* CNH toggle + categorias condicionais */
-        .rp-cnh-row { display:flex; flex-direction:column; gap:10px; }
+        .rp-cnh-row { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
         .rp-cnh-toggle { display:flex; align-items:center; gap:10px; }
 
         /* Botão salvar perfil + hint */

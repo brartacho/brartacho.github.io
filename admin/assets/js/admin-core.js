@@ -584,11 +584,29 @@ function normalizeStageName(name) {
     return (name || '').replace(/\s*\/\s*Oferta$/i, '');
 }
 
+// Normaliza dados antigos: Enviado running → done, promove próxima para running
+function normalizeStages(stages) {
+    const active = stages.filter(s => s.active !== false);
+    const normalized = active.map(s =>
+        (s.name === 'Enviado' && (s.status === 'running' || s.current))
+            ? { ...s, status: 'done', done: true, current: false }
+            : s
+    );
+    const hasRunning = normalized.some(s => stageStatus(s) === 'running');
+    if (!hasRunning) {
+        const lastDoneIdx = normalized.map(s => stageStatus(s) === 'done').lastIndexOf(true);
+        if (lastDoneIdx >= 0 && lastDoneIdx < normalized.length - 1) {
+            normalized[lastDoneIdx + 1] = { ...normalized[lastDoneIdx + 1], status: 'running' };
+        }
+    }
+    return normalized;
+}
+
 function getAppCurrentStageName(app) {
-    const active = (app.stages || []).filter(s => s.active !== false);
-    const running = active.find(s => stageStatus(s) === 'running');
+    const normalized = normalizeStages(app.stages || []);
+    const running = normalized.find(s => stageStatus(s) === 'running');
     if (running) return normalizeStageName(running.name);
-    const lastDone = [...active].reverse().find(s => ['done','rejected'].includes(stageStatus(s)));
+    const lastDone = [...normalized].reverse().find(s => ['done','rejected'].includes(stageStatus(s)));
     return lastDone ? normalizeStageName(lastDone.name) : '—';
 }
 
@@ -7895,16 +7913,18 @@ function renderKanban(apps) {
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
 
-    const COLS = ['Aplicado', 'Triagem', 'Entrevista com RH', 'Entrevista Técnica', 'Entrevista com Gestor', 'Teste', 'Proposta', 'Recusado', 'Aprovado'];
+    const COLS = ['Enviado', 'Triagem de CV', 'Entrevista RH', 'Entrevista Técnica', 'Entrevista Coordenador', 'Proposta', 'Recusado', 'Aprovado'];
     const active = apps.filter(a => !a.archived);
 
     const getStage = app => {
-        const stages = app.stages || [];
-        const last = [...stages].reverse().find(s => s.active !== false && (s.completed_at || s.date));
-        if (last) return last.name || last.label || 'Aplicado';
         if (app.result === 'recusado') return 'Recusado';
         if (app.result === 'aprovado') return 'Aprovado';
-        return 'Aplicado';
+        const normalized = normalizeStages(app.stages || []);
+        const running = normalized.find(s => stageStatus(s) === 'running');
+        if (running) return running.name;
+        const lastDone = [...normalized].reverse().find(s => stageStatus(s) === 'done');
+        if (lastDone) return lastDone.name;
+        return 'Enviado';
     };
 
     const byCol = {};
