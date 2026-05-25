@@ -74,13 +74,36 @@ export async function searchIndeed({ keywords, maxResults = 20 }) {
                 if (!job.link || seen.has(job.link)) continue;
                 seen.add(job.link);
 
+                // Busca descrição na página individual (melhora inferência de modalidade/tipo)
+                let descricao = null;
+                try {
+                    await page.goto(job.link, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+                    await new Promise(r => setTimeout(r, 1500));
+                    descricao = await page.evaluate(() => {
+                        const sels = [
+                            '#jobDescriptionText',
+                            '.jobsearch-jobDescriptionText',
+                            '[class*="jobDescription"]',
+                            '[id*="jobDescription"]',
+                            '.job-description',
+                        ];
+                        for (const sel of sels) {
+                            const t = document.querySelector(sel)?.innerText?.trim();
+                            if (t && t.length > 50) return t;
+                        }
+                        return null;
+                    });
+                } catch { /* descrição opcional */ }
+
                 results.push(normalize({
                     empresa:    job.empresa || 'Empresa não informada',
                     vaga:       job.vaga,
                     link_vaga:  job.link,
-                    descricao:  null,
+                    descricao,
                     localizacao: job.localizacao,
                 }, 'indeed'));
+
+                await new Promise(r => setTimeout(r, 800 + Math.random() * 1000));
             }
 
             await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000));

@@ -64,8 +64,24 @@ export async function searchInfojobs({ keywords, maxResults = 20 }) {
 
                 return cards.map(card => {
                     const titleEl = card.querySelector('.js_vacancyTitle');
-                    const compEl  = card.querySelector('a[href*="empresa"]');
-                    const locEl   = card.querySelector('.js_vacancyDataPanels [class*="location"], [class*="locality"], span[class*="location"]');
+                    // Empresa: tenta múltiplos seletores
+                    const compEl = card.querySelector([
+                        'a[href*="empresa"]',
+                        '.js_vacancy-company',
+                        '[class*="company"]',
+                        '[class*="empresa"]',
+                        'span[class*="companyName"]',
+                        'p[class*="company"]',
+                    ].join(','));
+                    const locEl = card.querySelector([
+                        '.js_vacancyDataPanels [class*="location"]',
+                        '[class*="locality"]',
+                        'span[class*="location"]',
+                        '[class*="cidade"]',
+                        '[data-testid*="location"]',
+                    ].join(','));
+                    // Modalidade pode aparecer como badge no card
+                    const modEl = card.querySelector('[class*="workday"], [class*="remote"], [class*="modalidade"]');
                     const dataHref = card.getAttribute('data-href');
                     const link = dataHref
                         ? (dataHref.startsWith('http') ? dataHref : `https://www.infojobs.com.br${dataHref}`)
@@ -73,8 +89,8 @@ export async function searchInfojobs({ keywords, maxResults = 20 }) {
                     return {
                         vaga:        titleEl?.textContent?.trim() || '',
                         empresa:     (compEl?.textContent || '').replace(/\s+/g, ' ').trim(),
-                        localizacao: locEl?.textContent?.trim()   || '',
-                        modalidade:  '',
+                        localizacao: locEl?.textContent?.trim() || '',
+                        modalidade:  modEl?.textContent?.trim() || '',
                         link,
                     };
                 }).filter(j => j.vaga && j.link);
@@ -86,13 +102,39 @@ export async function searchInfojobs({ keywords, maxResults = 20 }) {
                 if (results.length >= maxResults) break;
                 if (!job.link || seen.has(job.link)) continue;
                 seen.add(job.link);
+
+                // Busca descrição na página de detalhe
+                let descricao = null;
+                try {
+                    await page.goto(job.link, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+                    await new Promise(r => setTimeout(r, 1500));
+                    descricao = await page.evaluate(() => {
+                        const sels = [
+                            '#oferta-description',
+                            '.oferta-description',
+                            '[class*="description"]',
+                            '[id*="description"]',
+                            '.detalle-oferta',
+                            'section[class*="detail"]',
+                        ];
+                        for (const sel of sels) {
+                            const t = document.querySelector(sel)?.innerText?.trim();
+                            if (t && t.length > 50) return t;
+                        }
+                        return null;
+                    });
+                } catch { /* descrição opcional */ }
+
                 results.push(normalize({
                     empresa:    job.empresa || 'Empresa não informada',
                     vaga:       job.vaga,
                     link_vaga:  job.link,
                     localizacao: job.localizacao || null,
                     modalidade:  job.modalidade  || null,
+                    descricao,
                 }, 'infojobs'));
+
+                await new Promise(r => setTimeout(r, 800 + Math.random() * 1000));
             }
 
             await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500));

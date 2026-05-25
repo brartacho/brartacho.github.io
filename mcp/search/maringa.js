@@ -184,12 +184,20 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
                 console.error(`[maringa] (${i + 1}/${allCards.length}) sem descrição`);
             }
 
+            // Detecta modalidade explícita no card antes de fallback por descrição
+            const cardText = card.lines.join(' ');
+            const hasRemote = /remot[oa]|home\s*office/i.test(cardText);
+            const hasHybrid = /h[ií]brid[oa]/i.test(cardText);
+            // Maringá é board local — presencial é o padrão quando não há indicador
+            const modalidade = hasHybrid ? 'Híbrida' : hasRemote ? 'Remota' : 'Presencial';
+
             results.push(normalize({
                 empresa:     card.company || 'Empresa não informada',
                 vaga:        card.title,
                 link_vaga:   card.link,
                 descricao,
                 localizacao: parseLocation(card.lines),
+                modalidade,
             }, 'maringa'));
 
             await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
