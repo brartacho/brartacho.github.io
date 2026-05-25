@@ -22,13 +22,15 @@ import { searchLinkedin } from './search/linkedin.js';
 import { searchGupy } from './search/gupy.js';
 import { searchMaringa } from './search/maringa.js';
 import { searchIndeed } from './search/indeed.js';
+import { searchInfojobs } from './search/infojobs.js';
 import { clearSession } from './search/session.js';
 
 const SCRAPERS = {
-    linkedin: (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
-    gupy:     (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
-    maringa:  (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
-    indeed:   (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    linkedin:  (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
+    gupy:      (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    maringa:   (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
+    indeed:    (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    infojobs:  (cfg) => searchInfojobs({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
 };
 
 const url = process.env.SUPABASE_URL;
@@ -587,9 +589,37 @@ server.registerTool('search_indeed',
         return ok({ platform: 'indeed', found: leads.length, ...result });
     });
 
+server.registerTool('search_infojobs',
+    { title: 'Buscar vagas no InfoJobs',
+      description: 'Raspa vagas do InfoJobs Brasil (www.infojobs.com.br). Usa Playwright + stealth para contornar Cloudflare.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('infojobs');
+        const kw      = keywords || config?.keywords || ['analista de qa', 'quality assurance'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchInfojobs({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('infojobs', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('infojobs');
+
+        return ok({ platform: 'infojobs', found: leads.length, ...result });
+    });
+
 server.registerTool('search_all',
     { title: 'Buscar vagas em todas as plataformas',
-      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed). Deduplica e salva leads acima do score mínimo.',
+      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed, InfoJobs). Deduplica e salva leads acima do score mínimo.',
       inputSchema: {
           platforms: z.array(z.string()).optional(),
           dry_run:   z.boolean().optional(),

@@ -6986,15 +6986,16 @@ function _rsqKeywords() {
 function _rsqSyncPlatforms(profile) {
     const container = document.getElementById('rsqPlatforms');
     if (!container) return;
-    const VALID = new Set(['linkedin', 'gupy', 'maringa', 'indeed']);
+    const VALID = new Set(['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs']);
     const allPlats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
     if (!allPlats.length) {
         _chipsRender(container, [
-            { value: 'linkedin', label: 'LinkedIn' },
-            { value: 'gupy',     label: 'Gupy' },
-            { value: 'maringa',  label: 'Empregos Maringá' },
-            { value: 'indeed',   label: 'Indeed' },
-        ], ['linkedin', 'gupy', 'maringa', 'indeed']);
+            { value: 'linkedin',  label: 'LinkedIn' },
+            { value: 'gupy',      label: 'Gupy' },
+            { value: 'maringa',   label: 'Empregos Maringá' },
+            { value: 'indeed',    label: 'Indeed' },
+            { value: 'infojobs',  label: 'InfoJobs' },
+        ], ['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs']);
         return;
     }
     _chipsRender(container,

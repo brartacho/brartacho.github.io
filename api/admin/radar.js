@@ -176,7 +176,7 @@ export default async function handler(req, res) {
         const { platforms, keywords, max_results, dry_run } = req.body || {};
         if (!Array.isArray(platforms) || !platforms.length)
             return res.status(400).json({ error: 'platforms obrigatório' });
-        const validPlats = new Set(['linkedin', 'gupy', 'maringa', 'indeed']);
+        const validPlats = new Set(['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs']);
         const filteredPlats = platforms.filter(p => validPlats.has(p));
         if (!filteredPlats.length)
             return res.status(400).json({ error: 'Nenhuma plataforma válida' });
