@@ -2452,7 +2452,48 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
             return res.status(200).json({ paths: data ?? [] });
         }
         if (req.method === 'POST') {
-            const { from_role, to_role, horizon_years, required_skills, skills_gap, median_salary_brl, transition_difficulty, notes } = req.body || {};
+            const { from_role, to_role, horizon_years, required_skills, skills_gap, median_salary_brl, transition_difficulty, notes, action } = req.body || {};
+
+            // action=generate: usa LLM para gerar paths baseados no cargo atual do perfil
+            if (action === 'generate') {
+                const { data: prof } = await supabase.from('candidate_profile').select('nivel_atual,skills_core,candidate_areas(nome)').single();
+                const currentRole = from_role || prof?.candidate_areas?.[0]?.nome || 'profissional';
+                const skills = (prof?.skills_core || []).slice(0, 10).join(', ');
+                try {
+                    const { routeChat } = await import('../_lib/llm-router.js');
+                    const r = await routeChat({
+                        taskType: 'analysis',
+                        messages: [{
+                            role: 'user',
+                            content: `Gere 6 possíveis caminhos de carreira a partir de "${currentRole}" (nível: ${prof?.nivel_atual||'pleno'}, skills: ${skills||'N/A'}). Retorne APENAS JSON array:\n[{"from_role":"...","to_role":"...","horizon_years":2,"required_skills":["skill1"],"transition_difficulty":3,"median_salary_brl":12000,"notes":"..."}]\nDiferentes horizontes: 1-2 anos (próximo passo), 3-5 anos (médio prazo), 5+ anos (longo prazo).`
+                        }],
+                        maxTokens: 800,
+                        temperature: 0.3,
+                    });
+                    const txt = r.content.trim();
+                    const arrStart = txt.indexOf('[');
+                    const arrEnd   = txt.lastIndexOf(']');
+                    if (arrStart === -1) throw new Error('LLM não retornou JSON array');
+                    const paths = JSON.parse(txt.slice(arrStart, arrEnd + 1));
+                    const inserted = [];
+                    for (const p of paths.slice(0, 8)) {
+                        const { data: ins } = await supabase.from('career_paths').insert({
+                            from_role: String(p.from_role||currentRole).slice(0,200),
+                            to_role: String(p.to_role||'').slice(0,200),
+                            horizon_years: parseInt(p.horizon_years)||2,
+                            required_skills: Array.isArray(p.required_skills) ? p.required_skills : [],
+                            median_salary_brl: parseInt(p.median_salary_brl)||null,
+                            transition_difficulty: Math.min(5,Math.max(1,parseInt(p.transition_difficulty)||3)),
+                            notes: p.notes ? String(p.notes).slice(0,500) : null,
+                        }).select().single();
+                        if (ins) inserted.push(ins);
+                    }
+                    return res.status(201).json({ generated: inserted.length, paths: inserted });
+                } catch(e) {
+                    return res.status(500).json({ error: e.message });
+                }
+            }
+
             if (!from_role || !to_role) return res.status(400).json({ error: 'from_role e to_role obrigatórios' });
             const { data, error } = await supabase.from('career_paths').insert({
                 from_role: String(from_role).slice(0,200), to_role: String(to_role).slice(0,200),

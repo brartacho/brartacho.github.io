@@ -2280,7 +2280,10 @@ async function loadCareerPaths() {
     try {
         const r = await apiFetch('/api/admin/applications?__h=career-paths');
         const paths = r.paths || [];
-        if (!paths.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:12px">Nenhum caminho cadastrado.</div>'; return; }
+        if (!paths.length) {
+            el.innerHTML = `<div style="color:var(--text-dim);font-size:0.82rem;padding:12px">Nenhum caminho cadastrado. <button class="btn btn-sm" onclick="generateCareerPaths(this)"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerar com IA</button></div>`;
+            return;
+        }
 
         // Agrupa por from_role
         const byRole = {};
@@ -2312,6 +2315,20 @@ async function loadCareerPaths() {
     } catch(e) {
         el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
     }
+}
+
+async function generateCareerPaths(btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=career-paths', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'generate' })
+        });
+        showToast(`${r.generated} caminhos de carreira gerados!`, 'success');
+        const el = document.getElementById('careerPathsContent');
+        if (el) loadCareerPaths?.();
+    } catch(e) { showToast(e.message, 'error'); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Gerar com IA'; } }
 }
 
 // ─── DIÁRIO DE CARREIRA (N15) ────────────────────────────────
