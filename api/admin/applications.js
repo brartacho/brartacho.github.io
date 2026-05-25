@@ -2139,6 +2139,68 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ─── N19 — Watchlist de empresas ────────────────────────────────────────
+    if (req.query.__h === 'watchlist') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase.from('company_intel')
+                .select('*').eq('watchlist', true).order('display_name');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ companies: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { empresa, watchlist } = req.body || {};
+            if (!empresa) return res.status(400).json({ error: 'empresa obrigatório' });
+            const normalized = String(empresa).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,100);
+            const { data, error } = await supabase.from('company_intel').upsert({
+                empresa_normalized: normalized,
+                display_name: empresa,
+                watchlist: watchlist !== false,
+                watchlist_added_at: watchlist !== false ? new Date().toISOString() : null,
+            }, { onConflict: 'empresa_normalized' }).select('id,empresa_normalized,display_name,watchlist').single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ─── N40 — LGPD export seletivo ─────────────────────────────────────────
+    if (req.query.__h === 'lgpd-export') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+        const { since, type = 'todos', anonymous = 'false' } = req.query;
+        const anon = anonymous === 'true';
+        const result = {};
+
+        if (type === 'todos' || type === 'candidaturas') {
+            let q = supabase.from('job_applications').select('id,empresa,vaga,data_envio,result,modalidade,tipo_contratacao,created_at');
+            if (since) q = q.gte('created_at', since);
+            const { data } = await q.order('created_at', { ascending: false }).limit(1000);
+            result.candidaturas = anon ? (data||[]).map(r => ({ ...r, empresa: '***', vaga: '***' })) : (data||[]);
+        }
+
+        if (type === 'todos' || type === 'entrevistas') {
+            let q = supabase.from('interview_sessions').select('id,application_id,stage_name,interview_at,interviewer_name,status,created_at');
+            if (since) q = q.gte('created_at', since);
+            const { data } = await q.order('created_at', { ascending: false }).limit(500);
+            result.entrevistas = anon ? (data||[]).map(r => ({ ...r, interviewer_name: null })) : (data||[]);
+        }
+
+        if (type === 'todos' || type === 'mensagens') {
+            let q = supabase.from('application_messages').select('id,application_id,channel,direction,message_at,subject');
+            if (since) q = q.gte('message_at', since);
+            const { data } = await q.order('message_at', { ascending: false }).limit(500);
+            result.mensagens = anon ? (data||[]).map(r => ({ ...r, body: null })) : (data||[]);
+        }
+
+        if (type === 'todos' || type === 'perfil') {
+            const { data } = await supabase.from('candidate_profile').select('*').limit(1);
+            result.perfil = anon ? (data||[]).map(r => ({ ...r, nome: '***', email: '***' })) : (data||[]);
+        }
+
+        res.setHeader('Content-Disposition', `attachment; filename="lgpd-export-${new Date().toISOString().slice(0,10)}.json"`);
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json({ exported_at: new Date().toISOString(), type, anonymous: anon, since: since||null, data: result });
+    }
+
     // ─── N13 — Interviewer intel ─────────────────────────────────────────────
     if (req.query.__h === 'interviewer-intel') {
         if (req.method === 'GET') {

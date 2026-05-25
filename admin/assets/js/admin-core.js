@@ -2188,6 +2188,78 @@ async function loadTrends() {
     }
 }
 
+// ─── N19 — Watchlist de empresas ────────────────────────────
+async function loadWatchlist() {
+    const el = document.getElementById('watchlistContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:12px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=watchlist');
+        const companies = r.companies || [];
+        if (!companies.length) {
+            el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:8px 0">Nenhuma empresa na watchlist. Adicione clicando em "+ Adicionar".</div>';
+            return;
+        }
+        el.innerHTML = companies.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)">
+                <div style="width:28px;height:28px;border-radius:50%;background:rgba(34,211,238,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="fa-solid fa-building" style="color:var(--cyan);font-size:0.75rem"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(c.display_name||c.empresa_normalized)}</div>
+                    ${c.watchlist_added_at ? `<div style="font-size:0.72rem;color:var(--text-dim)">Monitorada desde ${new Date(c.watchlist_added_at).toLocaleDateString('pt-BR')}</div>` : ''}
+                    ${c.situacao ? `<div style="font-size:0.72rem;color:${c.situacao==='ATIVA'?'#34d399':'#f87171'}">${c.situacao}</div>` : ''}
+                </div>
+                ${c.glassdoor_rating ? `<span style="font-size:0.78rem;color:#fb923c">★ ${c.glassdoor_rating}</span>` : ''}
+                <button class="btn btn-sm" style="padding:3px 8px;font-size:0.72rem;color:var(--danger)" onclick="removeFromWatchlist('${esc(c.display_name||c.empresa_normalized)}')" title="Remover da watchlist"><i class="fa-solid fa-bell-slash"></i></button>
+            </div>
+        `).join('');
+    } catch(e) { el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`; }
+}
+
+async function addToWatchlistPrompt() {
+    const empresa = prompt('Nome da empresa para monitorar:');
+    if (!empresa?.trim()) return;
+    try {
+        await apiFetch('/api/admin/applications?__h=watchlist', {
+            method: 'POST',
+            body: JSON.stringify({ empresa: empresa.trim(), watchlist: true })
+        });
+        showToast(`${empresa} adicionada à watchlist.`,'success');
+        loadWatchlist();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function removeFromWatchlist(empresa) {
+    if (!confirm(`Remover "${empresa}" da watchlist?`)) return;
+    try {
+        await apiFetch('/api/admin/applications?__h=watchlist', {
+            method: 'POST',
+            body: JSON.stringify({ empresa, watchlist: false })
+        });
+        showToast('Removida da watchlist.','success');
+        loadWatchlist();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── N40 — LGPD export seletivo ─────────────────────────────
+async function runLgpdExport() {
+    const type = document.getElementById('lgpdType')?.value || 'todos';
+    const since = document.getElementById('lgpdSince')?.value || '';
+    const anonymous = document.getElementById('lgpdAnon')?.checked ? 'true' : 'false';
+    let url = `/api/admin/applications?__h=lgpd-export&type=${type}&anonymous=${anonymous}`;
+    if (since) url += `&since=${encodeURIComponent(since + 'T00:00:00Z')}`;
+    try {
+        const r = await apiFetch(url);
+        const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `lgpd-export-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        showToast('Exportação concluída.','success');
+    } catch(e) { showToast(e.message,'error'); }
+}
+
 // ─── MAPA DE CARREIRA (N41) ──────────────────────────────────
 async function loadCareerPaths() {
     const el = document.getElementById('careerPathsContent');
@@ -3588,7 +3660,7 @@ function switchTab(name) {
     if (name === 'inbox') loadInbox();
     if (name === 'rede') loadRede();
     if (name === 'diario') loadJournal();
-    if (name === 'tendencias') { loadTrends(); loadCareerPaths(); }
+    if (name === 'tendencias') { loadTrends(); loadCareerPaths(); loadWatchlist(); }
     _scheduleRefresh();
 }
 
