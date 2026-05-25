@@ -2822,3 +2822,24 @@
         .cleanup-preview { margin-top:14px; padding:10px 12px; background:rgba(34,211,238,0.06); border:1px solid rgba(34,211,238,0.2); border-radius:8px; font-size:0.82rem; color:var(--text-soft); }
         .cleanup-preview.warn { background:rgba(251,191,36,0.06); border-color:rgba(251,191,36,0.2); color:#fbbf24; }
         /* ───────── /Refresh radar UI/UX ───────── */
+
+/* ── Onda 1: Mensagem de candidatura + plataforma ── */
+.vf-message-section { display:flex; flex-direction:column; gap:6px; }
+.vf-message-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.vf-message-wrap { position:relative; }
+.vf-message-textarea { width:100%; resize:vertical; min-height:100px; font-family:inherit; font-size:inherit; }
+.vf-char-count {
+    position:absolute; bottom:6px; right:8px;
+    font-size:0.68rem; color:var(--text-dim); font-variant-numeric:tabular-nums;
+    pointer-events:none; background:rgba(var(--bg-card-rgb,18,24,38),0.85); padding:1px 5px; border-radius:4px;
+}
+.vf-char-count.vf-char-over { color:#f87171; font-weight:600; }
+.vf-platform-hint { font-size:0.72rem; color:var(--text-dim); padding:3px 0; }
+.vf-sent-label { display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--text-soft); cursor:pointer; }
+.vf-sent-label input[type=checkbox] { accent-color:var(--cyan); }
+.radar-origin-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:0.68rem; font-weight:600; text-transform:none; letter-spacing:normal;
+    color:var(--cyan); background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.25);
+    border-radius:10px; padding:1px 7px;
+}

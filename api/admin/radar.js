@@ -431,6 +431,8 @@ export default async function handler(req, res) {
                     observacoes: lead.positioning ? `Posicionamento (Radar): ${lead.positioning}`.slice(0, 500) : null,
                     modalidade: lead.modalidade || null,
                     tipo_contratacao: lead.tipo_contratacao || null,
+                    origin_radar_id: lead.id,
+                    platform: req.body?.platform || null,
                     source: 'radar',
                     stages: DEFAULT_STAGES,
                 })

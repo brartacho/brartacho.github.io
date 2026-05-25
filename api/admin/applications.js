@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase, BUCKET } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
+import { buildMessagePrompt, parseMessageResponse } from '../_lib/message-prompt.js';
 
 const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB (Supabase free)
 const STORAGE_ALERT_THRESHOLD = 0.80;
@@ -370,6 +371,142 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── platform-settings ──────────────────────────────────────
+    if (req.query.__h === 'platform-settings') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase
+                .from('platform_settings')
+                .select('*')
+                .order('display_name');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'PUT') {
+            const { fonte, char_limit, field_name, message_required, enabled, notes } = req.body || {};
+            if (!fonte || typeof fonte !== 'string') return res.status(400).json({ error: 'fonte obrigatório' });
+            const patch = { updated_at: new Date().toISOString() };
+            if (char_limit !== undefined) patch.char_limit = Math.max(0, parseInt(char_limit, 10) || 0);
+            if (field_name !== undefined) patch.field_name = field_name ? String(field_name).slice(0, 120) : null;
+            if (message_required !== undefined) patch.message_required = Boolean(message_required);
+            if (enabled !== undefined) patch.enabled = Boolean(enabled);
+            if (notes !== undefined) patch.notes = notes ? String(notes).slice(0, 500) : null;
+            const { data, error } = await supabase.from('platform_settings').update(patch).eq('fonte', fonte).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (!data) return res.status(404).json({ error: 'Plataforma não encontrada' });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── quick-answers ─────────────────────────────────────────
+    if (req.query.__h === 'quick-answers') {
+        if (req.method === 'GET') {
+            let q = supabase.from('quick_answers').select('*').order('slug');
+            if (req.query.area_id) q = q.eq('area_id', req.query.area_id);
+            const { data, error } = await q;
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { area_id, slug, display_name, value, sensitive } = req.body || {};
+            if (!slug || !display_name || !value) return res.status(400).json({ error: 'slug, display_name e value são obrigatórios' });
+            const row = {
+                slug:         String(slug).toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60),
+                display_name: String(display_name).slice(0, 100),
+                value:        String(value).slice(0, 1000),
+                sensitive:    Boolean(sensitive),
+                area_id:      area_id || null,
+            };
+            const { data, error } = await supabase.from('quick_answers').insert(row).select().single();
+            if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { display_name, value, sensitive } = req.body || {};
+            const patch = { updated_at: new Date().toISOString() };
+            if (display_name !== undefined) patch.display_name = String(display_name).slice(0, 100);
+            if (value !== undefined) patch.value = String(value).slice(0, 1000);
+            if (sensitive !== undefined) patch.sensitive = Boolean(sensitive);
+            const { data, error } = await supabase.from('quick_answers').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (!data) return res.status(404).json({ error: 'Resposta não encontrada' });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('quick_answers').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── generate-message ──────────────────────────────────────
+    if (req.query.__h === 'generate-message') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+        const { empresa, vaga, descricao, fonte, lead_id } = req.body || {};
+        if (!empresa) return res.status(400).json({ error: 'empresa obrigatório' });
+
+        let positioning = null, keywords_match = [], gaps = [];
+        if (lead_id) {
+            const { data: lead } = await supabase.from('vaga_radar').select('positioning,keywords_match,gaps,descricao,vaga,empresa').eq('id', lead_id).single();
+            if (lead) {
+                positioning = lead.positioning;
+                keywords_match = lead.keywords_match || [];
+                gaps = lead.gaps || [];
+            }
+        }
+
+        const [{ data: profile }, { data: platformRow }, { data: answers }] = await Promise.all([
+            supabase.from('candidate_profile').select('*').order('updated_at', { ascending: false }).limit(1).single(),
+            fonte ? supabase.from('platform_settings').select('char_limit,field_name,display_name').eq('fonte', fonte).single() : Promise.resolve({ data: null }),
+            supabase.from('quick_answers').select('slug,display_name,value').is('area_id', null).order('slug'),
+        ]);
+
+        const charLimit = platformRow?.char_limit ?? 0;
+        const platformDisplay = platformRow?.display_name ?? fonte ?? null;
+
+        if (!process.env.LLM_API_KEY) {
+            return res.status(200).json({
+                message_text: null,
+                prompt: buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [] }),
+                char_limit: charLimit,
+                provider: 'mcp',
+            });
+        }
+
+        const baseUrl = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+        const model = process.env.LLM_MODEL || 'gpt-4o-mini';
+        const prompt = buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [] });
+
+        try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 45000);
+            let resp;
+            try {
+                resp = await fetch(`${baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    signal: ctrl.signal,
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LLM_API_KEY}` },
+                    body: JSON.stringify({ model, temperature: 0.4, max_tokens: 800, messages: [{ role: 'user', content: prompt }] }),
+                });
+            } finally { clearTimeout(timer); }
+
+            if (!resp.ok) { const d = await resp.text().catch(() => ''); throw new Error(`LLM ${resp.status}: ${d.slice(0, 200)}`); }
+            const data = await resp.json();
+            const raw = data?.choices?.[0]?.message?.content || '';
+            const message_text = parseMessageResponse(raw);
+
+            return res.status(200).json({ message_text, char_count: message_text?.length ?? 0, char_limit: charLimit, provider: model, prompt });
+        } catch (e) {
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {
@@ -394,7 +531,8 @@ export default async function handler(req, res) {
 
     // POST — cria candidatura manual
     if (req.method === 'POST') {
-        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, cv_version_id } = req.body || {};
+        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, cv_version_id,
+                platform, origin_radar_id, application_message_text, application_message_sent, auto_filled_fields } = req.body || {};
 
         const emp = clean(empresa, TEXT_MAX.empresa);
         if (!emp) return res.status(400).json({ error: 'empresa obrigatório' });
@@ -425,7 +563,12 @@ export default async function handler(req, res) {
                 tipo_contratacao: tipo_contratacao || null,
                 cv_version_id:    cv_version_id || null,
                 gestor_phone:     clean(gestor_phone, 30) || null,
-                source:           'manual',
+                platform:         platform ? clean(platform, 40) : null,
+                origin_radar_id:  origin_radar_id || null,
+                application_message_text:  application_message_text ? clean(application_message_text, 5000) : null,
+                application_message_sent:  Boolean(application_message_sent),
+                auto_filled_fields:        Array.isArray(auto_filled_fields) ? auto_filled_fields : [],
+                source:           origin_radar_id ? 'radar' : 'manual',
                 stages:           DEFAULT_STAGES,
             })
             .select()
@@ -440,7 +583,8 @@ export default async function handler(req, res) {
         const { id } = req.query;
         if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
-        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, stages, result, cv_version_id } = req.body || {};
+        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, stages, result, cv_version_id,
+                platform, application_message_text, application_message_sent, auto_filled_fields } = req.body || {};
 
         const patch = {};
         if (empresa !== undefined) {
@@ -502,6 +646,10 @@ export default async function handler(req, res) {
             }
             patch.result = result;
         }
+        if (platform !== undefined) patch.platform = platform ? clean(platform, 40) : null;
+        if (application_message_text !== undefined) patch.application_message_text = application_message_text ? clean(application_message_text, 5000) : null;
+        if (application_message_sent !== undefined) patch.application_message_sent = Boolean(application_message_sent);
+        if (auto_filled_fields !== undefined) patch.auto_filled_fields = Array.isArray(auto_filled_fields) ? auto_filled_fields : [];
 
         if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nenhum campo para atualizar' });
 

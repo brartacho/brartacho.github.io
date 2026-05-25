@@ -1469,9 +1469,25 @@ async function addCustomStage(appId) {
 
 function vagaFormHTML(app) {
     const v = (field, max) => `value="${esc(app?.[field] || '')}" maxlength="${max}"`;
+    const platforms = (window._platformSettings || []);
+    const platformOptions = platforms.map(p =>
+        `<option value="${esc(p.fonte)}" ${app?.platform === p.fonte ? 'selected' : ''}>${esc(p.display_name)}</option>`
+    ).join('');
+    const radarBadge = app?.origin_radar_id
+        ? `<span class="radar-origin-badge"><i class="fa-solid fa-satellite-dish"></i> do Radar</span>`
+        : '';
+    const msgText = app?.application_message_text || '';
+    const msgSent = app?.application_message_sent ? 'checked' : '';
+    const currentPlatform = app?.platform || '';
+    const charLimit = platforms.find(p => p.fonte === currentPlatform)?.char_limit ?? 0;
+    const charCountClass = charLimit > 0 && msgText.length > charLimit ? 'vf-char-over' : '';
+    const charDisplay = charLimit > 0 ? `${msgText.length}/${charLimit}` : `${msgText.length}`;
+
     return `
         <div style="border-top:1px solid var(--border-soft);padding-top:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim)">${app ? 'Editar candidatura' : 'Nova candidatura'}</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim)">
+                ${app ? 'Editar candidatura' : 'Nova candidatura'} ${radarBadge}
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div class="form-group" style="margin:0">
                     <label style="font-size:0.75rem">Empresa *</label>
@@ -1494,7 +1510,7 @@ function vagaFormHTML(app) {
             </div>
             <div class="form-group" style="margin:0">
                 <label style="font-size:0.75rem">Observações</label>
-                <textarea id="vfObs" class="mock-input" placeholder="headhunter, urgência…" maxlength="500" rows="3" autocomplete="off" data-form-type="other" style="resize:vertical;font-family:inherit;font-size:inherit">${esc(app?.observacoes || '')}</textarea>
+                <textarea id="vfObs" class="mock-input" placeholder="headhunter, urgência…" maxlength="500" rows="2" autocomplete="off" data-form-type="other" style="resize:vertical;font-family:inherit;font-size:inherit">${esc(app?.observacoes || '')}</textarea>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div class="form-group" style="margin:0">
@@ -1510,7 +1526,7 @@ function vagaFormHTML(app) {
                 <label style="font-size:0.75rem">WhatsApp do recrutador</label>
                 <input id="vfGestorPhone" class="mock-input" placeholder="+55 44 99999-0000" value="${esc(app?.gestor_phone || '')}" maxlength="30" autocomplete="off" data-form-type="other">
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
                 <div class="form-group" style="margin:0">
                     <label style="font-size:0.75rem">Modalidade</label>
                     <select id="vfModalidade" class="mock-input">
@@ -1529,6 +1545,13 @@ function vagaFormHTML(app) {
                         <option value="Freelancer" ${app?.tipo_contratacao === 'Freelancer' ? 'selected' : ''}>Freelancer</option>
                     </select>
                 </div>
+                <div class="form-group" style="margin:0">
+                    <label style="font-size:0.75rem">Plataforma</label>
+                    <select id="vfPlatform" class="mock-input" onchange="onVfPlatformChange()">
+                        <option value="">— Selecionar —</option>
+                        ${platformOptions}
+                    </select>
+                </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div class="form-group" style="margin:0">
@@ -1542,6 +1565,34 @@ function vagaFormHTML(app) {
                     </select>
                 </div>
             </div>
+
+            <!-- ── Mensagem de candidatura ── -->
+            <div class="vf-message-section" id="vfMessageSection">
+                <div class="vf-message-header">
+                    <label style="font-size:0.75rem;font-weight:600">Mensagem de candidatura</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <button class="btn btn-sm" id="vfGenerateBtn" onclick="generateApplicationMessage()" title="Gerar mensagem com IA">
+                            <i class="fa-solid fa-wand-sparkles"></i> Gerar com IA
+                        </button>
+                        <button class="btn btn-sm" id="vfCopyMsgBtn" onclick="copyApplicationMessage()" title="Copiar mensagem" style="display:none">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="vf-message-wrap">
+                    <textarea id="vfMessageText" class="mock-input vf-message-textarea" rows="5"
+                        placeholder="Escreva ou gere a mensagem de candidatura…"
+                        maxlength="5000"
+                        oninput="updateVfCharCount()"
+                        autocomplete="off" data-form-type="other">${esc(msgText)}</textarea>
+                    <div class="vf-char-count ${charCountClass}" id="vfCharCount">${charDisplay}</div>
+                </div>
+                <div id="vfMsgFieldHint" class="vf-platform-hint" style="display:none"></div>
+                <label class="vf-sent-label">
+                    <input type="checkbox" id="vfMsgSent" ${msgSent}> Mensagem já enviada
+                </label>
+            </div>
+
             <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px">
                 <button class="btn btn-sm" style="opacity:0.6;background:none;border:none;padding:6px 10px"
                     onclick="${app ? 'closeEditVaga()' : 'closeNovaVaga()'}">Cancelar</button>
@@ -1567,38 +1618,139 @@ function _populateCvSelect(app) {
     }).catch(() => {});
 }
 
-function openNovaVaga() {
+// Carrega configurações de plataformas (chamado no init)
+window._platformSettings = window._platformSettings || [];
+async function loadPlatformSettings() {
+    try {
+        const data = await api('GET', '/api/admin/applications?__h=platform-settings');
+        window._platformSettings = (data || []).filter(p => p.enabled !== false);
+    } catch { window._platformSettings = []; }
+}
+
+// Atualiza hint de plataforma e limite de chars ao trocar plataforma
+function onVfPlatformChange() {
+    const fonte = document.getElementById('vfPlatform')?.value || '';
+    const platform = (window._platformSettings || []).find(p => p.fonte === fonte);
+    const hint = document.getElementById('vfMsgFieldHint');
+    if (hint) {
+        if (platform?.field_name) {
+            hint.textContent = `Campo na plataforma: "${platform.field_name}"`;
+            hint.style.display = 'block';
+        } else {
+            hint.style.display = 'none';
+        }
+    }
+    updateVfCharCount();
+}
+
+function updateVfCharCount() {
+    const ta = document.getElementById('vfMessageText');
+    const counter = document.getElementById('vfCharCount');
+    const copyBtn = document.getElementById('vfCopyMsgBtn');
+    if (!ta || !counter) return;
+    const len = ta.value.length;
+    const fonte = document.getElementById('vfPlatform')?.value || '';
+    const platform = (window._platformSettings || []).find(p => p.fonte === fonte);
+    const limit = platform?.char_limit ?? 0;
+    counter.textContent = limit > 0 ? `${len}/${limit}` : `${len}`;
+    counter.className = 'vf-char-count' + (limit > 0 && len > limit ? ' vf-char-over' : '');
+    if (copyBtn) copyBtn.style.display = ta.value.trim() ? 'inline-flex' : 'none';
+}
+
+function copyApplicationMessage() {
+    const text = document.getElementById('vfMessageText')?.value || '';
+    if (!text) return;
+    navigator.clipboard?.writeText(text).then(() => showToast('Mensagem copiada!')).catch(() => {});
+}
+
+async function generateApplicationMessage() {
+    const btn = document.getElementById('vfGenerateBtn');
+    if (!btn) return;
+    const empresa = document.getElementById('vfEmpresa')?.value.trim();
+    const vaga    = document.getElementById('vfVaga')?.value.trim() || null;
+    const fonte   = document.getElementById('vfPlatform')?.value || null;
+    if (!empresa) { showToast('Preencha a empresa primeiro.'); return; }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando…';
+    btn.disabled = true;
+
+    try {
+        // Busca lead do Radar se houver origin_radar_id no app sendo editado
+        const section = document.getElementById('editVagaSection') || document.getElementById('novaVagaForm');
+        const leadId = section?.dataset?.radarLeadId || null;
+
+        const result = await api('POST', '/api/admin/applications?__h=generate-message', { empresa, vaga, fonte, lead_id: leadId || undefined });
+
+        if (result.message_text) {
+            const ta = document.getElementById('vfMessageText');
+            if (ta) { ta.value = result.message_text; updateVfCharCount(); }
+            showToast('Mensagem gerada!');
+        } else if (result.prompt) {
+            // Sem LLM configurado: copia o prompt para usar manualmente no Claude/ChatGPT
+            navigator.clipboard?.writeText(result.prompt).then(() =>
+                showToast('LLM não configurado. Prompt copiado — cole no Claude ou ChatGPT.')
+            ).catch(() => showToast('LLM não configurado. Configure LLM_API_KEY no .env'));
+        }
+    } catch (e) {
+        showToast('Erro ao gerar: ' + e.message);
+    } finally {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+function openNovaVaga(radarLead) {
     const existing = document.getElementById('novaVagaForm');
-    if (existing) { existing.remove(); return; }
+    if (existing && !radarLead) { existing.remove(); return; }
+    if (existing) existing.remove();
     const wrap = document.createElement('div');
     wrap.id = 'novaVagaForm';
-    wrap.innerHTML = vagaFormHTML(null);
+    // Pre-popula com dados do lead do Radar se vier de promoteRadar
+    const prefill = radarLead ? {
+        empresa: radarLead.empresa,
+        vaga: radarLead.vaga,
+        link_vaga: radarLead.link_vaga,
+        modalidade: radarLead.modalidade,
+        tipo_contratacao: radarLead.tipo_contratacao,
+        origin_radar_id: radarLead.id,
+    } : null;
+    wrap.innerHTML = vagaFormHTML(prefill);
+    wrap.dataset.radarLeadId = radarLead?.id || '';
     document.getElementById('vagasTableWrap').before(wrap);
     document.getElementById('vfEmpresa').focus();
     _populateCvSelect(null);
+    onVfPlatformChange();
 }
 function closeNovaVaga() {
     document.getElementById('novaVagaForm')?.remove();
 }
+function _collectVagaFormData() {
+    return {
+        empresa:          document.getElementById('vfEmpresa')?.value.trim() || '',
+        vaga:             document.getElementById('vfVaga')?.value.trim() || null,
+        linkedin_empresa: document.getElementById('vfLinkedin')?.value.trim() || null,
+        link_vaga:        document.getElementById('vfLinkVaga')?.value.trim() || null,
+        observacoes:      document.getElementById('vfObs')?.value.trim() || null,
+        gestor_nome:      document.getElementById('vfGestorNome')?.value.trim() || null,
+        gestor_email:     document.getElementById('vfGestorEmail')?.value.trim() || null,
+        gestor_phone:     document.getElementById('vfGestorPhone')?.value.trim() || null,
+        data_envio:       document.getElementById('vfDataEnvio')?.value || null,
+        modalidade:       document.getElementById('vfModalidade')?.value || null,
+        tipo_contratacao: document.getElementById('vfTipoContratacao')?.value || null,
+        cv_version_id:    document.getElementById('vfCvVersion')?.value || null,
+        platform:         document.getElementById('vfPlatform')?.value || null,
+        application_message_text: document.getElementById('vfMessageText')?.value.trim() || null,
+        application_message_sent: document.getElementById('vfMsgSent')?.checked || false,
+    };
+}
+
 async function saveNovaVaga() {
     const msg = document.getElementById('vfMsg');
-    const empresa = document.getElementById('vfEmpresa').value.trim();
-    if (!empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
+    const data = _collectVagaFormData();
+    if (!data.empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
     try {
-        await api('POST', '/api/admin/applications', {
-            empresa,
-            vaga:             document.getElementById('vfVaga').value.trim() || null,
-            linkedin_empresa: document.getElementById('vfLinkedin').value.trim() || null,
-            link_vaga:        document.getElementById('vfLinkVaga').value.trim() || null,
-            observacoes:      document.getElementById('vfObs').value.trim() || null,
-            gestor_nome:      document.getElementById('vfGestorNome').value.trim() || null,
-            gestor_email:     document.getElementById('vfGestorEmail').value.trim() || null,
-            gestor_phone:     document.getElementById('vfGestorPhone').value.trim() || null,
-            data_envio:       document.getElementById('vfDataEnvio').value || null,
-            modalidade:       document.getElementById('vfModalidade').value || null,
-            tipo_contratacao: document.getElementById('vfTipoContratacao').value || null,
-            cv_version_id:    document.getElementById('vfCvVersion').value || null,
-        });
+        await api('POST', '/api/admin/applications', data);
         closeNovaVaga();
         await loadApplications();
         showToast('Candidatura criada.');
@@ -1623,32 +1775,21 @@ function openEditVaga(appId) {
         _redoStack = [];
     }
     section.innerHTML = vagaFormHTML(app);
+    section.dataset.radarLeadId = app?.origin_radar_id || '';
     section.hidden = false;
     section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     _populateCvSelect(app);
+    onVfPlatformChange();
 }
 function closeEditVaga() {
     document.getElementById('editVagaSection').hidden = true;
 }
 async function saveEditVaga(appId) {
     const msg = document.getElementById('vfMsg');
-    const empresa = document.getElementById('vfEmpresa').value.trim();
-    if (!empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
+    const data = _collectVagaFormData();
+    if (!data.empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
     try {
-        const updated = await api('PUT', `/api/admin/applications?id=${appId}`, {
-            empresa,
-            vaga:             document.getElementById('vfVaga').value.trim() || null,
-            linkedin_empresa: document.getElementById('vfLinkedin').value.trim() || null,
-            link_vaga:        document.getElementById('vfLinkVaga').value.trim() || null,
-            observacoes:      document.getElementById('vfObs').value.trim() || null,
-            gestor_nome:      document.getElementById('vfGestorNome').value.trim() || null,
-            gestor_email:     document.getElementById('vfGestorEmail').value.trim() || null,
-            gestor_phone:     document.getElementById('vfGestorPhone').value.trim() || null,
-            data_envio:       document.getElementById('vfDataEnvio').value || null,
-            modalidade:       document.getElementById('vfModalidade').value || null,
-            tipo_contratacao: document.getElementById('vfTipoContratacao').value || null,
-            cv_version_id:    document.getElementById('vfCvVersion').value || null,
-        });
+        const updated = await api('PUT', `/api/admin/applications?id=${appId}`, data);
         const idx = _applications.findIndex(a => a.id === appId);
         if (idx !== -1) _applications[idx] = updated;
         renderDrawerBody(updated);
@@ -1778,6 +1919,7 @@ function loadAll() {
     // Carrega a aba inicial (CVs) + stats; pré-carrega demais abas em background.
     loadCVs();
     loadStorageStats();
+    loadPlatformSettings();
     detectReplyContext();
     _lastRefreshAt = Date.now();
     _scheduleRefresh();
@@ -5409,12 +5551,13 @@ async function saveRadarAnalysis(btn) {
 }
 
 async function promoteRadar(id) {
-    if (!await showConfirm('Promover para candidatura?', 'Cria uma vaga na Gestão de Vagas com as etapas padrão.', { okText: 'Promover', danger: false })) return;
-    try {
-        await api('PUT', `/api/admin/radar?id=${id}&action=promote`);
-        showToast('Promovido! Veja em Gestão de Vagas.', 'success', { label: 'Ir para Vagas', callback: () => switchTab('vagas') });
-        loadRadar();
-    } catch (e) { showToast(e.message, 'error'); }
+    // Abre o form de nova candidatura pré-preenchido com dados do lead
+    // para que o usuário possa adicionar mensagem antes de promover.
+    const lead = _radarLeads?.find(l => l.id === id);
+    switchTab('vagas');
+    await new Promise(r => setTimeout(r, 100)); // aguarda render do tab
+    openNovaVaga(lead || { id, empresa: '', vaga: '', link_vaga: '' });
+    showToast('Preencha a mensagem e clique em "Criar candidatura".');
 }
 
 async function discardRadar(id) {
