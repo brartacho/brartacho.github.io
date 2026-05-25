@@ -7913,31 +7913,44 @@ function renderKanban(apps) {
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
 
-    const COLS = ['Enviado', 'Triagem de CV', 'Entrevista RH', 'Entrevista Técnica', 'Entrevista Coordenador', 'Proposta', 'Recusado', 'Aprovado'];
     const active = apps.filter(a => !a.archived);
 
-    const getStage = app => {
-        if (app.result === 'recusado') return 'Recusado';
-        if (app.result === 'aprovado') return 'Aprovado';
+    // Calcula o máximo de etapas entre todas as vagas (mínimo 5, máximo 9)
+    const maxStages = active.reduce((max, app) => {
+        const stages = normalizeStages(app.stages || []);
+        return Math.max(max, stages.length);
+    }, 5);
+    const numCols = Math.min(maxStages, 9);
+
+    const ordinal = n => n + 'ª';
+    const STAGE_COLS = Array.from({ length: numCols }, (_, i) => `${ordinal(i + 1)} Etapa`);
+    const COLS = [...STAGE_COLS, 'Recusado', 'Aprovado'];
+
+    const getStageInfo = app => {
+        if (app.result === 'recusado') return { col: 'Recusado', stageName: null };
+        if (app.result === 'aprovado') return { col: 'Aprovado', stageName: null };
         const normalized = normalizeStages(app.stages || []);
-        const running = normalized.find(s => stageStatus(s) === 'running');
-        if (running) return running.name;
-        const lastDone = [...normalized].reverse().find(s => stageStatus(s) === 'done');
-        if (lastDone) return lastDone.name;
-        return 'Enviado';
+        const runningIdx = normalized.findIndex(s => stageStatus(s) === 'running');
+        if (runningIdx >= 0) {
+            return { col: STAGE_COLS[Math.min(runningIdx, numCols - 1)], stageName: normalized[runningIdx].name };
+        }
+        const lastDoneIdx = [...normalized].map((s, i) => stageStatus(s) === 'done' ? i : -1).filter(i => i >= 0).pop() ?? -1;
+        if (lastDoneIdx >= 0) {
+            return { col: STAGE_COLS[Math.min(lastDoneIdx, numCols - 1)], stageName: normalized[lastDoneIdx].name };
+        }
+        return { col: STAGE_COLS[0], stageName: normalized[0]?.name || null };
     };
 
     const byCol = {};
     COLS.forEach(c => { byCol[c] = []; });
     active.forEach(a => {
-        const col = getStage(a);
-        if (byCol[col]) byCol[col].push(a);
-        else byCol['Aplicado'].push(a);
+        const { col, stageName } = getStageInfo(a);
+        byCol[col].push({ ...a, _stageName: stageName });
     });
 
     board.innerHTML = COLS.map(col => {
         const items = byCol[col] || [];
-        const colKey = col.toLowerCase().replace(/\s+/g, '-');
+        const colKey = col.toLowerCase().replace(/[ª\s]+/g, '-');
         return `<div class="kanban-col" data-col="${esc(col)}">
             <div class="kanban-col-header">
                 <span title="${esc(col)}">${esc(col)}</span>
@@ -7948,6 +7961,7 @@ function renderKanban(apps) {
                 <div class="kanban-card" onclick="openDrawer('${a.id}')">
                     <div class="kanban-card-empresa">${esc(a.empresa)}</div>
                     <div class="kanban-card-vaga">${esc(a.vaga || '')}</div>
+                    ${a._stageName ? `<span class="radar-chip" style="font-size:0.68rem;opacity:0.8">${esc(a._stageName)}</span>` : ''}
                     ${a.modalidade ? `<span class="radar-chip" style="font-size:0.68rem">${esc(a.modalidade)}</span>` : ''}
                 </div>`).join('')}
                 ${items.length === 0 ? '<div style="font-size:0.75rem;color:var(--text-dim);padding:8px;text-align:center">—</div>' : ''}
