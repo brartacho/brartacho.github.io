@@ -1254,19 +1254,52 @@
         .share-btn-email:hover { border-color: rgba(34,211,238,0.4); color: var(--cyan); }
         .share-btn-copy.copied { border-color: var(--cyan-mid); color: var(--cyan); }
 
+        /* ─── MODAL-BOX (triagem, Q&A bank, etc.) ───────── */
+        .modal-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-soft);
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .modal-body {
+            overflow-y: auto;
+            flex: 1;
+        }
+
         .modal-close {
-            position: absolute;
-            top: 16px; right: 16px;
+            margin-left: auto;
             background: none;
             border: none;
             color: var(--text-dim);
             cursor: pointer;
             font-size: 1rem;
-            padding: 4px;
-            transition: color 0.2s;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+            flex-shrink: 0;
         }
 
-        .modal-close:hover { color: var(--text); }
+        .modal-close:hover { color: var(--text); background: var(--bg-elevated); }
 
         /* ─── TOKEN EXPIRY CONFIG ────────────────────── */
         .expiry-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
