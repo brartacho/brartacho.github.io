@@ -703,18 +703,22 @@
                 </div>
             </div>
             <div class="radar-search-row">
-                <form class="radar-search-wrap" onsubmit="setRadarSearch(document.getElementById('radarSearchInput').value);return false">
-                    <input type="search" id="radarSearchInput" class="radar-search-input"
+                <div class="radar-search-wrap">
+                    <input type="text" id="radarSearchInput" class="radar-search-input"
                         placeholder="Buscar por empresa, vaga, plataforma, link, conteúdo…"
                         oninput="setRadarSearch(this.value)"
+                        onkeydown="if(event.key==='Enter')setRadarSearch(this.value)"
                         autocomplete="off" spellcheck="false">
-                    <button type="submit" class="radar-search-btn" title="Buscar">
+                    <button type="button" class="radar-search-btn"
+                        onclick="setRadarSearch(document.getElementById('radarSearchInput').value)"
+                        title="Buscar">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </button>
-                    <button type="button" class="radar-search-clear" id="radarSearchClearBtn" onclick="clearRadarSearch()" title="Limpar busca" style="display:none">
+                    <button type="button" class="radar-search-clear" id="radarSearchClearBtn"
+                        onclick="clearRadarSearch()" title="Limpar" style="display:none">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-                </form>
+                </div>
             </div>
             <div id="radarFiltersPanel" class="collapsed">
             <div class="radar-filter-bar">
