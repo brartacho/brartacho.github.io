@@ -2618,7 +2618,10 @@
         .radar-empty { text-align:center; color:var(--text-dim); padding:32px; font-size:0.88rem; }
         .radar-lead { display:flex; gap:14px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
         .radar-lead.status-promovida { opacity:.7; }
-        .radar-lead.status-descartada { opacity:.5; }
+        .radar-lead.status-descartada { opacity:1; border-color:rgba(248,113,113,.2); background:rgba(248,113,113,.04); }
+        .radar-lead.status-descartada .radar-score,
+        .radar-lead.status-descartada .radar-lead-head,
+        .radar-lead.status-descartada .radar-chips { opacity:.55; }
         .radar-score { flex:0 0 52px; width:52px; min-height:52px; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0; }
         .radar-score .rs-num  { font-size:1.25rem; font-weight:700; line-height:1; }
         .radar-score .rs-tier { font-size:0.55rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; opacity:0.85; line-height:1; }
