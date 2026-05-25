@@ -1711,7 +1711,106 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts(), loadStarStories()]);
+}
+
+// ─── HISTÓRIAS STAR (N6) ──────────────────────────────────────
+async function loadStarStories(q) {
+    const el = document.getElementById('starStoriesList');
+    if (!el) return;
+    try {
+        const url = '/api/admin/applications?__h=star-stories' + (q ? '&q=' + encodeURIComponent(q) : '');
+        const r = await apiFetch(url);
+        const stories = r.stories ?? [];
+        if (!stories.length) {
+            el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhuma história cadastrada.</div>';
+            return;
+        }
+        el.innerHTML = stories.map(s => {
+            const comps = (s.competencies || []).map(c => `<span style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1px 7px;font-size:0.7rem;color:var(--cyan)">${esc(c)}</span>`).join(' ');
+            const themes = (s.themes || []).map(t => `<span style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1px 7px;font-size:0.7rem;color:var(--text-soft)">${esc(t)}</span>`).join(' ');
+            return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:var(--bg-card)">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                    <div style="font-weight:600;font-size:0.88rem;color:var(--text);margin-bottom:4px">${esc(s.title)}</div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                        <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="openStarForm('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem;color:var(--danger)" onclick="deleteStarStory('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:6px;line-height:1.5">
+                    <strong>S:</strong> ${esc((s.situation||'').slice(0,120))}${s.situation?.length>120?'…':''}<br>
+                    <strong>R:</strong> ${esc((s.result||'').slice(0,120))}${s.result?.length>120?'…':''}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px">${comps}${themes}</div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        if (el) el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+
+let _starData = {};
+async function openStarForm(id) {
+    document.getElementById('starId').value = id || '';
+    const fields = ['starTitle','starSituation','starTask','starAction','starResult','starCompetencies','starThemes','starEmpresa','starImportance'];
+    if (id) {
+        try {
+            const r = await apiFetch(`/api/admin/applications?__h=star-stories&id=${id}`);
+            const s = r.stories?.[0] || r;
+            document.getElementById('starTitle').value = s.title || '';
+            document.getElementById('starSituation').value = s.situation || '';
+            document.getElementById('starTask').value = s.task || '';
+            document.getElementById('starAction').value = s.action || '';
+            document.getElementById('starResult').value = s.result || '';
+            document.getElementById('starCompetencies').value = (s.competencies||[]).join(', ');
+            document.getElementById('starThemes').value = (s.themes||[]).join(', ');
+            document.getElementById('starEmpresa').value = s.empresa_id || '';
+            document.getElementById('starImportance').value = s.importance ?? 0.5;
+        } catch(e) { showToast(e.message,'error'); return; }
+    } else {
+        fields.forEach(f => { const el = document.getElementById(f); if (el) el.value = f === 'starImportance' ? '0.5' : ''; });
+    }
+    document.getElementById('starForm').style.display = 'block';
+    document.getElementById('starForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeStarForm() {
+    document.getElementById('starForm').style.display = 'none';
+}
+
+async function saveStarStory() {
+    const id = document.getElementById('starId').value;
+    const body = {
+        title: document.getElementById('starTitle').value.trim(),
+        situation: document.getElementById('starSituation').value.trim(),
+        task: document.getElementById('starTask').value.trim(),
+        action: document.getElementById('starAction').value.trim(),
+        result: document.getElementById('starResult').value.trim(),
+        competencies: document.getElementById('starCompetencies').value.split(',').map(s=>s.trim()).filter(Boolean),
+        themes: document.getElementById('starThemes').value.split(',').map(s=>s.trim()).filter(Boolean),
+        empresa_id: document.getElementById('starEmpresa').value.trim() || null,
+        importance: parseFloat(document.getElementById('starImportance').value) || 0.5
+    };
+    if (!body.title || !body.situation || !body.task || !body.action || !body.result) {
+        showToast('Preencha todos os campos obrigatórios.','error'); return;
+    }
+    try {
+        const method = id ? 'PUT' : 'POST';
+        const url = '/api/admin/applications?__h=star-stories' + (id ? `&id=${id}` : '');
+        await apiFetch(url, { method, body: JSON.stringify(body) });
+        showToast(id ? 'História atualizada.' : 'História criada.');
+        closeStarForm();
+        loadStarStories();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteStarStory(id) {
+    if (!confirm('Excluir esta história STAR?')) return;
+    try {
+        await apiFetch(`/api/admin/applications?__h=star-stories&id=${id}`, { method: 'DELETE' });
+        showToast('História excluída.');
+        loadStarStories();
+    } catch(e) { showToast(e.message,'error'); }
 }
 
 // ─── PLANO DE ESTUDOS (N16) ──────────────────────────────────
@@ -7177,11 +7276,21 @@ function startVoiceMemo(appId) {
             </div>` : '';
 
         const qaBlock = qa.length ? `
-            <div>
+            <div style="margin-bottom:8px">
                 <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Perguntas prováveis</div>
                 ${qa.slice(0,5).map(q => `<div style="font-size:0.78rem;margin-bottom:4px">
                     <div style="color:var(--text);font-weight:500">${esc(q.question||'')}</div>
                     ${q.answer?`<div style="color:var(--text-soft);font-size:0.72rem;margin-top:1px">${esc(q.answer||'').slice(0,100)}…</div>`:''}
+                </div>`).join('')}
+            </div>` : '';
+
+        const stars = r.stars || [];
+        const starBlock = stars.length ? `
+            <div style="margin-bottom:8px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px"><i class="fa-solid fa-star" style="color:#fb923c;margin-right:4px"></i>Histórias STAR relevantes</div>
+                ${stars.slice(0,3).map(s => `<div style="font-size:0.78rem;margin-bottom:5px;padding:5px 8px;background:var(--bg);border-radius:4px">
+                    <div style="font-weight:600;color:var(--text)">${esc(s.title)}</div>
+                    <div style="color:var(--text-soft);font-size:0.72rem;margin-top:1px">${(s.competencies||[]).slice(0,3).join(' · ')}</div>
                 </div>`).join('')}
             </div>` : '';
 
@@ -7190,7 +7299,7 @@ function startVoiceMemo(appId) {
                 <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);font-weight:700"><i class="fa-solid fa-file-lines" style="color:var(--cyan);margin-right:4px"></i>Briefing — ${esc(app.empresa)}</div>
                 <button class="btn btn-sm" style="padding:2px 6px;font-size:0.72rem" onclick="openContextNotes('${app.id}')" title="Adicionar nota"><i class="fa-solid fa-plus"></i> Nota</button>
             </div>
-            ${interviewBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}
+            ${interviewBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}${starBlock}
         </div>`;
     }
 

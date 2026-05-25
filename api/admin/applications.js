@@ -1223,6 +1223,64 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── star-stories (N6) ─────────────────────────────────────
+    if (req.query.__h === 'star-stories') {
+        if (req.method === 'GET') {
+            const { q, id } = req.query;
+            if (id) {
+                const { data, error } = await supabase.from('star_stories').select('*').eq('id', id).single();
+                if (error) return res.status(404).json({ error: error.message });
+                return res.status(200).json({ stories: [data] });
+            }
+            let query = supabase.from('star_stories').select('*').order('importance', { ascending: false }).order('created_at', { ascending: false });
+            if (q) {
+                const s = String(q).toLowerCase();
+                query = query.or(`title.ilike.%${s}%,competencies.cs.{${s}},themes.cs.{${s}}`);
+            }
+            const { data, error } = await query.limit(50);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ stories: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { title, situation, task, action, result, competencies, themes, empresa_context, empresa_id, date_occurred, importance, result_metrics, area_id } = req.body || {};
+            if (!title || !situation || !task || !action || !result) return res.status(400).json({ error: 'Campos obrigatórios: title, situation, task, action, result' });
+            const { data, error } = await supabase.from('star_stories').insert({
+                title:          String(title).slice(0,200),
+                situation:      String(situation).slice(0,2000),
+                task:           String(task).slice(0,2000),
+                action:         String(action).slice(0,2000),
+                result:         String(result).slice(0,2000),
+                result_metrics: result_metrics || null,
+                competencies:   Array.isArray(competencies) ? competencies.map(c=>String(c).slice(0,50)) : [],
+                themes:         Array.isArray(themes) ? themes.map(t=>String(t).slice(0,50)) : [],
+                empresa_context: (empresa_id || empresa_context) ? String(empresa_id || empresa_context).slice(0,100) : null,
+                date_occurred:  date_occurred || null,
+                importance:     typeof importance === 'number' ? Math.min(1, Math.max(0, importance)) : 0.5,
+                area_id: area_id || null,
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['title','situation','task','action','result','result_metrics','competencies','themes','empresa_context','empresa_id','date_occurred','importance'];
+            const patch = {};
+            for (const k of allowed) { if (req.body?.[k] !== undefined) patch[k] = req.body[k]; }
+            const { data, error } = await supabase.from('star_stories').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('star_stories').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // ── study-plan (N16) ──────────────────────────────────────
     if (req.query.__h === 'study-plan') {
         if (req.method === 'GET') {
@@ -1363,12 +1421,13 @@ Retorne JSON com:
         const { application_id } = req.query;
         if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
 
-        const [appRes, interviewRes, notesRes, qaRes, profileRes] = await Promise.allSettled([
+        const [appRes, interviewRes, notesRes, qaRes, profileRes, starsRes] = await Promise.allSettled([
             supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel_alvo, modalidade, faixa_salarial, descricao_vaga)').eq('id', application_id).single(),
             supabase.from('interview_sessions').select('*').eq('application_id', application_id).eq('status', 'planned').gte('interview_at', new Date().toISOString()).order('interview_at').limit(1),
             supabase.from('context_notes').select('*').eq('application_id', application_id).order('created_at', { ascending: false }).limit(5),
             supabase.from('interview_qa').select('question,answer,category,difficulty').order('use_count', { ascending: false }).limit(10),
             supabase.from('candidate_profile').select('nome,nivel_atual,skills_core,skills_evolucao,candidate_areas(nome,descricao)').single(),
+            supabase.from('star_stories').select('id,title,competencies,themes,result,importance').order('importance', { ascending: false }).limit(6),
         ]);
 
         const app      = appRes.status === 'fulfilled' ? appRes.value.data : null;
@@ -1379,6 +1438,7 @@ Retorne JSON com:
         const qa        = qaRes.status === 'fulfilled' ? (qaRes.value.data ?? []) : [];
         const profile   = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
         const radar     = app.vaga_radar || {};
+        const stars     = starsRes.status === 'fulfilled' ? (starsRes.value.data ?? []) : [];
 
         const stages = (app.stages || []).filter(s => s.active !== false);
         const completedStages = stages.filter(s => s.completed_at || s.notes);
@@ -1389,6 +1449,7 @@ Retorne JSON com:
             stages: completedStages,
             notes,
             qa,
+            stars,
             radar: { fit_score: radar.fit_score, gaps: radar.gaps, suspicious_flags: radar.suspicious_flags, nivel_alvo: radar.nivel_alvo, modalidade: radar.modalidade, faixa_salarial: radar.faixa_salarial },
             profile: profile ? { nome: profile.nome, nivel: profile.nivel_atual, skills_core: profile.skills_core, skills_evolucao: profile.skills_evolucao } : null,
         });
