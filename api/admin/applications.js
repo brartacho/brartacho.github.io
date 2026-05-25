@@ -2012,6 +2012,229 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ─── N26 — Mensagem de relacionamento para contato ───────────────────────
+    if (req.query.__h === 'contact-message') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+        const { contact_id, reason } = req.body || {};
+        if (!contact_id) return res.status(400).json({ error: 'contact_id obrigatório' });
+
+        const { data: contact, error: cErr } = await supabase.from('contacts').select('*').eq('id', contact_id).single();
+        if (cErr || !contact) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const { data: interactions } = await supabase.from('contact_interactions')
+            .select('*').eq('contact_id', contact_id).order('interaction_at', { ascending: false }).limit(3);
+
+        const ctxStr = (interactions || []).map(i => `- ${i.interaction_at?.slice(0,10)}: ${i.channel} — ${i.summary || '(sem resumo)'}`).join('\n');
+        const reasonStr = reason ? `Motivo: ${reason}` : 'Touch regular de manutenção de rede';
+
+        const prompt = `Gere 3 mensagens profissionais em pt-BR para enviar a ${contact.name || 'este contato'}, ${contact.role || ''}${contact.empresa ? ' na empresa ' + contact.empresa : ''}.
+${reasonStr}
+Histórico de interações recentes:
+${ctxStr || '(sem interações anteriores)'}
+
+Estilos:
+1. Formal: profissional e respeitoso
+2. Casual: amigável, tom de colega
+3. Informal: descontraído, próximo
+
+Cada mensagem: máx 150 palavras, sem bajulação, sem tom desesperado. JSON:
+{"formal":"...","casual":"...","informal":"..."}`;
+
+        try {
+            const { routeChat } = await import('../_lib/llm-router.js');
+            const r = await routeChat({ taskType: 'message', messages: [{ role: 'user', content: prompt }], maxTokens: 600, temperature: 0.7 });
+            const txt = r.content.trim();
+            const jsonStart = txt.indexOf('{');
+            const jsonEnd = txt.lastIndexOf('}');
+            if (jsonStart === -1) return res.status(200).json({ messages: { formal: txt, casual: txt, informal: txt } });
+            const parsed = JSON.parse(txt.slice(jsonStart, jsonEnd + 1));
+            return res.status(200).json({ messages: parsed });
+        } catch(e) {
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
+    // ─── N34 — Plano 30/60/90 dias ──────────────────────────────────────────
+    if (req.query.__h === 'plan-30-60-90') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+        const { application_id } = req.body || {};
+        if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+
+        const { data: app } = await supabase.from('job_applications').select('empresa,vaga,nivel,descricao,tipo_contratacao').eq('id', application_id).single();
+        if (!app) return res.status(404).json({ error: 'Candidatura não encontrada' });
+
+        const prompt = `Gere um plano 30-60-90 dias para ${app.vaga || 'novo cargo'} na empresa ${app.empresa || 'empresa'}${app.nivel ? ', nível ' + app.nivel : ''}.
+Tipo de contratação: ${app.tipo_contratacao || 'não informado'}.
+Descrição resumida: ${(app.descricao || '').slice(0, 300)}
+
+Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
+{
+  "dias_30": {"foco":"...", "objetivos":["...","...","...","..."]},
+  "dias_60": {"foco":"...", "objetivos":["...","...","...","..."]},
+  "dias_90": {"foco":"...", "objetivos":["...","...","...","..."]}
+}`;
+
+        try {
+            const { routeChat } = await import('../_lib/llm-router.js');
+            const r = await routeChat({ taskType: 'analysis', messages: [{ role: 'user', content: prompt }], maxTokens: 700, temperature: 0.3 });
+            const txt = r.content.trim();
+            const jsonStart = txt.indexOf('{');
+            const jsonEnd = txt.lastIndexOf('}');
+            if (jsonStart === -1) throw new Error('LLM não retornou JSON');
+            const plan = JSON.parse(txt.slice(jsonStart, jsonEnd + 1));
+            return res.status(200).json({ plan });
+        } catch(e) {
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
+    // ─── N35 — Manter rede aquecida pós-contratação ──────────────────────────
+    if (req.query.__h === 'warm-network') {
+        if (req.method === 'GET') {
+            const { application_id } = req.query;
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            // Candidaturas avançadas (chegaram a entrevista+) mas não aprovadas
+            const { data: apps } = await supabase.from('job_applications')
+                .select('id,empresa,vaga,recruiter_name,recruiter_email,stages')
+                .neq('id', application_id)
+                .in('result', ['recusado', 'desistiu'])
+                .order('updated_at', { ascending: false })
+                .limit(50);
+
+            const suggestions = (apps || []).filter(a => {
+                const stages = Array.isArray(a.stages) ? a.stages : [];
+                return stages.some(s => ['entrevista','tecnica','proposta','rh','gestor'].some(k => (s.label||s.stage||'').toLowerCase().includes(k)));
+            }).slice(0, 10).map(a => ({
+                application_id: a.id,
+                empresa: a.empresa,
+                vaga: a.vaga,
+                recruiter_name: a.recruiter_name || null,
+                recruiter_email: a.recruiter_email || null,
+                suggested_notes: `Candidato para ${a.vaga} em ${a.empresa} — chegou à etapa avançada`,
+            }));
+
+            return res.status(200).json({ suggestions });
+        }
+        if (req.method === 'POST') {
+            // Cria contatos em massa
+            const { contacts: toCreate } = req.body || {};
+            if (!Array.isArray(toCreate) || !toCreate.length) return res.status(400).json({ error: 'contacts[] obrigatório' });
+            const now = new Date();
+            const rows = toCreate.map(c => ({
+                name:   String(c.name || c.recruiter_name || 'Recrutador').slice(0, 200),
+                empresa: c.empresa ? String(c.empresa).slice(0, 200) : null,
+                role:   c.role || null,
+                email:  c.email || c.recruiter_email || null,
+                source: c.application_id ? `vaga:${c.application_id}` : 'warm-network',
+                source_ref: c.application_id || null,
+                notes:  c.suggested_notes || null,
+                relationship_strength: 2,
+                contact_frequency_months: 6,
+                next_touch_at: new Date(now.getTime() + 180 * 86400000).toISOString(),
+            }));
+            const { data, error } = await supabase.from('contacts').insert(rows).select('id');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json({ created: data?.length || 0 });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ─── N41 — Mapa de carreira ──────────────────────────────────────────────
+    if (req.query.__h === 'career-paths') {
+        if (req.method === 'GET') {
+            const { from_role } = req.query;
+            let q = supabase.from('career_paths').select('*').order('horizon_years').order('transition_difficulty');
+            if (from_role) q = q.ilike('from_role', `%${from_role}%`);
+            const { data, error } = await q.limit(50);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ paths: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { from_role, to_role, horizon_years, required_skills, skills_gap, median_salary_brl, transition_difficulty, notes } = req.body || {};
+            if (!from_role || !to_role) return res.status(400).json({ error: 'from_role e to_role obrigatórios' });
+            const { data, error } = await supabase.from('career_paths').insert({
+                from_role: String(from_role).slice(0,200), to_role: String(to_role).slice(0,200),
+                horizon_years: parseInt(horizon_years)||2,
+                required_skills: Array.isArray(required_skills) ? required_skills : [],
+                skills_gap: Array.isArray(skills_gap) ? skills_gap : [],
+                median_salary_brl: parseInt(median_salary_brl)||null,
+                transition_difficulty: Math.min(5, Math.max(1, parseInt(transition_difficulty)||3)),
+                notes: notes ? String(notes).slice(0,500) : null,
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('career_paths').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ─── N3 — Company intel (Receita Federal + cache) ───────────────────────
+    if (req.query.__h === 'company-intel') {
+        const { empresa, cnpj } = req.query;
+        if (!empresa && !cnpj) return res.status(400).json({ error: 'empresa ou cnpj obrigatório' });
+        const supabaseClient = supabase;
+
+        // Verificar cache (tabela company_intel se existir)
+        try {
+            const lookup = cnpj
+                ? supabaseClient.from('company_intel').select('*').eq('cnpj', cnpj)
+                : supabaseClient.from('company_intel').select('*').ilike('display_name', `%${empresa}%`).limit(1);
+            const { data: cached } = await lookup.single();
+            if (cached && cached.fetched_at) {
+                const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
+                if (ageMs < 30 * 86400000) return res.status(200).json({ intel: cached, source: 'cache' });
+            }
+        } catch(_) { /* tabela pode não existir ainda */ }
+
+        // Busca na Receita Federal (API gratuita receitaws)
+        const cnpjClean = cnpj ? cnpj.replace(/\D/g, '') : null;
+        let rfData = null;
+        if (cnpjClean && cnpjClean.length === 14) {
+            try {
+                const rfResp = await fetch(`https://receitaws.com.br/v1/cnpj/${cnpjClean}`, {
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(10000),
+                });
+                if (rfResp.ok) rfData = await rfResp.json();
+            } catch(_) {}
+        }
+
+        const intel = {
+            display_name: rfData?.nome || empresa,
+            cnpj: cnpjClean || null,
+            situacao: rfData?.situacao || null,
+            date_abertura: rfData?.abertura ? rfData.abertura.split('/').reverse().join('-') : null,
+            size_employees: null,
+            glassdoor_rating: null,
+            red_flags: [],
+            fetch_status: rfData ? 'success' : 'partial',
+            fetched_at: new Date().toISOString(),
+        };
+
+        // Detectar red flags simples
+        if (rfData?.situacao && rfData.situacao !== 'ATIVA') intel.red_flags.push('cnpj_inativo');
+        if (rfData?.abertura) {
+            const years = (Date.now() - new Date(intel.date_abertura).getTime()) / (365 * 86400000);
+            if (years < 1) intel.red_flags.push('empresa_nova');
+        }
+
+        // Tentar salvar no cache
+        try {
+            await supabaseClient.from('company_intel').upsert({
+                ...intel,
+                empresa_normalized: (empresa || rfData?.nome || '').toLowerCase().replace(/\s+/g, '-').slice(0, 100),
+            }, { onConflict: 'cnpj' });
+        } catch(_) {}
+
+        return res.status(200).json({ intel, source: 'api' });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {

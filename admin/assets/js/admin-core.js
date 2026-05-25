@@ -1537,6 +1537,8 @@ async function setAppResult(appId, result) {
         renderApplicationsTable();
         if (result === 'aprovado') {
             openLinkedinUpdateModal(appId, updated.empresa, updated.vaga);
+            // N35: sugerir manter rede aquecida com recrutadores de candidaturas avançadas
+            setTimeout(() => showWarmNetworkSuggestions(appId), 4000);
         }
     } catch (e) { showToast(e.message, 'error'); }
 }
@@ -2084,6 +2086,48 @@ async function loadTrends() {
     }
 }
 
+// ─── MAPA DE CARREIRA (N41) ──────────────────────────────────
+async function loadCareerPaths() {
+    const el = document.getElementById('careerPathsContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=career-paths');
+        const paths = r.paths || [];
+        if (!paths.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:12px">Nenhum caminho cadastrado.</div>'; return; }
+
+        // Agrupa por from_role
+        const byRole = {};
+        for (const p of paths) { (byRole[p.from_role] = byRole[p.from_role] || []).push(p); }
+        const diffColor = d => d <= 2 ? 'var(--success,#34d399)' : d <= 3 ? '#f59e0b' : '#f87171';
+        const diffLabel = d => '★'.repeat(d) + '☆'.repeat(5-d);
+        const fmtSalary = s => s ? `R$ ${(s/1000).toFixed(0)}k` : '—';
+
+        el.innerHTML = Object.entries(byRole).map(([role, ps]) => `
+            <div style="margin-bottom:16px">
+                <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:8px;padding:6px 10px;background:var(--bg-soft);border-radius:6px;border-left:3px solid var(--cyan)">
+                    <i class="fa-solid fa-location-crosshairs" style="color:var(--cyan);margin-right:6px"></i>${esc(role)}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;padding-left:8px">
+                    ${ps.map(p => `<div style="flex:1;min-width:180px;max-width:260px;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:10px">
+                        <div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:6px">
+                            <i class="fa-solid fa-arrow-right" style="color:var(--cyan);margin-right:4px;font-size:0.7rem"></i>${esc(p.to_role)}
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-dim);margin-bottom:6px">
+                            <span><i class="fa-solid fa-clock" style="margin-right:3px"></i>${p.horizon_years}a</span>
+                            <span style="color:${fmtSalary(p.median_salary_brl)==='—'?'var(--text-dim)':'#34d399'}">${fmtSalary(p.median_salary_brl)}</span>
+                        </div>
+                        <div style="font-size:0.7rem;color:${diffColor(p.transition_difficulty)};margin-bottom:6px">${diffLabel(p.transition_difficulty)}</div>
+                        ${(p.required_skills||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:3px">${(p.required_skills||[]).slice(0,4).map(s=>`<span style="font-size:0.65rem;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1px 6px;color:var(--text-soft)">${esc(s)}</span>`).join('')}</div>` : ''}
+                    </div>`).join('')}
+                </div>
+            </div>
+        `).join('');
+    } catch(e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+
 // ─── DIÁRIO DE CARREIRA (N15) ────────────────────────────────
 async function loadJournal() {
     const el = document.getElementById('journalList');
@@ -2355,6 +2399,13 @@ function _renderOnboardingChecklist(data) {
             <textarea id="onboardingNotes" class="mock-input" rows="2" placeholder="Notas…" style="resize:vertical;font-size:0.82rem">${esc(data.notes||'')}</textarea>
             <button class="btn btn-cyan btn-sm" style="margin-top:6px" onclick="saveOnboardingNotes('${data.id}')"><i class="fa-solid fa-check"></i> Salvar notas</button>
         </div>
+        ${data.application_id ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:0.8rem;font-weight:600;color:var(--text)"><i class="fa-solid fa-calendar-check" style="color:var(--cyan);margin-right:6px"></i> Plano 30/60/90 dias</span>
+                <button class="btn btn-sm" style="padding:3px 10px;font-size:0.75rem" onclick="generatePlan306090('${data.application_id}','plan306090Container')"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerar</button>
+            </div>
+            <div id="plan306090Container" style="font-size:0.82rem;color:var(--text-dim)">Clique em "Gerar" para criar um plano personalizado com IA.</div>
+        </div>` : ''}
     </div>`;
 }
 
@@ -2380,6 +2431,87 @@ async function saveOnboardingNotes(processId) {
         });
         showToast('Notas salvas.');
     } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── N34 — Plano 30/60/90 dias ──────────────────────────────────────────────
+async function generatePlan306090(appId, planContainerId) {
+    const el = document.getElementById(planContainerId);
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i> Gerando plano…</div>';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=plan-30-60-90', {
+            method: 'POST',
+            body: JSON.stringify({ application_id: appId })
+        });
+        const plan = r.plan || {};
+        const renderBlock = (block, label, color) => {
+            if (!block) return '';
+            const items = (block.objetivos || []).map(o => `<li style="margin-bottom:4px">${esc(o)}</li>`).join('');
+            return `<div style="flex:1;min-width:200px;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <div style="font-weight:700;font-size:0.82rem;color:${color};margin-bottom:4px">${label}</div>
+                <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:8px;font-style:italic">${esc(block.foco||'')}</div>
+                <ul style="margin:0;padding-left:16px;font-size:0.8rem;color:var(--text)">${items}</ul>
+            </div>`;
+        };
+        el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">
+            ${renderBlock(plan.dias_30, '30 dias', 'var(--cyan)')}
+            ${renderBlock(plan.dias_60, '60 dias', '#a78bfa')}
+            ${renderBlock(plan.dias_90, '90 dias', '#34d399')}
+        </div>`;
+    } catch(e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`;
+    }
+}
+
+// ─── N35 — Manter rede aquecida pós-contratação ──────────────────────────────
+async function showWarmNetworkSuggestions(approvedAppId) {
+    try {
+        const r = await apiFetch(`/api/admin/applications?__h=warm-network&application_id=${approvedAppId}`);
+        const suggestions = r.suggestions || [];
+        if (!suggestions.length) { showToast('Nenhuma candidatura avançada encontrada para reaquecer.'); return; }
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+        const checks = suggestions.map((s, i) =>
+            `<label style="display:flex;align-items:flex-start;gap:8px;padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;background:var(--bg-soft)">
+                <input type="checkbox" value="${i}" checked style="margin-top:3px;accent-color:var(--cyan)">
+                <div>
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(s.recruiter_name || 'Recrutador')} ${s.empresa ? '— ' + esc(s.empresa) : ''}</div>
+                    <div style="font-size:0.75rem;color:var(--text-soft)">${esc(s.vaga || '')}</div>
+                </div>
+            </label>`
+        ).join('');
+        modal.innerHTML = `<div style="background:var(--bg-card);border-radius:12px;padding:20px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto">
+            <h4 style="margin:0 0 12px;font-size:0.95rem;color:var(--text)"><i class="fa-solid fa-people-group" style="color:var(--cyan);margin-right:6px"></i> Manter rede aquecida</h4>
+            <p style="font-size:0.82rem;color:var(--text-soft);margin:0 0 12px">Candidaturas onde você chegou longe mas não foi aprovado — vale manter contato.</p>
+            <div>${checks}</div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button class="btn btn-sm" onclick="this.closest('[style]').remove()">Cancelar</button>
+                <button class="btn btn-cyan btn-sm" id="warmNetworkConfirmBtn" onclick="_confirmWarmNetwork(${JSON.stringify(suggestions).replace(/"/g,'&quot;')}, this)"><i class="fa-solid fa-plus"></i> Adicionar à Rede</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+        window._warmNetworkSuggestions = suggestions;
+        window._warmNetworkModal = modal;
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function _confirmWarmNetwork(suggestions, btn) {
+    const modal = btn.closest('[style*="position:fixed"]');
+    const checks = modal ? [...modal.querySelectorAll('input[type=checkbox]:checked')] : [];
+    const selected = checks.map(c => suggestions[parseInt(c.value)]).filter(Boolean);
+    if (!selected.length) { showToast('Selecione pelo menos um contato.','error'); return; }
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=warm-network', {
+            method: 'POST',
+            body: JSON.stringify({ contacts: selected })
+        });
+        modal.remove();
+        showToast(`${r.created} contato(s) adicionados à Rede.`,'success');
+    } catch(e) {
+        btn.disabled = false; btn.innerHTML = 'Adicionar à Rede';
+        showToast(e.message,'error');
+    }
 }
 
 async function loadPipelineTemplate() {
@@ -3354,7 +3486,7 @@ function switchTab(name) {
     if (name === 'inbox') loadInbox();
     if (name === 'rede') loadRede();
     if (name === 'diario') loadJournal();
-    if (name === 'tendencias') loadTrends();
+    if (name === 'tendencias') { loadTrends(); loadCareerPaths(); }
     _scheduleRefresh();
 }
 
@@ -7846,9 +7978,11 @@ function startVoiceMemo(appId) {
                 <div style="display:flex;gap:6px">
                     <button class="btn btn-sm" style="padding:4px 8px" onclick="openContactForm('${c.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn btn-sm" style="padding:4px 8px" onclick="logInteractionModal('${c.id}','${esc(c.name)}')" title="Registrar interação"><i class="fa-solid fa-comment-dots"></i></button>
+                    <button class="btn btn-sm" style="padding:4px 8px;color:var(--cyan)" onclick="gerarMensagemContato('${c.id}','${esc(c.name)}')" title="Gerar mensagem IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                     <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteContact('${c.id}')" title="Remover"><i class="fa-solid fa-trash"></i></button>
                 </div>
-            </div>`;
+            </div>
+            <div id="msg-${c.id}" style="display:none;padding:8px 12px 10px;border-top:1px solid var(--border)"></div>`;
         }).join('');
     }
 
@@ -7936,6 +8070,31 @@ function startVoiceMemo(appId) {
             showToast('Interação registrada','success');
             loadRede();
         } catch(e) { showToast(e.message,'error'); }
+    }
+
+    // ─── N26 — Gerar mensagem de relacionamento ───────────────────────────────
+    async function gerarMensagemContato(contactId, contactName) {
+        const reason = prompt(`Gerar mensagem para ${contactName}\nMotivo (ex: "aniversário", "promoção", "touch regular"):`, 'touch regular') || '';
+        const msgEl = document.getElementById(`msg-${contactId}`);
+        if (msgEl) { msgEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:var(--cyan)"></i>'; msgEl.style.display = ''; }
+        try {
+            const r = await apiFetch('/api/admin/applications?__h=contact-message', {
+                method: 'POST',
+                body: JSON.stringify({ contact_id: contactId, reason })
+            });
+            const msgs = r.messages || {};
+            const opts = Object.entries(msgs).map(([k, v]) =>
+                `<div style="margin-bottom:8px">
+                    <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">${k}</div>
+                    <div style="font-size:0.82rem;color:var(--text);line-height:1.5;white-space:pre-wrap;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px">${esc(v)}</div>
+                    <button class="btn btn-sm" style="margin-top:4px;padding:2px 8px;font-size:0.72rem" onclick="navigator.clipboard.writeText(${JSON.stringify(v)});showToast('Copiado!','success')"><i class="fa-solid fa-copy"></i> Copiar</button>
+                </div>`
+            ).join('');
+            if (msgEl) { msgEl.innerHTML = opts; msgEl.style.display = ''; }
+        } catch(e) {
+            if (msgEl) { msgEl.innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`; msgEl.style.display = ''; }
+            else showToast(e.message,'error');
+        }
     }
 
     // ─── VAULT (N4) ───────────────────────────────────────
