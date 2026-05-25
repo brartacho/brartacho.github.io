@@ -8152,10 +8152,26 @@ function startVoiceMemo(appId) {
         const radarBlock = (radar.fit_score || radar.gaps?.length) ? `
             <div style="margin-bottom:8px">
                 <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Vaga</div>
-                ${radar.fit_score ? `<div style="font-size:0.82rem;color:var(--text)">Fit score: <span style="color:${radar.fit_score>=7?'#4ade80':radar.fit_score>=5?'#fb923c':'#f87171'};font-weight:700">${radar.fit_score}</span></div>` : ''}
-                ${radar.faixa_salarial ? `<div style="font-size:0.76rem;color:var(--text-soft)">Faixa: ${esc(radar.faixa_salarial)}</div>` : ''}
+                <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px">
+                    ${radar.fit_score ? `<div style="font-size:0.82rem;color:var(--text)">Fit: <span style="color:${radar.fit_score>=7?'#4ade80':radar.fit_score>=5?'#fb923c':'#f87171'};font-weight:700">${radar.fit_score}</span></div>` : ''}
+                    ${radar.advance_confidence != null ? `<div style="font-size:0.82rem;color:var(--text)">Conf: <span style="color:${radar.advance_confidence>=50?'#4ade80':radar.advance_confidence>=25?'#fb923c':'#f87171'};font-weight:700">${radar.advance_confidence}%</span></div>` : ''}
+                    ${radar.faixa_salarial ? `<div style="font-size:0.76rem;color:var(--text-soft)">Faixa: ${esc(radar.faixa_salarial)}</div>` : ''}
+                </div>
                 ${radar.gaps?.length ? `<div style="font-size:0.76rem;color:#fb923c;margin-top:3px"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>Gaps: ${radar.gaps.slice(0,5).map(g=>esc(g)).join(', ')}</div>` : ''}
                 ${radar.suspicious_flags?.length ? `<div style="font-size:0.72rem;color:#f87171;margin-top:2px"><i class="fa-solid fa-flag" style="margin-right:3px"></i>${radar.suspicious_flags.slice(0,3).map(f=>esc(f.label||f)).join(' · ')}</div>` : ''}
+            </div>` : '';
+
+        // N3 — Company intel no briefing
+        const ci = r.company_intel;
+        const companyBlock = ci ? `
+            <div style="margin-bottom:8px;padding:7px 10px;border-radius:6px;background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.15)">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px"><i class="fa-solid fa-building" style="margin-right:4px;color:var(--cyan)"></i>Empresa</div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:0.78rem;color:var(--text-soft)">
+                    ${ci.situacao ? `<span>Status: <strong style="color:${ci.situacao==='ATIVA'?'#4ade80':'#f87171'}">${esc(ci.situacao)}</strong></span>` : ''}
+                    ${ci.glassdoor_rating ? `<span>Glassdoor: <strong>${ci.glassdoor_rating}/5</strong></span>` : ''}
+                    ${ci.size_employees ? `<span>Tamanho: <strong>${ci.size_employees.toLocaleString('pt-BR')} func.</strong></span>` : ''}
+                </div>
+                ${(ci.red_flags||[]).length ? `<div style="font-size:0.72rem;color:#f87171;margin-top:4px"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>${(ci.red_flags||[]).slice(0,3).map(f=>esc(f)).join(' · ')}</div>` : ''}
             </div>` : '';
 
         const stagesBlock = stages.length ? `
@@ -8210,7 +8226,7 @@ function startVoiceMemo(appId) {
                 <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);font-weight:700"><i class="fa-solid fa-file-lines" style="color:var(--cyan);margin-right:4px"></i>Briefing — ${esc(app.empresa)}</div>
                 <button class="btn btn-sm" style="padding:2px 6px;font-size:0.72rem" onclick="openContextNotes('${app.id}')" title="Adicionar nota"><i class="fa-solid fa-plus"></i> Nota</button>
             </div>
-            ${interviewBlock}${interviewerBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}${starBlock}
+            ${interviewBlock}${interviewerBlock}${companyBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}${starBlock}
         </div>`;
     }
 

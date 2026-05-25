@@ -1533,7 +1533,7 @@ Retorne JSON com:
         if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
 
         const [appRes, interviewRes, notesRes, qaRes, profileRes, starsRes] = await Promise.allSettled([
-            supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel, nivel_alvo, modalidade, faixa_salarial, descricao)').eq('id', application_id).single(),
+            supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel, nivel_alvo, modalidade, faixa_salarial, descricao, advance_confidence)').eq('id', application_id).single(),
             supabase.from('interview_sessions').select('*').eq('application_id', application_id).eq('status', 'planned').gte('interview_at', new Date().toISOString()).order('interview_at').limit(1),
             supabase.from('context_notes').select('*').eq('application_id', application_id).order('created_at', { ascending: false }).limit(5),
             supabase.from('interview_qa').select('question,answer,category,difficulty').order('use_count', { ascending: false }).limit(10),
@@ -1551,8 +1551,21 @@ Retorne JSON com:
         const radar     = app.vaga_radar || {};
         const stars     = starsRes.status === 'fulfilled' ? (starsRes.value.data ?? []) : [];
 
+        // Busca interviewer intel e company intel em paralelo (opcionais)
+        const interviewerName = interview?.interviewer_name || app.gestor_nome;
+        const [itvIntelRes, companyIntelRes] = await Promise.allSettled([
+            interviewerName
+                ? supabase.from('interviewer_intel').select('*').ilike('name_normalized', `%${interviewerName.toLowerCase().replace(/\s+/g,'-').slice(0,40)}%`).limit(1)
+                : Promise.resolve({ data: [] }),
+            app.empresa
+                ? supabase.from('company_intel').select('display_name,situacao,glassdoor_rating,size_employees,red_flags,date_abertura').ilike('display_name', `%${app.empresa.slice(0,30)}%`).limit(1)
+                : Promise.resolve({ data: [] }),
+        ]);
+
         const stages = (app.stages || []).filter(s => s.active !== false);
         const completedStages = stages.filter(s => s.completed_at || s.notes);
+        const interviewer_intel = itvIntelRes.status === 'fulfilled' ? (itvIntelRes.value.data?.[0] || null) : null;
+        const company_intel     = companyIntelRes.status === 'fulfilled' ? (companyIntelRes.value.data?.[0] || null) : null;
 
         return res.status(200).json({
             app: { id: app.id, empresa: app.empresa, vaga: app.vaga, data_envio: app.data_envio, result: app.result, gestor_nome: app.gestor_nome, gestor_email: app.gestor_email, link_vaga: app.link_vaga },
@@ -1561,8 +1574,10 @@ Retorne JSON com:
             notes,
             qa,
             stars,
-            radar: { fit_score: radar.fit_score, gaps: radar.gaps, suspicious_flags: radar.suspicious_flags, nivel_alvo: radar.nivel_alvo, modalidade: radar.modalidade, faixa_salarial: radar.faixa_salarial },
+            radar: { fit_score: radar.fit_score, gaps: radar.gaps, suspicious_flags: radar.suspicious_flags, nivel_alvo: radar.nivel_alvo, modalidade: radar.modalidade, faixa_salarial: radar.faixa_salarial, advance_confidence: radar.advance_confidence },
             profile: profile ? { nome: profile.nome, nivel: profile.nivel_atual, skills_core: profile.skills_core, skills_evolucao: profile.skills_evolucao } : null,
+            interviewer_intel,
+            company_intel,
         });
     }
 
