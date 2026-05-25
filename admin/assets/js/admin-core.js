@@ -6842,7 +6842,7 @@ function radarBadge(score) {
     return                    { cls: 'red',    num: score,  tier: 'fraco'  };
 }
 
-async function loadRadar() {
+async function loadRadar(forceAll = false) {
     try {
         _radarProfile = await api('GET', '/api/admin/profile');
         fillRadarProfileForm(_radarProfile);
@@ -6860,11 +6860,11 @@ async function loadRadar() {
         setTimeout(() => sw.classList.remove('loading'), 400);
     }
 
-    const all = document.getElementById('radarShowAll')?.checked ? '?all=1' : '';
+    // Sempre carrega com all=1 para ter descartadas disponíveis no cache local
     const list = document.getElementById('radarList');
     if (list) list.innerHTML = '<div class="radar-empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Carregando…</div>';
     try {
-        const leads = await api('GET', `/api/admin/radar${all}`);
+        const leads = await api('GET', '/api/admin/radar?all=1');
         renderRadarList(leads);
     } catch (e) {
         if (list) list.innerHTML = `<div class="radar-empty">Erro: ${esc(e.message)}</div>`;
@@ -7298,6 +7298,7 @@ let _radarMinScore = 0;
 let _radarFonteFilter = 'all';
 let _radarModFilter   = 'all';
 let _radarSortKey     = 'score';
+let _radarShowDescartadas = false;
 let _radarFiltersOpen = false;
 let _radarSelecting = false;
 let _radarSelected  = new Set();
@@ -7310,7 +7311,9 @@ function renderRadarList(leads) {
     const count = document.getElementById('radarCount');
 
     // Apply filters
-    let filtered = leads;
+    let filtered = _radarShowDescartadas
+        ? leads
+        : leads.filter(l => l.status !== 'descartada');
     if (_radarSearchQuery) {
         const q = _radarSearchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         filtered = filtered.filter(l => {
@@ -7368,11 +7371,11 @@ function renderRadarList(leads) {
             <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}${aln}${confPct}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
-                    ${fonteBadge}<strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
+                    <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
                     <span class="radar-status-tag s-${esc(l.status)}">${esc(l.status)}</span>
                     ${suspBadge}
                 </div>
-                <div class="radar-chips">${chips}</div>
+                <div class="radar-chips">${fonteBadge}${chips}</div>
                 ${kw ? `<div class="radar-chips">${kw}</div>` : ''}
                 ${gaps ? `<div class="radar-chips"><span class="radar-chip-label">Gaps:</span>${gaps}</div>` : ''}
                 ${pos}
@@ -7397,18 +7400,31 @@ function _updateRadarFilterBadge() {
     const badge = document.getElementById('radarFiltersBadge');
     if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
 }
-function toggleRadarShowDescartadas() {
-    const cb = document.getElementById('radarShowAll');
+// Mantém o botão Descartadas em sincronia se o radarShowAll interno for alterado
+function _syncDescartadasBtn() {
     const btn = document.getElementById('radarShowDescartadasBtn');
-    if (!cb) return;
-    cb.checked = !cb.checked;
+    if (!btn) return;
+    btn.classList.toggle('active', _radarShowDescartadas);
+    btn.innerHTML = _radarShowDescartadas
+        ? '<i class="fa-solid fa-eye"></i> Descartadas'
+        : '<i class="fa-solid fa-eye-slash"></i> Descartadas';
+}
+function toggleRadarShowDescartadas() {
+    _radarShowDescartadas = !_radarShowDescartadas;
+    const btn = document.getElementById('radarShowDescartadasBtn');
     if (btn) {
-        btn.classList.toggle('active', cb.checked);
-        btn.innerHTML = cb.checked
+        btn.classList.toggle('active', _radarShowDescartadas);
+        btn.innerHTML = _radarShowDescartadas
             ? '<i class="fa-solid fa-eye"></i> Descartadas'
             : '<i class="fa-solid fa-eye-slash"></i> Descartadas';
     }
-    loadRadar();
+    // Se ainda não carregou os leads com descartadas, recarrega
+    const temDescartadas = _radarLeads.some(l => l.status === 'descartada');
+    if (_radarShowDescartadas && !temDescartadas) {
+        loadRadar(true);
+    } else {
+        renderRadarList(_radarLeads);
+    }
 }
 function setRadarSearch(val) {
     _radarSearchQuery = (val || '').trim();
