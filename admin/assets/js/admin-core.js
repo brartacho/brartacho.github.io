@@ -3799,6 +3799,41 @@ function loadAll() {
         loadTokens().catch(() => {});
         loadApplications().catch(() => {});
     }, 500);
+    // N30 — Detecção automática de pausa (14 dias sem atividade)
+    setTimeout(_checkAutoPause, 3000);
+}
+
+async function _checkAutoPause() {
+    try {
+        const [notifRes, appsRes] = await Promise.allSettled([
+            apiFetch('/api/admin/applications?__h=notification-settings'),
+            apiFetch('/api/admin/applications'),
+        ]);
+        const notifSettings = notifRes.status === 'fulfilled' ? (notifRes.value?.settings || {}) : {};
+        if (notifSettings.pause_mode) return; // já em modo pausa
+        const apps = appsRes.status === 'fulfilled' ? (appsRes.value?.applications || appsRes.value || []) : [];
+        if (!Array.isArray(apps) || !apps.length) return;
+        const sorted = [...apps].sort((a,b) => new Date(b.updated_at||b.created_at) - new Date(a.updated_at||a.created_at));
+        const lastActivity = sorted[0]?.updated_at || sorted[0]?.created_at;
+        if (!lastActivity) return;
+        const daysSince = (Date.now() - new Date(lastActivity).getTime()) / 86400000;
+        if (daysSince < 14) return;
+        const key = `_pausePrompted_${lastActivity.slice(0,10)}`;
+        if (sessionStorage.getItem(key)) return; // já mostrou nesta sessão
+        sessionStorage.setItem(key, '1');
+        const activate = confirm(
+            `Notamos que faz ${Math.floor(daysSince)} dias sem atividade no admin.\n\n` +
+            `Deseja ativar o "Modo Pausa Profissional"?\n\n` +
+            `Isso suspende buscas automáticas, alertas e notificações leves enquanto você está fora.`
+        );
+        if (activate) {
+            await apiFetch('/api/admin/applications?__h=notification-settings', {
+                method: 'PUT',
+                body: JSON.stringify({ settings: { ...notifSettings, pause_mode: true } })
+            });
+            showToast('Modo pausa ativado. Reative quando quiser retomar.', 'success');
+        }
+    } catch { /* silencioso */ }
 }
 
 // ─── STORAGE STATS ────────────────────────────────────────
