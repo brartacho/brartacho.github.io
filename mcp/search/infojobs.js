@@ -1,5 +1,5 @@
 // Scraper do InfoJobs Brasil via Playwright + stealth.
-// URL: https://www.infojobs.com.br/vagas-de-emprego,{slug}.aspx
+// URL: https://www.infojobs.com.br/empregos.aspx?palabra={keyword}
 // Cloudflare presente — usa playwright-extra + stealth plugin.
 
 import { chromium } from 'playwright-extra';
@@ -9,13 +9,6 @@ import { normalize } from './normalizer.js';
 chromium.use(StealthPlugin());
 
 const BASE_URL = 'https://www.infojobs.com.br';
-
-function toSlug(kw) {
-    return kw.toLowerCase()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-}
 
 export async function searchInfojobs({ keywords, maxResults = 20 }) {
     const seen    = new Set();
@@ -41,8 +34,7 @@ export async function searchInfojobs({ keywords, maxResults = 20 }) {
             if (results.length >= maxResults) break;
 
             console.error(`[infojobs] Buscando: "${keyword}"`);
-            const slug = toSlug(keyword);
-            const url  = `${BASE_URL}/vagas-de-emprego,${slug}.aspx`;
+            const url = `${BASE_URL}/empregos.aspx?palabra=${encodeURIComponent(keyword)}`;
 
             try {
                 await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
@@ -65,46 +57,25 @@ export async function searchInfojobs({ keywords, maxResults = 20 }) {
             }
 
             const jobs = await page.evaluate(() => {
-                const CARD_SELECTORS = [
-                    '.ij-offersitem',
-                    '.offer-item',
-                    '[class*="offerItem"]',
-                    '[class*="offer-item"]',
-                    'li[class*="offer"]',
-                    'article[class*="offer"]',
-                    '.jobs-list-item',
-                ];
-
-                let cards = [];
-                for (const sel of CARD_SELECTORS) {
-                    cards = [...document.querySelectorAll(sel)];
-                    if (cards.length > 0) break;
-                }
+                // Cards: div[data-id] com classe js_cardLink
+                const cards = [...document.querySelectorAll('div[data-id].js_cardLink')];
 
                 console.log(`[infojobs-eval] ${cards.length} cards encontrados`);
 
                 return cards.map(card => {
-                    const linkEl = card.querySelector(
-                        'h2 a, h3 a, [class*="title"] a, a[href*="/vaga/"], a[href*="/emprego/"]'
-                    );
-                    const compEl = card.querySelector(
-                        '[class*="company"], [class*="employer"], [class*="empresa"], [class*="companyName"]'
-                    );
-                    const locEl  = card.querySelector(
-                        '[class*="location"], [class*="locality"], [class*="local"], [class*="city"]'
-                    );
-                    const modalEl = card.querySelector(
-                        '[class*="remote"], [class*="telework"], [class*="modalidade"]'
-                    );
-                    const link = linkEl?.href || linkEl?.getAttribute('href');
+                    const titleEl = card.querySelector('.js_vacancyTitle');
+                    const compEl  = card.querySelector('a[href*="empresa"]');
+                    const locEl   = card.querySelector('.js_vacancyDataPanels [class*="location"], [class*="locality"], span[class*="location"]');
+                    const dataHref = card.getAttribute('data-href');
+                    const link = dataHref
+                        ? (dataHref.startsWith('http') ? dataHref : `https://www.infojobs.com.br${dataHref}`)
+                        : null;
                     return {
-                        vaga:        (linkEl?.textContent?.trim() || linkEl?.getAttribute('title') || '').trim(),
-                        empresa:     compEl?.textContent?.trim() || '',
-                        localizacao: locEl?.textContent?.trim()  || '',
-                        modalidade:  modalEl?.textContent?.trim() || '',
-                        link:        link
-                            ? (link.startsWith('http') ? link : `https://www.infojobs.com.br${link}`)
-                            : null,
+                        vaga:        titleEl?.textContent?.trim() || '',
+                        empresa:     (compEl?.textContent || '').replace(/\s+/g, ' ').trim(),
+                        localizacao: locEl?.textContent?.trim()   || '',
+                        modalidade:  '',
+                        link,
                     };
                 }).filter(j => j.vaga && j.link);
             });
