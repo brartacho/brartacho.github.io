@@ -7295,8 +7295,8 @@ async function saveQuickSearches(btn) {
 let _radarLeads = [];
 let _radarSearchQuery = '';
 let _radarMinScore = 0;
-let _radarFonteFilter = 'all';
-let _radarModFilter   = 'all';
+let _radarFonteFilter = new Set(); // vazio = todas
+let _radarModFilter   = new Set(); // vazio = qualquer
 let _radarSortKey     = 'score';
 let _radarShowDescartadas = false;
 let _radarFiltersOpen = false;
@@ -7326,8 +7326,8 @@ function renderRadarList(leads) {
         });
     }
     if (_radarMinScore > 0) filtered = filtered.filter(l => (l.fit_score ?? 0) >= _radarMinScore);
-    if (_radarFonteFilter !== 'all') filtered = filtered.filter(l => (l.fonte || '') === _radarFonteFilter);
-    if (_radarModFilter !== 'all') filtered = filtered.filter(l => (l.modalidade || '') === _radarModFilter);
+    if (_radarFonteFilter.size > 0) filtered = filtered.filter(l => _radarFonteFilter.has(l.fonte || ''));
+    if (_radarModFilter.size > 0)   filtered = filtered.filter(l => _radarModFilter.has(l.modalidade || ''));
     // Apply sort
     if (_radarSortKey === 'score') filtered = [...filtered].sort((a,b) => (b.fit_score??-1) - (a.fit_score??-1));
     else if (_radarSortKey === 'date') filtered = [...filtered].sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
@@ -7395,8 +7395,8 @@ function toggleRadarFilters() {
 function _updateRadarFilterBadge() {
     let n = 0;
     if (_radarMinScore > 0)          n++;
-    if (_radarFonteFilter !== 'all') n++;
-    if (_radarModFilter   !== 'all') n++;
+    if (_radarFonteFilter.size > 0)  n++;
+    if (_radarModFilter.size > 0)    n++;
     const badge = document.getElementById('radarFiltersBadge');
     if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
 }
@@ -7448,16 +7448,31 @@ function setRadarMinScore(val) {
     _updateRadarFilterBadge();
 }
 function setRadarFonteFilter(val, btn) {
-    _radarFonteFilter = val;
-    document.querySelectorAll('.radar-fonte-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    if (val === 'all') {
+        _radarFonteFilter.clear();
+    } else {
+        if (_radarFonteFilter.has(val)) _radarFonteFilter.delete(val);
+        else _radarFonteFilter.add(val);
+    }
+    // Sincroniza visual: "Todas" ativo só quando nada selecionado
+    document.querySelectorAll('.radar-fonte-chip').forEach(b => {
+        const v = b.getAttribute('data-val');
+        b.classList.toggle('active', v === 'all' ? _radarFonteFilter.size === 0 : _radarFonteFilter.has(v));
+    });
     renderRadarList(_radarLeads);
     _updateRadarFilterBadge();
 }
 function setRadarModFilter(val, btn) {
-    _radarModFilter = val;
-    document.querySelectorAll('.radar-mod-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    if (val === 'all') {
+        _radarModFilter.clear();
+    } else {
+        if (_radarModFilter.has(val)) _radarModFilter.delete(val);
+        else _radarModFilter.add(val);
+    }
+    document.querySelectorAll('.radar-mod-chip').forEach(b => {
+        const v = b.getAttribute('data-val');
+        b.classList.toggle('active', v === 'all' ? _radarModFilter.size === 0 : _radarModFilter.has(v));
+    });
     renderRadarList(_radarLeads);
     _updateRadarFilterBadge();
 }
