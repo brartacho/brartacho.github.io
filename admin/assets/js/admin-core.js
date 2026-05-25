@@ -7102,7 +7102,10 @@ function _rsqShowStatus(status, extra, res, mcp) {
         el.innerHTML = `<div class="rsq-progress-wrap rsq-running" aria-live="polite">
             <div class="rsq-progress-header">
                 <span><i class="fa-solid fa-circle-notch fa-spin"></i> Executando… <span class="rsq-progress-count">${done.length}/${total}</span></span>
-                <span class="rsq-elapsed" id="rsqElapsed"></span>
+                <span style="display:flex;align-items:center;gap:8px">
+                    <span class="rsq-elapsed" id="rsqElapsed"></span>
+                    <button onclick="cancelRadarSearch()" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer" title="Interromper monitoramento desta busca">✕ Cancelar</button>
+                </span>
             </div>
             <div class="rsq-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
                 <div class="rsq-bar" style="width:${pct}%"></div>
@@ -7153,6 +7156,18 @@ async function _rsqPoll(id) {
     } catch (_) {
         if (id === _rsqActiveId) _rsqPollTimer = setTimeout(() => _rsqPoll(id), 10000);
     }
+}
+
+function cancelRadarSearch() {
+    clearTimeout(_rsqPollTimer);
+    clearInterval(_rsqElapsedTimer);
+    _rsqPollTimer = null;
+    _rsqElapsedTimer = null;
+    _rsqStartedAt = null;
+    _rsqRequestPlats = [];
+    _rsqActiveId = null;
+    const el = document.getElementById('rsqStatus');
+    if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Monitoramento interrompido — busca continua em segundo plano</span>`;
 }
 
 async function loadRsqHistory() {
