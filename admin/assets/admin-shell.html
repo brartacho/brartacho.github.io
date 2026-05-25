@@ -1338,7 +1338,10 @@
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                         <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-graduation-cap" style="color:var(--cyan);margin-right:6px"></i> Plano de estudos</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="openStudyItemForm()"><i class="fa-solid fa-plus"></i> Adicionar skill</button>
+                        <div style="display:flex;gap:6px">
+                            <button class="btn btn-sm" onclick="autoSuggestStudyPlan(this)" title="Popula gaps das vagas recentes automaticamente"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-sugerir</button>
+                            <button class="btn btn-cyan btn-sm" onclick="openStudyItemForm()"><i class="fa-solid fa-plus"></i> Adicionar skill</button>
+                        </div>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Acompanhe horas estudadas por skill e close os gaps das vagas.</p>
                     <div id="studyPlanList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>

@@ -1388,6 +1388,66 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── study-plan-autosuggest (N16 — auto-populate from radar gaps) ──
+    if (req.query.__h === 'study-plan-autosuggest') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const days = parseInt(req.query.days || '60', 10);
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+
+        // Coleta gaps de vagas recentes do radar
+        const { data: leads } = await supabase.from('vaga_radar')
+            .select('gaps,skills_required')
+            .gte('created_at', since)
+            .not('gaps', 'is', null);
+
+        // Conta frequência de cada gap/skill
+        const freq = {};
+        for (const lead of leads || []) {
+            const items = [
+                ...(Array.isArray(lead.gaps) ? lead.gaps : (lead.gaps || '').split(/[,;]+/)),
+                ...(Array.isArray(lead.skills_required) ? lead.skills_required : (lead.skills_required || '').split(/[,;]+/)),
+            ].map(s => s?.trim().toLowerCase()).filter(s => s && s.length > 1 && s.length < 60);
+            for (const skill of items) freq[skill] = (freq[skill] || 0) + 1;
+        }
+
+        const totalLeads = (leads || []).length || 1;
+        // Filtra skills com demanda >= 10% das vagas analisadas
+        const topSkills = Object.entries(freq)
+            .map(([skill, count]) => ({ skill, count, demand_pct: Math.round((count / totalLeads) * 100) }))
+            .filter(s => s.demand_pct >= 10)
+            .sort((a, b) => b.demand_pct - a.demand_pct)
+            .slice(0, 15);
+
+        if (!topSkills.length) return res.status(200).json({ created: 0, updated: 0, message: 'Nenhum gap recorrente encontrado' });
+
+        // Carrega itens existentes para evitar duplicatas
+        const { data: existing } = await supabase.from('study_plan_items').select('id, skill, demand_pct');
+        const existingMap = {};
+        for (const e of existing || []) existingMap[e.skill.toLowerCase()] = e;
+
+        let created = 0, updated = 0;
+        for (const s of topSkills) {
+            const existing_ = existingMap[s.skill];
+            if (existing_) {
+                // Atualiza demand_pct se mudou >= 5pp
+                if (Math.abs((existing_.demand_pct || 0) - s.demand_pct) >= 5) {
+                    await supabase.from('study_plan_items').update({ demand_pct: s.demand_pct, priority: s.demand_pct / 100 }).eq('id', existing_.id);
+                    updated++;
+                }
+            } else {
+                await supabase.from('study_plan_items').insert({
+                    skill: s.skill,
+                    demand_pct: s.demand_pct,
+                    priority: s.demand_pct / 100,
+                    status: 'planned',
+                });
+                created++;
+            }
+        }
+
+        return res.status(200).json({ created, updated, top_skills: topSkills.slice(0, 10) });
+    }
+
     // ── search-alerts (N17) ────────────────────────────────────
     if (req.query.__h === 'search-alerts') {
         if (req.method === 'GET') {
@@ -1839,7 +1899,12 @@ Retorne JSON com:
     // ── career-journal (N15) ──────────────────────────────────────
     if (req.query.__h === 'career-journal') {
         if (req.method === 'GET') {
-            const { scope, scope_ref } = req.query;
+            const { scope, scope_ref, id } = req.query;
+            if (id) {
+                const { data, error } = await supabase.from('career_journal').select('*').eq('id', id).single();
+                if (error) return res.status(error.code === 'PGRST116' ? 404 : 500).json({ error: error.message });
+                return res.status(200).json(data);
+            }
             let q = supabase.from('career_journal').select('*').order('generated_at', { ascending: false });
             if (scope)     q = q.eq('scope', scope);
             if (scope_ref) q = q.eq('scope_ref', scope_ref);
@@ -1857,11 +1922,11 @@ Retorne JSON com:
             let generated_by = 'manual';
 
             if (!content_markdown && scope === 'month') {
-                // Agrega candidaturas do mês e gera resumo simples
+                // Agrega candidaturas do mês
                 const [startDate] = ref ? [new Date(ref + '-01')] : [new Date()];
                 const endDate = new Date(startDate); endDate.setMonth(endDate.getMonth() + 1);
                 const { data: apps } = await supabase.from('job_applications')
-                    .select('empresa,vaga,result,stages,created_at')
+                    .select('empresa,vaga,result,stages,created_at,observacoes')
                     .gte('created_at', startDate.toISOString())
                     .lt('created_at', endDate.toISOString())
                     .order('created_at');
@@ -1869,16 +1934,37 @@ Retorne JSON com:
                 const aprovadas = (apps || []).filter(a => a.result === 'aprovado').length;
                 const recusadas = (apps || []).filter(a => a.result === 'recusado').length;
                 const emProcesso = (apps || []).filter(a => a.result === 'em_processo' || !a.result).length;
-                const empresas = [...new Set((apps || []).map(a => a.empresa).filter(Boolean))].slice(0, 8).join(', ');
-                finalContent = `# Diário de ${ref || 'mês atual'}\n\n` +
-                    `## Resumo\n\n` +
-                    `- **Total de candidaturas:** ${total}\n` +
-                    `- **Em processo:** ${emProcesso}\n` +
-                    `- **Aprovadas:** ${aprovadas}\n` +
-                    `- **Recusadas:** ${recusadas}\n\n` +
-                    (empresas ? `## Empresas\n\n${empresas}\n\n` : '') +
-                    `## Notas\n\n*(adicione suas reflexões aqui)*`;
-                generated_by = 'auto';
+                const empresasArr = [...new Set((apps || []).map(a => a.empresa).filter(Boolean))].slice(0, 10);
+                const appsContext = (apps || []).slice(0, 20).map(a =>
+                    `- ${a.empresa} (${a.vaga}): ${a.result || 'em andamento'}${a.observacoes ? ' — ' + a.observacoes.slice(0,120) : ''}`
+                ).join('\n');
+
+                // Tenta gerar narrativa via LLM
+                try {
+                    const { routeChat } = await import('../_lib/llm-router.js');
+                    const llmResult = await routeChat({
+                        taskType: 'analysis',
+                        messages: [{
+                            role: 'user',
+                            content: `Escreva o diário de carreira em Markdown para o mês ${ref || 'atual'} com base nos dados abaixo. Use tom reflexivo, primeira pessoa, português brasileiro. Estruture em: ## Resumo numérico (bullets), ## Destaques (narrativa 2-3 parágrafos sobre o que foi significativo), ## Lições aprendidas (3 bullets), ## Próximos passos. Máximo 400 palavras.\n\nCandidaturas (${total}):\n${appsContext || '(nenhuma registrada)'}`
+                        }],
+                        maxTokens: 600,
+                        temperature: 0.55,
+                    });
+                    finalContent = llmResult?.content || llmResult;
+                    generated_by = llmResult?._provider || 'llm';
+                } catch (_) {
+                    // Fallback para template estático
+                    finalContent = `# Diário de ${ref || 'mês atual'}\n\n` +
+                        `## Resumo\n\n` +
+                        `- **Total de candidaturas:** ${total}\n` +
+                        `- **Em processo:** ${emProcesso}\n` +
+                        `- **Aprovadas:** ${aprovadas}\n` +
+                        `- **Recusadas:** ${recusadas}\n\n` +
+                        (empresasArr.length ? `## Empresas\n\n${empresasArr.join(', ')}\n\n` : '') +
+                        `## Notas\n\n*(adicione suas reflexões aqui)*`;
+                    generated_by = 'auto';
+                }
             }
 
             const { data, error } = await supabase.from('career_journal').insert({

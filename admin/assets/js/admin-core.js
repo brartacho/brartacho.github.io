@@ -2007,6 +2007,18 @@ async function deleteStudyItem(id) {
     } catch(e) { showToast(e.message,'error'); }
 }
 
+async function autoSuggestStudyPlan(btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analisando…';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=study-plan-autosuggest', { method: 'POST' });
+        const msg = r.message || `${r.created} skills adicionadas, ${r.updated} atualizadas`;
+        showToast(msg, 'success');
+        if (r.created > 0 || r.updated > 0) loadStudyPlan();
+    } catch(e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+}
+
 // ─── ALERTAS DE BUSCA (N17) ──────────────────────────────────
 async function loadSearchAlerts() {
     const el = document.getElementById('searchAlertsList');
@@ -2315,7 +2327,9 @@ async function loadJournal() {
         }
         el.innerHTML = entries.map(e => {
             const dt = new Date(e.generated_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
-            const preview = (e.content_markdown || '').replace(/^#+\s*/gm,'').slice(0, 180);
+            const full = e.content_markdown || '';
+            const preview = full.replace(/^#+\s*/gm,'').slice(0, 200);
+            const hasMore = preview.length < full.length;
             return `<div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;background:var(--bg-card)">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
                     <div>
@@ -2323,11 +2337,12 @@ async function loadJournal() {
                         <div style="font-size:0.72rem;color:var(--text-dim)">${esc(e.scope)} · ${dt} · ${esc(e.generated_by || 'manual')}</div>
                     </div>
                     <div style="display:flex;gap:6px;flex-shrink:0">
+                        ${hasMore ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="toggleJournalExpand(this,'${e.id}')"><i class="fa-solid fa-eye"></i></button>` : ''}
                         <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="openJournalEditor('${e.id}')"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem;color:var(--danger)" onclick="deleteJournalEntry('${e.id}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <div style="font-size:0.78rem;color:var(--text-soft);white-space:pre-line">${esc(preview)}${preview.length < (e.content_markdown||'').length ? '…' : ''}</div>
+                <div id="journal-preview-${e.id}" style="font-size:0.78rem;color:var(--text-soft);white-space:pre-line">${esc(preview)}${hasMore ? '…' : ''}</div>
             </div>`;
         }).join('');
     } catch(e) {
@@ -2348,12 +2363,33 @@ async function generateMonthJournal() {
     } catch(e) { showToast(e.message,'error'); }
 }
 
+async function toggleJournalExpand(btn, id) {
+    const el = document.getElementById(`journal-preview-${id}`);
+    if (!el) return;
+    if (btn.dataset.expanded === '1') {
+        btn.dataset.expanded = '0';
+        btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        el.textContent = el.dataset.preview || '';
+    } else {
+        btn.dataset.expanded = '1';
+        btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+        if (!el.dataset.full) {
+            try {
+                const data = await apiFetch(`/api/admin/applications?__h=career-journal&id=${id}`);
+                el.dataset.full = data.content_markdown || '';
+                el.dataset.preview = el.textContent;
+            } catch { return; }
+        }
+        el.style.whiteSpace = 'pre-wrap';
+        el.textContent = el.dataset.full;
+    }
+}
+
 async function openJournalEditor(id) {
     document.getElementById('journalId').value = id || '';
     if (id) {
         try {
-            const r = await apiFetch(`/api/admin/applications?__h=career-journal&scope_ref=${encodeURIComponent(id)}`);
-            const e = r.entries?.[0];
+            const e = await apiFetch(`/api/admin/applications?__h=career-journal&id=${encodeURIComponent(id)}`);
             if (e) {
                 document.getElementById('journalTitle').value = e.title || '';
                 document.getElementById('journalContent').value = e.content_markdown || '';
