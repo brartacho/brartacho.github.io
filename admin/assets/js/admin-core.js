@@ -7004,7 +7004,7 @@ function _rsqSyncPlatforms(profile) {
             disabled: !VALID.has(p.id),
             hint:     VALID.has(p.id) ? undefined : 'Em breve',
         })),
-        allPlats.filter(p => p.enabled !== false && VALID.has(p.id)).map(p => p.id)
+        allPlats.filter(p => VALID.has(p.id)).map(p => p.id)
     );
 }
 
