@@ -2447,6 +2447,73 @@ async function saveValuesWeights() {
     } catch(e) { showToast(e.message,'error'); }
 }
 
+// ─── IMPORTAR CV (N21) ──────────────────────────────────────
+async function runImportCV() {
+    const textarea = document.getElementById('cvImportText');
+    const resultEl = document.getElementById('cvImportResult');
+    const text = textarea?.value?.trim();
+    if (!text || text.length < 50) { showToast('Cole o texto do CV antes de estruturar.','error'); return; }
+
+    resultEl.style.display = 'none';
+    showToast('Estruturando currículo via IA…');
+
+    let data;
+    try {
+        data = await apiFetch('/api/admin/applications?__h=import-cv', { method:'POST', body: JSON.stringify({ cv_text: text }) });
+    } catch(e) { showToast(e.message,'error'); return; }
+
+    const s = data.structured || {};
+    const skillsCore = (s.skills_core||[]).join(', ');
+    const skillsEvol = (s.skills_evolucao||[]).join(', ');
+    const setores    = (s.setores||[]).join(', ');
+    const idiomas    = (s.languages||[]).map(l => `${l.lang} (${l.level})`).join(', ');
+    const certs      = (s.certifications||[]).map(c => c.name).join(', ');
+    const exps       = (s.experiences||[]).map(e => `<li><strong>${esc(e.role)}</strong> @ ${esc(e.company)} (${e.start||''}–${e.end||'atual'})</li>`).join('');
+    const edus       = (s.education||[]).map(e => `<li>${esc(e.degree)} — ${esc(e.institution)} (${e.year||''})</li>`).join('');
+
+    resultEl.innerHTML = `
+        <div style="border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--bg-soft)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <div style="font-weight:600;font-size:0.9rem;color:var(--text)"><i class="fa-solid fa-check-circle" style="color:var(--green);margin-right:6px"></i> Currículo estruturado — revise antes de aplicar</div>
+                <button class="btn btn-cyan btn-sm" onclick="applyImportedCV(${JSON.stringify(JSON.stringify(s))})"><i class="fa-solid fa-check"></i> Aplicar ao perfil</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.8rem">
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Nome</label><div style="color:var(--text)">${esc(s.nome||'–')}</div></div>
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Nível alvo</label><div style="color:var(--text)">${esc(s.nivel_alvo||'–')}</div></div>
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Skills core</label><div style="color:var(--cyan)">${esc(skillsCore||'–')}</div></div>
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Skills evolução</label><div style="color:var(--text)">${esc(skillsEvol||'–')}</div></div>
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Setores</label><div style="color:var(--text)">${esc(setores||'–')}</div></div>
+                <div><label style="font-size:0.72rem;color:var(--text-soft)">Idiomas</label><div style="color:var(--text)">${esc(idiomas||'–')}</div></div>
+            </div>
+            ${exps ? `<div style="margin-top:10px"><label style="font-size:0.72rem;color:var(--text-soft)">Experiências</label><ul style="margin:4px 0 0;padding-left:18px;font-size:0.78rem;color:var(--text)">${exps}</ul></div>` : ''}
+            ${edus ? `<div style="margin-top:8px"><label style="font-size:0.72rem;color:var(--text-soft)">Formação</label><ul style="margin:4px 0 0;padding-left:18px;font-size:0.78rem;color:var(--text)">${edus}</ul></div>` : ''}
+            ${certs ? `<div style="margin-top:8px"><label style="font-size:0.72rem;color:var(--text-soft)">Certificações</label><div style="font-size:0.78rem;color:var(--text)">${esc(certs)}</div></div>` : ''}
+        </div>
+    `;
+    resultEl.style.display = '';
+    showToast('CV estruturado! Revise e clique "Aplicar ao perfil".','success');
+}
+
+async function applyImportedCV(structuredJson) {
+    let s;
+    try { s = JSON.parse(structuredJson); } catch { showToast('Erro ao processar dados.','error'); return; }
+
+    // Monta patch do candidate_profile com os dados extraídos
+    const profilePatch = {};
+    if (s.nivel_alvo) profilePatch.nivel_alvo = s.nivel_alvo;
+    if (s.skills_core?.length)    profilePatch.skills_core    = s.skills_core;
+    if (s.skills_evolucao?.length) profilePatch.skills_evolucao = s.skills_evolucao;
+    if (s.setores?.length)         profilePatch.setores        = s.setores;
+    if (s.keywords?.length)        profilePatch.keywords       = s.keywords;
+
+    try {
+        await apiFetch('/api/admin/radar?__h=profile', { method:'PUT', body: JSON.stringify(profilePatch) });
+        showToast('Perfil atualizado com dados do CV!','success');
+        document.getElementById('cvImportResult').style.display = 'none';
+        document.getElementById('cvImportText').value = '';
+    } catch(e) { showToast(e.message,'error'); }
+}
+
 // ─── NOTIFICAÇÕES / DND (N29/N30) ────────────────────────────
 async function loadNotificationSettings() {
     try {

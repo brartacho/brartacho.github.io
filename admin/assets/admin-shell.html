@@ -1515,6 +1515,17 @@
                     </div>
                 </div>
 
+                <!-- Importar CV (N21) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-file-import" style="color:var(--cyan);margin-right:6px"></i> Importar CV via IA</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="runImportCV()"><i class="fa-solid fa-wand-magic-sparkles"></i> Estruturar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 10px;line-height:1.6">Cole o texto do seu currículo abaixo. A IA extrai skills, experiências, formação e idiomas e pré-preenche seu perfil para revisão.</p>
+                    <textarea id="cvImportText" class="mock-input" rows="8" placeholder="Cole aqui o texto do seu CV (copie do PDF ou Word)…" style="width:100%;resize:vertical;font-size:0.8rem;line-height:1.5"></textarea>
+                    <div id="cvImportResult" style="display:none;margin-top:14px"></div>
+                </div>
+
             </div>
         </div>
 

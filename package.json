@@ -6,8 +6,12 @@
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "jobsync": "./cli/jobsync.mjs"
+  },
   "scripts": {
     "test": "playwright test",
+    "jobsync": "node cli/jobsync.mjs",
     "mcp:setup":   "powershell -ExecutionPolicy Bypass -File scripts/setup-mcp-daemon.ps1",
     "mcp:start":   "pm2 start ecosystem.config.cjs",
     "mcp:stop":    "pm2 stop radar-mcp",

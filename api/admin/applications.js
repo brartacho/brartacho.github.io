@@ -2372,6 +2372,61 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         return res.status(200).json({ intel, source: 'api' });
     }
 
+    // ── import-cv (N21) — import CV texto → estrutura via IA ────────
+    if (req.query.__h === 'import-cv') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { cv_text } = req.body || {};
+        if (!cv_text || String(cv_text).trim().length < 50) {
+            return res.status(400).json({ error: 'cv_text obrigatório (mínimo 50 caracteres)' });
+        }
+        const text = String(cv_text).slice(0, 12000);
+
+        let structured;
+        try {
+            const result = await routeChat({
+                taskType: 'extraction',
+                messages: [
+                    {
+                        role: 'user',
+                        content: `Extraia as informações do currículo abaixo e devolva APENAS um JSON válido (sem markdown, sem texto extra) com a estrutura exata:\n\n` +
+                            `{\n  "nome": "string",\n  "email": "string|null",\n  "telefone": "string|null",\n` +
+                            `  "nivel_alvo": "junior|pleno|senior|specialist",\n` +
+                            `  "skills_core": ["skill1","skill2"],\n` +
+                            `  "skills_evolucao": ["skill1","skill2"],\n` +
+                            `  "setores": ["setor1"],\n  "keywords": ["kw1"],\n  "gaps": [],\n` +
+                            `  "experiences": [{"role":"string","company":"string","start":"YYYY-MM","end":"YYYY-MM|null","bullets":["..."]}],\n` +
+                            `  "education": [{"degree":"string","institution":"string","year":2020}],\n` +
+                            `  "languages": [{"lang":"Inglês","level":"avançado"}],\n` +
+                            `  "certifications": [{"name":"string","issuer":"string|null","year":2023}]\n}\n\n` +
+                            `CURRÍCULO:\n${text}`,
+                    },
+                ],
+                maxTokens: 2000,
+                temperature: 0.1,
+            });
+
+            const raw = result?.content || result?.choices?.[0]?.message?.content || '';
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('JSON não encontrado na resposta do LLM');
+            structured = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+            return res.status(500).json({ error: `Falha ao estruturar CV: ${e.message}` });
+        }
+
+        // Sanitize campos obrigatórios
+        if (!Array.isArray(structured.skills_core))    structured.skills_core    = [];
+        if (!Array.isArray(structured.skills_evolucao)) structured.skills_evolucao = [];
+        if (!Array.isArray(structured.setores))         structured.setores        = [];
+        if (!Array.isArray(structured.keywords))        structured.keywords       = [];
+        if (!Array.isArray(structured.gaps))            structured.gaps           = [];
+        if (!Array.isArray(structured.experiences))     structured.experiences    = [];
+        if (!Array.isArray(structured.education))       structured.education      = [];
+        if (!Array.isArray(structured.languages))       structured.languages      = [];
+        if (!Array.isArray(structured.certifications))  structured.certifications = [];
+
+        return res.status(200).json({ structured });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {
