@@ -47,9 +47,13 @@ async function extractJobCards(page) {
                 ].join(','));
                 const companyEl = item.querySelector([
                     'a.job-card-container__company-name',
+                    'span.job-card-container__primary-description',
                     '.job-card-container__primary-description',
                     '.base-search-card__subtitle',
+                    '.artdeco-entity-lockup__subtitle span',
+                    '.job-card-list__company-name',
                     'h4 a',
+                    '[class*="company-name"]',
                 ].join(','));
                 // Captura TODOS os metadata items (localização + tipo de trabalho ficam em elementos separados)
                 const metaItems = [...item.querySelectorAll('.job-card-container__metadata-item')];
@@ -82,7 +86,7 @@ async function extractJobCards(page) {
     });
 }
 
-async function fetchJobDescription(page, link) {
+async function fetchJobDetail(page, link) {
     try {
         await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 25_000 });
         await randomDelay();
@@ -100,8 +104,26 @@ async function fetchJobDescription(page, link) {
 
         await page.waitForSelector(descSel, { timeout: 8_000 }).catch(() => {});
 
-        const text = await page.evaluate(() => {
-            const selectors = [
+        return await page.evaluate(() => {
+            // Empresa — seletores testados em 2026-05
+            const companySels = [
+                '.jobs-unified-top-card__company-name a',
+                '.jobs-unified-top-card__company-name',
+                '.job-details-jobs-unified-top-card__company-name a',
+                '.job-details-jobs-unified-top-card__company-name',
+                '.topcard__org-name-link',
+                '.topcard__flavor a',
+                '[class*="company-name"] a',
+                '[class*="company-name"]',
+            ];
+            let empresa = null;
+            for (const sel of companySels) {
+                const t = document.querySelector(sel)?.innerText?.trim();
+                if (t && t.length > 1) { empresa = t; break; }
+            }
+
+            // Descrição
+            const descSels = [
                 '.jobs-description__content',
                 '.jobs-description-content__text',
                 '.show-more-less-html__markup',
@@ -109,24 +131,24 @@ async function fetchJobDescription(page, link) {
                 '#job-details',
                 '.description__text',
             ];
-            for (const sel of selectors) {
-                const el = document.querySelector(sel);
-                const t = el?.innerText?.trim();
-                if (t && t.length > 50) return t;
+            let descricao = null;
+            for (const sel of descSels) {
+                const t = document.querySelector(sel)?.innerText?.trim();
+                if (t && t.length > 50) { descricao = t; break; }
             }
-            // Fallback: maior bloco de texto na página
-            const candidates = [...document.querySelectorAll('section, article, div')];
-            const best = candidates
-                .map(el => ({ el, len: (el.innerText || '').trim().length }))
-                .filter(({ len }) => len > 100 && len < 8000)
-                .sort((a, b) => b.len - a.len)[0];
-            return best?.el?.innerText?.trim() || null;
-        });
+            if (!descricao) {
+                const candidates = [...document.querySelectorAll('section, article, div')];
+                const best = candidates
+                    .map(el => ({ el, len: (el.innerText || '').trim().length }))
+                    .filter(({ len }) => len > 100 && len < 8000)
+                    .sort((a, b) => b.len - a.len)[0];
+                descricao = best?.el?.innerText?.trim() || null;
+            }
 
-        if (!text) console.error(`[linkedin] Descrição não encontrada: ${link}`);
-        return text || null;
+            return { descricao, empresa };
+        });
     } catch {
-        return null;
+        return { descricao: null, empresa: null };
     }
 }
 
@@ -169,13 +191,13 @@ export async function searchLinkedin({ keywords, timeFilter = 'r86400', maxResul
                 seen.add(card.link_vaga);
 
                 await randomDelay();
-                const descricao = await fetchJobDescription(page, card.link_vaga);
+                const detail = await fetchJobDetail(page, card.link_vaga);
 
                 results.push(normalize({
-                    empresa:    card.empresa || 'Empresa não informada',
+                    empresa:    card.empresa || detail.empresa || 'Empresa não informada',
                     vaga:       card.vaga,
                     link_vaga:  card.link_vaga,
-                    descricao,
+                    descricao:  detail.descricao,
                     localizacao: card.localizacao,
                 }, 'linkedin'));
             }
