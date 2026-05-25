@@ -91,7 +91,7 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
         const allCards = [];
         for (const keyword of keywords) {
             console.error(`[maringa] Buscando: "${keyword}"`);
-            const url = `${BASE_URL}/?text=${encodeURIComponent(keyword)}&ordem=publicacao`;
+            const url = `${BASE_URL}/?text=${encodeURIComponent(keyword)}&estado=&cidade=&ordem=publicacao&area=18&faixa_salarial=`;
 
             try {
                 await listPage.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
@@ -143,6 +143,25 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
             });
 
             console.error(`[maringa] Cards para "${keyword}": ${cards.length}`);
+
+            // Se keyword não retornou nada, tenta sem texto (só área 18) — uma vez por sessão
+            if (!cards.length && keyword === keywords[0] && allCards.length === 0) {
+                const urlSemText = `${BASE_URL}/?text=&estado=&cidade=&ordem=publicacao&area=18&faixa_salarial=`;
+                console.error(`[maringa] Sem resultados para "${keyword}", tentando sem filtro de texto`);
+                try { await listPage.goto(urlSemText, { waitUntil: 'load', timeout: 25_000 }); } catch {}
+                await new Promise(r => setTimeout(r, 2000));
+                const fallbackCards = await listPage.evaluate(() =>
+                    [...document.querySelectorAll('.card-anuncio, a[href*="/emprego/"]')].map(el => {
+                        const card = el.closest('.card-anuncio') || el;
+                        const lines = card.innerText?.split('\n').map(l => l.trim()).filter(Boolean) || [];
+                        const linkEl = card.querySelector?.('a[href]') || (el.tagName === 'A' ? el : null);
+                        return { title: lines[0] || linkEl?.textContent?.trim(), company: lines[1] || null, lines, link: linkEl?.href || null };
+                    }).filter(c => c.title && c.link)
+                );
+                console.error(`[maringa] Fallback sem texto: ${fallbackCards.length} cards`);
+                fallbackCards.slice(0, maxResults).forEach(c => { if (!seen.has(c.link)) { seen.add(c.link); allCards.push(c); } });
+                break;
+            }
 
             for (const card of cards) {
                 if (allCards.length >= maxResults) break;
