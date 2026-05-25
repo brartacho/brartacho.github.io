@@ -1204,13 +1204,16 @@
                     <textarea id="pipelineTemplateInput" class="mock-input" rows="7" style="resize:vertical;font-family:inherit;font-size:0.82rem;width:100%;box-sizing:border-box" placeholder="Aplicado&#10;Triagem&#10;Entrevista com RH&#10;Entrevista Técnica&#10;Proposta"></textarea>
                 </div>
 
-                <!-- Manutenção automática (item O) -->
+                <!-- Manutenção automática (item O + M) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                         <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-broom" style="color:var(--cyan);margin-right:6px"></i> Manutenção automática</h3>
-                        <button class="btn btn-sm" onclick="runAutoArchiveScan()"><i class="fa-solid fa-box-archive"></i> Arquivar agora</button>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-sm" onclick="runLinkChecker()" title="Verifica links das candidaturas em processo — arquiva 404/removidas"><i class="fa-solid fa-link-slash"></i> Verificar links</button>
+                            <button class="btn btn-sm" onclick="runAutoArchiveScan()"><i class="fa-solid fa-box-archive"></i> Arquivar agora</button>
+                        </div>
                     </div>
-                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Arquiva candidaturas "em processo" sem atualização há mais de 60 dias, e recusadas automaticamente.</p>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Arquiva candidaturas "em processo" sem atualização há mais de 60 dias, recusadas automaticamente, e vagas com link removido (404).</p>
                 </div>
 
             </div>

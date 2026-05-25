@@ -1714,6 +1714,15 @@ async function runAutoArchiveScan() {
     } catch (e) { showToast(e.message, 'error'); }
 }
 
+async function runLinkChecker() {
+    showToast('Verificando links… pode demorar alguns segundos.', 'info');
+    try {
+        const r = await api('POST', '/api/admin/applications?__h=link-checker', {});
+        showToast(`${r.checked} links verificados. ${r.removed} vaga${r.removed !== 1 ? 's' : ''} removida${r.removed !== 1 ? 's' : ''} arquivada${r.removed !== 1 ? 's' : ''}.`);
+        if (r.removed > 0) loadApplications();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
 async function renderPlatformSettingsTable() {
     const el = document.getElementById('platformSettingsTable');
     if (!el) return;

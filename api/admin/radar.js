@@ -8,7 +8,7 @@
 import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
-import { scoreVaga } from '../_lib/scoring.js';
+import { scoreVaga, detectSuspiciousFlags } from '../_lib/scoring.js';
 import { isConfigured, analyze, providerInfo } from '../_lib/ai-provider.js';
 import { buildAnalysisPrompt, parseAnalysisJson } from '../_lib/radar-prompt.js';
 
@@ -392,6 +392,7 @@ export default async function handler(req, res) {
         lead.keywords_match = r.keywords_match;
         lead.gaps = r.gaps_preliminares;
         if (!lead.nivel && r.seniority_inferred !== 'unknown') lead.nivel = r.seniority_inferred;
+        lead.suspicious_flags = detectSuspiciousFlags(lead);
 
         const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
         if (error) return res.status(500).json({ error: error.message });

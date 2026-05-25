@@ -138,3 +138,25 @@ export function scoreVaga(vaga = {}, profile = {}) {
         },
     };
 }
+
+/**
+ * Detecta flags de qualidade/suspeita em um lead.
+ * @param {{ vaga: string, descricao: string, created_at: string, faixa_salarial: string }} vaga
+ * @returns {string[]}  array de flag codes
+ */
+export function detectSuspiciousFlags(vaga = {}) {
+    const flags = [];
+    const descLen = String(vaga.descricao || '').replace(/<[^>]+>/g, '').trim().length;
+    if (descLen > 0 && descLen < 200) flags.push('description_too_short');
+
+    const title = norm(vaga.vaga || '');
+    const genericTitles = ['vaga', 'oportunidade', 'profissional', 'analista', 'desenvolvedor', 'vaga de emprego'];
+    if (genericTitles.includes(title)) flags.push('generic_title');
+
+    if (vaga.created_at) {
+        const ageDays = (Date.now() - new Date(vaga.created_at).getTime()) / 86400000;
+        if (ageDays > 90) flags.push('reposted_90d');
+    }
+
+    return flags;
+}

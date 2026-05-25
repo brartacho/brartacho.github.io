@@ -40,7 +40,7 @@ const CONTROL_CHARS = new RegExp('[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\
 const INVISIBLE_CHARS = new RegExp('[\\u200B-\\u200D\\u202A-\\u202E\\u2060\\u2066-\\u2069\\uFEFF]', 'g');
 
 const VALID_STATUSES = new Set(['pending', 'running', 'done', 'rejected']);
-const VALID_RESULTS  = new Set(['em_processo', 'aprovado', 'recusado']);
+const VALID_RESULTS  = new Set(['em_processo', 'aprovado', 'recusado', 'vaga_removida']);
 
 function clean(str, max) {
     if (typeof str !== 'string') return null;
@@ -762,6 +762,49 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true });
         }
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── link-checker ─────────────────────────────────────────
+    if (req.query.__h === 'link-checker') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { data: apps, error } = await supabase
+            .from('job_applications')
+            .select('id, link_vaga')
+            .eq('result', 'em_processo')
+            .eq('archived', false)
+            .not('link_vaga', 'is', null)
+            .not('link_vaga', 'eq', '');
+        if (error) return res.status(500).json({ error: error.message });
+
+        const results = { removed: 0, checked: 0, errors: [] };
+        const toArchive = [];
+
+        await Promise.allSettled((apps ?? []).map(async app => {
+            try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 8000);
+                let status;
+                try {
+                    const resp = await fetch(app.link_vaga, { method: 'HEAD', signal: ctrl.signal, redirect: 'follow' });
+                    status = resp.status;
+                } finally { clearTimeout(timer); }
+                results.checked++;
+                if (status === 404 || status === 410 || status === 403) {
+                    toArchive.push(app.id);
+                }
+            } catch { /* network error — skip */ }
+        }));
+
+        if (toArchive.length) {
+            const { error: archErr } = await supabase
+                .from('job_applications')
+                .update({ archived: true, result: 'vaga_removida' })
+                .in('id', toArchive);
+            if (archErr) results.errors.push(archErr.message);
+            else results.removed = toArchive.length;
+        }
+
+        return res.status(200).json(results);
     }
 
     // ── gaps-dashboard ────────────────────────────────────────
