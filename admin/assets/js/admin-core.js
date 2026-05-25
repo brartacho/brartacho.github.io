@@ -8949,10 +8949,19 @@ function startVoiceMemo(appId) {
         _stopVoice();
     }
 
-    // Exibe botão de voz se API disponível
+    // Exibe botão de voz apenas se API disponível E permissão não negada
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        const btn = document.getElementById('voiceBtn');
-        if (btn) btn.style.display = 'flex';
+        const showBtn = () => {
+            const btn = document.getElementById('voiceBtn');
+            if (btn) btn.style.display = 'flex';
+        };
+        if (navigator.permissions) {
+            navigator.permissions.query({ name: 'microphone' })
+                .then(p => { if (p.state !== 'denied') showBtn(); })
+                .catch(showBtn);
+        } else {
+            showBtn();
+        }
     }
 
     // Expõe funções do IIFE ao escopo global (necessário para onclick e switchTab)
