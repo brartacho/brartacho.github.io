@@ -2007,6 +2007,107 @@ async function saveWeeklyGoals() {
     } catch(e) { showToast(e.message,'error'); }
 }
 
+// ─── DIÁRIO DE CARREIRA (N15) ────────────────────────────────
+async function loadJournal() {
+    const el = document.getElementById('journalList');
+    if (!el) return;
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=career-journal');
+        const entries = r.entries ?? [];
+        if (!entries.length) {
+            el.innerHTML = '<div style="color:var(--text-dim);font-size:0.85rem;padding:24px 0">Nenhuma entrada. Clique em "Gerar este mês" para começar.</div>';
+            return;
+        }
+        el.innerHTML = entries.map(e => {
+            const dt = new Date(e.generated_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
+            const preview = (e.content_markdown || '').replace(/^#+\s*/gm,'').slice(0, 180);
+            return `<div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;background:var(--bg-card)">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+                    <div>
+                        <div style="font-weight:600;font-size:0.9rem;color:var(--text)">${esc(e.title || e.scope_ref || e.scope)}</div>
+                        <div style="font-size:0.72rem;color:var(--text-dim)">${esc(e.scope)} · ${dt} · ${esc(e.generated_by || 'manual')}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                        <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="openJournalEditor('${e.id}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem;color:var(--danger)" onclick="deleteJournalEntry('${e.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-soft);white-space:pre-line">${esc(preview)}${preview.length < (e.content_markdown||'').length ? '…' : ''}</div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        if (el) el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+
+async function generateMonthJournal() {
+    const ref = new Date().toISOString().slice(0,7);
+    try {
+        showToast('Gerando diário do mês…');
+        await apiFetch('/api/admin/applications?__h=career-journal', {
+            method: 'POST',
+            body: JSON.stringify({ scope: 'month', scope_ref: ref })
+        });
+        showToast('Diário gerado.');
+        loadJournal();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function openJournalEditor(id) {
+    document.getElementById('journalId').value = id || '';
+    if (id) {
+        try {
+            const r = await apiFetch(`/api/admin/applications?__h=career-journal&scope_ref=${encodeURIComponent(id)}`);
+            const e = r.entries?.[0];
+            if (e) {
+                document.getElementById('journalTitle').value = e.title || '';
+                document.getElementById('journalContent').value = e.content_markdown || '';
+            }
+        } catch { /* ignore */ }
+    } else {
+        document.getElementById('journalTitle').value = '';
+        document.getElementById('journalContent').value = '';
+    }
+    document.getElementById('journalEditor').style.display = 'block';
+    document.getElementById('journalEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeJournalEditor() {
+    document.getElementById('journalEditor').style.display = 'none';
+}
+
+async function saveJournalEntry() {
+    const id = document.getElementById('journalId').value;
+    const title = document.getElementById('journalTitle').value.trim();
+    const content = document.getElementById('journalContent').value.trim();
+    if (!content) { showToast('Conteúdo obrigatório.','error'); return; }
+    try {
+        if (id) {
+            await apiFetch(`/api/admin/applications?__h=career-journal&id=${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ title, content_markdown: content })
+            });
+        } else {
+            await apiFetch('/api/admin/applications?__h=career-journal', {
+                method: 'POST',
+                body: JSON.stringify({ scope: 'manual', title, content_markdown: content })
+            });
+        }
+        showToast('Entrada salva.');
+        closeJournalEditor();
+        loadJournal();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteJournalEntry(id) {
+    if (!confirm('Excluir esta entrada do diário?')) return;
+    try {
+        await apiFetch(`/api/admin/applications?__h=career-journal&id=${id}`, { method: 'DELETE' });
+        showToast('Entrada excluída.');
+        loadJournal();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
 // ─── COMPASS DE VALORES (N42) ────────────────────────────────
 async function loadValuesWeights() {
     try {
@@ -3175,6 +3276,7 @@ function switchTab(name) {
     if (name === 'config') loadConfigTab();
     if (name === 'inbox') loadInbox();
     if (name === 'rede') loadRede();
+    if (name === 'diario') loadJournal();
     _scheduleRefresh();
 }
 
@@ -5980,6 +6082,7 @@ const ADMIN_TABS = [
     { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true,  mobileOverflow: false },
     { key: 'inbox',     label: 'Inbox',           shortLabel: 'Inbox',      icon: 'fa-inbox',          demoEligible: false, mobileOverflow: false },
     { key: 'rede',      label: 'Rede',            shortLabel: 'Rede',       icon: 'fa-people-group',   demoEligible: false, mobileOverflow: true  },
+    { key: 'diario',    label: 'Diário',          shortLabel: 'Diário',     icon: 'fa-book-open',      demoEligible: false, mobileOverflow: true  },
     { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true,  mobileOverflow: false },
     { key: 'config',    label: 'Configurar',      shortLabel: 'Config',     icon: 'fa-sliders',        demoEligible: false, mobileOverflow: true  },
     { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true,  mobileOverflow: true  },
@@ -7889,10 +7992,29 @@ function startVoiceMemo(appId) {
                         <span style="font-size:0.68rem;color:var(--text-dim);text-transform:capitalize">${esc(t.status||'auto')}</span>
                     </div>
                 </div>`).join('')}
+                <div style="margin-top:8px">
+                    <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px" onclick="detectRejectionFromThread('${appId}')"><i class="fa-solid fa-magnifying-glass"></i> Detectar rejeição</button>
+                </div>
             </div>`;
         } catch(e) {
             sec.innerHTML = `<div style="color:#f87171;padding:8px;font-size:0.82rem">${esc(e.message)}</div>`;
         }
+    }
+
+    async function detectRejectionFromThread(appId) {
+        const snippet = prompt('Cole o assunto ou trecho do e-mail para verificar se é uma recusa:');
+        if (!snippet) return;
+        try {
+            const r = await apiFetch('/api/admin/applications?__h=email-detect-rejection', {
+                method: 'POST',
+                body: JSON.stringify({ application_id: appId, body_snippet: snippet })
+            });
+            if (r.detected) {
+                showToast(r.created_followup ? 'Rejeição detectada — sugestão de agradecimento criada no Inbox.' : 'Rejeição detectada (já havia sugestão pendente).');
+            } else {
+                showToast('Nenhuma palavra de rejeição detectada.');
+            }
+        } catch(e) { showToast(e.message,'error'); }
     }
 
     async function linkEmailThread(appId) {

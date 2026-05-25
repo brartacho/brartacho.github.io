@@ -1709,6 +1709,118 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── career-journal (N15) ──────────────────────────────────────
+    if (req.query.__h === 'career-journal') {
+        if (req.method === 'GET') {
+            const { scope, scope_ref } = req.query;
+            let q = supabase.from('career_journal').select('*').order('generated_at', { ascending: false });
+            if (scope)     q = q.eq('scope', scope);
+            if (scope_ref) q = q.eq('scope_ref', scope_ref);
+            const { data, error } = await q.limit(20);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ entries: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { scope = 'manual', scope_ref, title, content_markdown, highlights, applications_included } = req.body || {};
+            // Se scope='month' e scope_ref não fornecido, usa mês atual
+            const ref = scope_ref || (scope === 'month' ? new Date().toISOString().slice(0,7) : null);
+            if (!content_markdown && scope === 'manual') return res.status(400).json({ error: 'content_markdown obrigatório para entradas manuais' });
+
+            let finalContent = content_markdown || '';
+            let generated_by = 'manual';
+
+            if (!content_markdown && scope === 'month') {
+                // Agrega candidaturas do mês e gera resumo simples
+                const [startDate] = ref ? [new Date(ref + '-01')] : [new Date()];
+                const endDate = new Date(startDate); endDate.setMonth(endDate.getMonth() + 1);
+                const { data: apps } = await supabase.from('job_applications')
+                    .select('empresa,vaga,result,stages,created_at')
+                    .gte('created_at', startDate.toISOString())
+                    .lt('created_at', endDate.toISOString())
+                    .order('created_at');
+                const total = (apps || []).length;
+                const aprovadas = (apps || []).filter(a => a.result === 'aprovado').length;
+                const recusadas = (apps || []).filter(a => a.result === 'recusado').length;
+                const emProcesso = (apps || []).filter(a => a.result === 'em_processo' || !a.result).length;
+                const empresas = [...new Set((apps || []).map(a => a.empresa).filter(Boolean))].slice(0, 8).join(', ');
+                finalContent = `# Diário de ${ref || 'mês atual'}\n\n` +
+                    `## Resumo\n\n` +
+                    `- **Total de candidaturas:** ${total}\n` +
+                    `- **Em processo:** ${emProcesso}\n` +
+                    `- **Aprovadas:** ${aprovadas}\n` +
+                    `- **Recusadas:** ${recusadas}\n\n` +
+                    (empresas ? `## Empresas\n\n${empresas}\n\n` : '') +
+                    `## Notas\n\n*(adicione suas reflexões aqui)*`;
+                generated_by = 'auto';
+            }
+
+            const { data, error } = await supabase.from('career_journal').insert({
+                scope, scope_ref: ref, title: title || `Diário ${ref || scope}`,
+                content_markdown: finalContent,
+                highlights: highlights || null,
+                applications_included: applications_included || null,
+                generated_by,
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['title','content_markdown','highlights'];
+            const patch = {};
+            for (const k of allowed) { if (req.body?.[k] !== undefined) patch[k] = req.body[k]; }
+            const { data, error } = await supabase.from('career_journal').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('career_journal').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── email-detect-rejection (N10) ──────────────────────────────
+    if (req.query.__h === 'email-detect-rejection') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { application_id, thread_id, subject, body_snippet, sender_email } = req.body || {};
+        if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+
+        const REJECTION_KW = ['infelizmente','não avançou','não seguiremos','another direction','we decided','regrettably','agradecemos','we will not','optamos por','outro perfil','não avançar','encerramos','não continuar'];
+        const text = ((subject || '') + ' ' + (body_snippet || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const isRejection = REJECTION_KW.some(kw => text.includes(kw.normalize('NFD').replace(/[̀-ͯ]/g, '')));
+
+        if (!isRejection) return res.status(200).json({ detected: false });
+
+        // Marca candidatura como recusada
+        const { data: app } = await supabase.from('job_applications').select('result,empresa,vaga').eq('id', application_id).single();
+        if (app && app.result === 'em_processo') {
+            await supabase.from('job_applications').update({ result: 'recusado', updated_at: new Date().toISOString() }).eq('id', application_id);
+        }
+
+        // Cria sugestão de follow-up (agradecimento + porta aberta)
+        const { data: existing } = await supabase.from('followup_suggestions')
+            .select('id').eq('application_id', application_id).eq('reason', 'rejection_acknowledgement').eq('status', 'pending').maybeSingle();
+
+        if (!existing) {
+            const message = `Olá,\n\nObrigado pela consideração e pelo tempo investido no processo seletivo da ${app?.empresa || 'empresa'}.\n\nApreciaria muito um feedback sobre o processo, caso seja possível compartilhar. Sigo disponível e animado com o trabalho que vocês fazem — espero que possamos colaborar no futuro.\n\nAtenciosamente`;
+            await supabase.from('followup_suggestions').insert({
+                application_id,
+                days_idle: 0,
+                current_stage: 'Recusado',
+                suggested_message: message,
+                status: 'pending',
+                reason: 'rejection_acknowledgement',
+            });
+        }
+
+        return res.status(200).json({ detected: true, created_followup: !existing });
+    }
+
     // ── values-weights (N42) ──────────────────────────────────────
     if (req.query.__h === 'values-weights') {
         if (req.method === 'GET') {

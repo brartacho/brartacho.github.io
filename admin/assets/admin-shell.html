@@ -1490,6 +1490,29 @@
             </div>
         </div>
 
+        <!-- ─── ABA DIÁRIO ───────────────────────────────────── -->
+        <div id="tab-diario" class="tab-panel">
+            <div style="padding:16px;max-width:860px;margin:0 auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-book-open" style="color:var(--cyan);margin-right:6px"></i> Diário de carreira</h3>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-sm" onclick="generateMonthJournal()"><i class="fa-solid fa-magic-wand-sparkles"></i> Gerar este mês</button>
+                        <button class="btn btn-cyan btn-sm" onclick="openJournalEditor()"><i class="fa-solid fa-plus"></i> Nova entrada</button>
+                    </div>
+                </div>
+                <div id="journalList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="journalEditor" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                    <input type="hidden" id="journalId">
+                    <div class="form-group" style="margin:0 0 10px"><label style="font-size:0.75rem">Título</label><input id="journalTitle" class="mock-input" placeholder="Ex: Reflexões de Maio" maxlength="200"></div>
+                    <div class="form-group" style="margin:0 0 10px"><label style="font-size:0.75rem">Conteúdo (Markdown)</label><textarea id="journalContent" class="mock-input" rows="10" placeholder="# Resumo do período…" style="resize:vertical;font-family:monospace;font-size:0.82rem"></textarea></div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end">
+                        <button class="btn btn-sm" onclick="closeJournalEditor()">Cancelar</button>
+                        <button class="btn btn-cyan btn-sm" onclick="saveJournalEntry()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ─── ABA INBOX ─────────────────────────────────── -->
         <div id="tab-inbox" class="tab-panel">
             <div style="padding:16px;max-width:860px;margin:0 auto">
