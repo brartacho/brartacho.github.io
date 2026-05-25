@@ -1134,6 +1134,27 @@
                     <div id="platformSettingsTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
                 </div>
 
+                <!-- Auto-sync de status -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-rotate" style="color:var(--cyan);margin-right:6px"></i> Auto-sync de status</h3>
+                        <button class="btn btn-sm" onclick="runSyncAll()" id="syncAllBtn"><i class="fa-solid fa-rotate"></i> Sincronizar tudo</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Verifica o status atual de cada candidatura "em processo" nas plataformas e registra mudanças automaticamente.</p>
+                    <div id="platformSessionsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+                    <div id="syncResultBanner" style="display:none;margin-top:10px;padding:8px 12px;border-radius:6px;font-size:0.82rem;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2);color:var(--cyan)"></div>
+                </div>
+
+                <!-- LLM Providers -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Providers de IA</h3>
+                        <button class="btn btn-sm" onclick="loadLLMProviders()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Roteamento automático: a geração de mensagens usa o provider de menor custo disponível. Configure as chaves como env vars no Vercel.</p>
+                    <div id="llmProvidersTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+                </div>
+
                 <!-- Respostas rápidas -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1214,6 +1235,19 @@
                         </div>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Arquiva candidaturas "em processo" sem atualização há mais de 60 dias, recusadas automaticamente, e vagas com link removido (404).</p>
+                </div>
+
+                <!-- Resumo mensal (Onda 8) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Resumo mensal de carreira</h3>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">IA consolida candidaturas, notas e entrevistas do mês em um resumo de aprendizado.</p>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                        <input id="summaryMonthInput" type="month" class="mock-input" style="width:160px;padding:5px 8px">
+                        <button id="generateSummaryBtn" class="btn btn-cyan btn-sm" onclick="generateMonthlySummary()"><i class="fa-solid fa-brain"></i> Gerar resumo</button>
+                    </div>
+                    <div id="summaryOutput"></div>
                 </div>
 
             </div>

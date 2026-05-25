@@ -684,6 +684,158 @@ server.registerTool('clear_linkedin_session',
         return ok({ removed, message: removed ? 'Sessão removida. Próxima busca abrirá browser para login.' : 'Nenhuma sessão encontrada.' });
     });
 
+server.registerTool('sync_application_status',
+    { title: 'Sincronizar status de candidatura',
+      description: 'Verifica o status atual de uma candidatura na plataforma e registra a mudança. Use application_id para sincronizar uma candidatura específica, ou deixe em branco para varrer todas com auto_sync_enabled=true.',
+      inputSchema: {
+          application_id: z.string().optional(),
+          fonte:          z.string().optional(),
+          dry_run:        z.boolean().optional(),
+      } },
+    async ({ application_id, fonte, dry_run = false }) => {
+        // Busca candidaturas a sincronizar
+        let query = supabase
+            .from('job_applications')
+            .select('id, empresa, vaga, link_vaga, platform, external_status, last_synced_at, auto_sync_enabled, platform_application_id');
+
+        if (application_id) {
+            query = query.eq('id', application_id);
+        } else {
+            query = query
+                .eq('auto_sync_enabled', true)
+                .eq('result', 'em_processo')
+                .not('platform', 'is', null)
+                .order('last_synced_at', { ascending: true, nullsFirst: true })
+                .limit(20);
+            if (fonte) query = query.eq('platform', fonte);
+        }
+
+        const { data: apps, error: appErr } = await query;
+        if (appErr) return fail(appErr.message);
+        if (!apps?.length) return ok({ message: 'Nenhuma candidatura para sincronizar.', synced: 0 });
+
+        // Busca status_mapping de todas as plataformas presentes
+        const platforms = [...new Set(apps.map(a => a.platform).filter(Boolean))];
+        const { data: psettings } = await supabase
+            .from('platform_settings')
+            .select('fonte, status_mapping')
+            .in('fonte', platforms);
+        const mappings = Object.fromEntries((psettings || []).map(p => [p.fonte, p.status_mapping || {}]));
+
+        const results = [];
+
+        for (const app of apps) {
+            if (!app.link_vaga && !app.platform_application_id) {
+                results.push({ id: app.id, empresa: app.empresa, skipped: true, reason: 'sem link_vaga' });
+                continue;
+            }
+
+            let externalStatus = null;
+            let syncError = null;
+
+            try {
+                // Tenta verificar status via fetch (Gupy tem API pública para status de candidatura)
+                if (app.platform === 'gupy' && app.link_vaga) {
+                    // URL de candidatura Gupy: https://company.gupy.io/job/12345/apply
+                    // Status endpoint: https://company.gupy.io/api/v1/jobs/{jobId}/applications (requer auth)
+                    // Fallback: verificar se a vaga ainda está listada
+                    const jobUrl = app.link_vaga;
+                    const match = jobUrl.match(/gupy\.io\/([^/]+)\/(\d+)/);
+                    if (match) {
+                        const jobId = match[2];
+                        const company = match[1];
+                        const apiUrl = `https://${company}.gupy.io/api/v1/jobs/${jobId}`;
+                        const resp = await fetch(apiUrl, {
+                            headers: { 'accept': 'application/json', 'user-agent': 'Mozilla/5.0' },
+                            signal: AbortSignal.timeout(15_000),
+                        });
+                        if (resp.status === 404) {
+                            externalStatus = 'vaga removida';
+                        } else if (resp.ok) {
+                            const json = await resp.json();
+                            externalStatus = json?.status || json?.situacao || 'ativa';
+                        } else {
+                            externalStatus = `http_${resp.status}`;
+                        }
+                    }
+                } else if (app.link_vaga) {
+                    // Verificação simples de disponibilidade (HEAD request)
+                    const resp = await fetch(app.link_vaga, {
+                        method: 'HEAD',
+                        headers: { 'user-agent': 'Mozilla/5.0' },
+                        signal: AbortSignal.timeout(10_000),
+                        redirect: 'follow',
+                    });
+                    if (resp.status === 404 || resp.status === 410) {
+                        externalStatus = 'vaga removida';
+                    } else if (resp.ok) {
+                        externalStatus = 'ativa';
+                    } else {
+                        externalStatus = `http_${resp.status}`;
+                    }
+                }
+            } catch (e) {
+                syncError = e.message;
+                console.error(`[radar-mcp] [sync] erro em ${app.id}: ${e.message}`);
+            }
+
+            // Mapear status externo → interno
+            const mapping = mappings[app.platform] || {};
+            const normalizedExternal = (externalStatus || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            let newResult = null;
+            for (const [extKey, intVal] of Object.entries(mapping)) {
+                if (normalizedExternal.includes(extKey.toLowerCase())) {
+                    newResult = intVal;
+                    break;
+                }
+            }
+            // Detecção simples sem mapeamento configurado
+            if (!newResult && externalStatus) {
+                if (normalizedExternal.includes('remov') || normalizedExternal.includes('404') || normalizedExternal.includes('410')) {
+                    newResult = 'vaga_removida';
+                }
+            }
+
+            const entry = { id: app.id, empresa: app.empresa, external_status: externalStatus, mapped_result: newResult, sync_error: syncError };
+            results.push(entry);
+
+            if (!dry_run) {
+                const apiBase = process.env.API_BASE_URL || `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}`;
+                const adminKey = process.env.ADMIN_KEY;
+                await fetch(`${apiBase}/api/admin/applications?__h=sync-status`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'x-admin-key': adminKey || '',
+                    },
+                    body: JSON.stringify({
+                        application_id: app.id,
+                        fonte:          app.platform || fonte || 'unknown',
+                        external_status: externalStatus,
+                        new_result:     newResult,
+                        error:          syncError,
+                    }),
+                    signal: AbortSignal.timeout(15_000),
+                }).catch(e => console.error(`[radar-mcp] [sync] falha ao gravar resultado: ${e.message}`));
+            }
+        }
+
+        const changed = results.filter(r => r.mapped_result && !r.skipped).length;
+        return ok({ synced: results.length, changed, dry_run, results });
+    });
+
+server.registerTool('list_platform_sessions',
+    { title: 'Listar sessões de plataformas',
+      description: 'Lista as sessões ativas armazenadas por plataforma (sem expor o session_data).',
+      inputSchema: {} },
+    async () => {
+        const { data, error } = await supabase
+            .from('platform_sessions')
+            .select('id, fonte, display_name, session_type, expires_at, last_used_at, is_valid, created_at')
+            .order('fonte');
+        return error ? fail(error.message) : ok(data ?? []);
+    });
+
 await server.connect(new StdioServerTransport());
 console.error('[radar-mcp] servidor MCP do Radar pronto (stdio)');
 

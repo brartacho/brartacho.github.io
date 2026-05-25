@@ -990,11 +990,31 @@ function renderDrawerBody(app) {
             <div class="dinfo-obs">${esc(app.observacoes)}</div>
         </div>` : '';
 
+    const syncTs = app.last_synced_at ? new Date(app.last_synced_at).toLocaleString('pt-BR') : null;
+    const syncSection = app.platform ? `
+        <div class="dinfo-section" style="padding:8px 10px;background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.12);border-radius:6px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div style="font-size:0.78rem;color:var(--text-soft)">
+                    <i class="fa-solid fa-rotate" style="color:var(--cyan);margin-right:4px"></i>
+                    ${app.platform ? `<span style="text-transform:capitalize">${esc(app.platform)}</span>` : ''}
+                    ${app.external_status ? `<span style="margin-left:6px;color:var(--text-dim)">${esc(app.external_status)}</span>` : ''}
+                    ${app.sync_error ? `<span style="color:#f87171;margin-left:6px" title="${esc(app.sync_error)}"><i class="fa-solid fa-triangle-exclamation"></i></span>` : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                    ${syncTs ? `<span style="font-size:0.7rem;color:var(--text-dim)">${syncTs}</span>` : ''}
+                    <button class="btn btn-sm" style="padding:3px 8px;font-size:0.72rem" onclick="syncAppStatus('${app.id}')" title="Verificar status agora na plataforma">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            </div>
+        </div>` : '';
+
     body.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px">
             ${cvSection}
             ${recruiterSection}
             ${obsSection}
+            ${syncSection}
         </div>
 
         <div>
@@ -1016,6 +1036,8 @@ function renderDrawerBody(app) {
             <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
             <button class="btn btn-sm" onclick="startVoiceMemo('${app.id}')" title="Adicionar nota por voz (Web Speech API)"><i class="fa-solid fa-microphone"></i></button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
+            <button class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
+            <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
             <button class="btn btn-danger btn-sm" style="padding:6px 10px" title="Deletar candidatura"
@@ -1024,6 +1046,8 @@ function renderDrawerBody(app) {
 
         <div id="stageManagerSection" hidden></div>
         <div id="editVagaSection" hidden></div>
+        <div id="interviewSection" hidden></div>
+        <div id="contextNotesSection" hidden></div>
     `;
 }
 
@@ -1683,7 +1707,7 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders()]);
 }
 
 async function loadPipelineTemplate() {
@@ -1763,6 +1787,417 @@ async function togglePlatformEnabled(fonte, enabled) {
             ? [...(window._platformSettings || []), { fonte, enabled: true }]
             : (window._platformSettings || []).filter(p => p.fonte !== fonte);
     } catch (e) { showToast('Erro: ' + e.message); }
+}
+
+// ── LLM Providers ─────────────────────────────────────────
+async function loadLLMProviders() {
+    const el = document.getElementById('llmProvidersTable');
+    if (!el) return;
+    try {
+        const providers = await api('GET', '/api/admin/applications?__h=llm-providers');
+        if (!providers?.length) {
+            el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum provider encontrado. Aplique a migration-043 no Supabase.</div>';
+            return;
+        }
+        el.innerHTML = `<table class="vagas-table" style="font-size:0.79rem">
+            <thead><tr><th>Provider</th><th>Modelo</th><th>Tier</th><th>Tasks</th><th>Chave</th><th>Hoje (OK/Err)</th><th>Ativo</th><th>Prioridade</th></tr></thead>
+            <tbody>
+            ${providers.map(p => {
+                const todayCalls = `${p.today.calls_ok}/${p.today.calls_error}`;
+                const tierColor  = p.tier === 'free' ? 'var(--success)' : 'var(--warn,#fbbf24)';
+                const keyIcon    = p.api_key_configured
+                    ? '<i class="fa-solid fa-key" style="color:var(--success)" title="Configurada"></i>'
+                    : '<i class="fa-solid fa-key" style="color:var(--danger);opacity:0.5" title="Não configurada — adicione a env var no Vercel"></i>';
+                const tasks = (p.task_types || []).map(t => `<span style="font-size:0.68rem;padding:1px 5px;border-radius:4px;background:rgba(34,211,238,0.1);color:var(--cyan)">${t}</span>`).join(' ');
+                return `<tr>
+                    <td><strong>${esc(p.display_name)}</strong></td>
+                    <td style="color:var(--text-dim);font-size:0.72rem">${esc(p.model)}</td>
+                    <td style="color:${tierColor};font-weight:600">${esc(p.tier)}</td>
+                    <td style="white-space:nowrap">${tasks}</td>
+                    <td style="text-align:center">${keyIcon}</td>
+                    <td style="color:var(--text-dim)">${todayCalls}</td>
+                    <td style="text-align:center"><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="toggleLLMProvider('${p.id}', this.checked)" style="accent-color:var(--cyan)"></td>
+                    <td><input type="number" min="0" max="99" value="${p.priority}" class="mock-input" style="width:52px;padding:2px 6px" onchange="saveLLMPriority('${p.id}', this.value)"></td>
+                </tr>`;
+            }).join('')}
+            </tbody>
+        </table>`;
+    } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+async function toggleLLMProvider(id, enabled) {
+    try { await api('PUT', `/api/admin/applications?__h=llm-providers&id=${id}`, { enabled }); }
+    catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+async function saveLLMPriority(id, priority) {
+    try { await api('PUT', `/api/admin/applications?__h=llm-providers&id=${id}`, { priority: parseInt(priority, 10) }); }
+    catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+// ── Auto-Sync de status ────────────────────────────────────
+async function loadPlatformSessions() {
+    const el = document.getElementById('platformSessionsList');
+    if (!el) return;
+    try {
+        const sessions = await api('GET', '/api/admin/applications?__h=platform-sessions');
+        if (!sessions?.length) {
+            el.innerHTML = `<div style="font-size:0.82rem;color:var(--text-dim)">Nenhuma sessão ativa. Use o MCP <code>sync_application_status</code> para disparar sincronizações.</div>`;
+            return;
+        }
+        el.innerHTML = `<table class="vagas-table" style="font-size:0.8rem">
+            <thead><tr><th>Plataforma</th><th>Tipo</th><th>Válida</th><th>Último uso</th><th>Expira</th><th></th></tr></thead>
+            <tbody>
+            ${sessions.map(s => {
+                const lastUsed = s.last_used_at ? new Date(s.last_used_at).toLocaleDateString('pt-BR') : '—';
+                const expires  = s.expires_at  ? new Date(s.expires_at).toLocaleDateString('pt-BR')  : '—';
+                const valid    = s.is_valid;
+                return `<tr>
+                    <td><strong>${esc(s.display_name || s.fonte)}</strong></td>
+                    <td style="color:var(--text-dim)">${esc(s.session_type)}</td>
+                    <td>${valid ? '<i class="fa-solid fa-circle-check" style="color:var(--success)"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i>'}</td>
+                    <td style="color:var(--text-dim)">${lastUsed}</td>
+                    <td style="color:var(--text-dim)">${expires}</td>
+                    <td><button class="btn btn-sm" style="padding:2px 8px;font-size:0.7rem;color:var(--danger)" onclick="deleteSession('${esc(s.fonte)}')" title="Remover sessão"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+            }).join('')}
+            </tbody>
+        </table>`;
+    } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+
+async function deleteSession(fonte) {
+    if (!confirm(`Remover sessão de "${fonte}"?`)) return;
+    try {
+        await api('DELETE', `/api/admin/applications?__h=platform-sessions&fonte=${encodeURIComponent(fonte)}`);
+        showToast(`Sessão "${fonte}" removida.`);
+        loadPlatformSessions();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function runSyncAll() {
+    const btn = document.getElementById('syncAllBtn');
+    const banner = document.getElementById('syncResultBanner');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Sincronizando…'; }
+    if (banner) banner.style.display = 'none';
+    try {
+        // Chama link-checker + auto-archive como proxy de sync (o sync real roda via MCP)
+        const [linkRes, archRes] = await Promise.allSettled([
+            api('POST', '/api/admin/applications?__h=link-checker', {}),
+            api('POST', '/api/admin/applications?__h=auto-archive-scan', {}),
+        ]);
+        const removed  = linkRes.status === 'fulfilled' ? (linkRes.value.removed  || 0) : 0;
+        const archived = archRes.status === 'fulfilled' ? ((archRes.value.archived_em_processo || 0) + (archRes.value.archived_recusado || 0)) : 0;
+        if (banner) {
+            banner.style.display = 'block';
+            banner.textContent = `Sincronização concluída: ${removed} vaga${removed !== 1 ? 's' : ''} removida${removed !== 1 ? 's' : ''}, ${archived} arquivada${archived !== 1 ? 's' : ''}. Para sync em tempo real de status, use o MCP sync_application_status.`;
+        }
+        if (removed > 0 || archived > 0) loadApplications();
+    } catch (e) {
+        if (banner) { banner.style.display = 'block'; banner.style.color = 'var(--danger)'; banner.textContent = e.message; }
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar tudo'; }
+    }
+}
+
+async function syncAppStatus(appId) {
+    showToast('Verificando status na plataforma…', 'info');
+    try {
+        // Usa link-checker para este app específico (verifica link_vaga)
+        const r = await api('POST', '/api/admin/applications?__h=link-checker', { application_ids: [appId] });
+        const removed = r.removed || 0;
+        if (removed > 0) {
+            showToast('Vaga removida da plataforma. Candidatura arquivada.', 'error');
+            loadApplications();
+        } else {
+            showToast('Link ativo — nenhuma mudança detectada.', 'success');
+        }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Contexto evolutivo (Onda 8) ───────────────────────────
+async function openContextNotes(appId) {
+    const sec = document.getElementById('contextNotesSection');
+    if (!sec) return;
+    const isOpen = !sec.hidden && sec.dataset.appId === appId;
+    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; return; }
+    sec.hidden = false;
+    sec.dataset.appId = appId;
+    sec.innerHTML = `<div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <strong style="font-size:0.85rem"><i class="fa-solid fa-note-sticky" style="color:var(--cyan);margin-right:6px"></i>Notas de contexto</strong>
+            <button class="btn btn-cyan btn-sm" style="font-size:0.72rem" onclick="openNoteForm('${appId}')"><i class="fa-solid fa-plus"></i> Nota</button>
+        </div>
+        <div id="notesList_${appId}"><div style="color:var(--text-dim);font-size:0.8rem">Carregando…</div></div>
+        <div id="noteForm_${appId}" style="display:none;margin-top:10px"></div>
+    </div>`;
+    loadContextNotes(appId);
+}
+
+async function loadContextNotes(appId) {
+    const el = document.getElementById(`notesList_${appId}`);
+    if (!el) return;
+    try {
+        const notes = await api('GET', `/api/admin/applications?__h=context-notes&entity_type=application&entity_id=${appId}`);
+        if (!notes?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem">Nenhuma nota. Adicione insights sobre esta candidatura.</div>'; return; }
+        const impColor = { 1:'var(--text-dim)', 2:'var(--text-soft)', 3:'var(--cyan)', 4:'var(--warn,#fbbf24)', 5:'var(--danger)' };
+        el.innerHTML = notes.map(n => `
+            <div style="padding:7px 9px;border:1px solid var(--border);border-radius:5px;margin-bottom:5px;display:flex;align-items:flex-start;gap:8px">
+                <i class="fa-solid fa-circle-dot" style="color:${impColor[n.importance]||'var(--text-dim)'};font-size:0.62rem;margin-top:3px;flex-shrink:0"></i>
+                <div style="flex:1;min-width:0;font-size:0.78rem;line-height:1.5;color:var(--text)">${esc(n.note)}</div>
+                <button class="btn btn-sm" style="padding:1px 6px;font-size:0.66rem;flex-shrink:0;opacity:0.6" onclick="deleteNote('${n.id}','${appId}')" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+            </div>`).join('');
+    } catch (e) { el.innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`; }
+}
+
+function openNoteForm(appId) {
+    const formEl = document.getElementById(`noteForm_${appId}`);
+    if (!formEl) return;
+    formEl.style.display = 'block';
+    formEl.innerHTML = `<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-start">
+        <textarea id="noteText_${appId}" class="mock-input" rows="2" maxlength="3000" style="resize:vertical;font-family:inherit;font-size:0.8rem" placeholder="Insight, red flag, comportamento do entrevistador, detalhe relevante…"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px">
+            <select id="noteImp_${appId}" class="mock-input" style="padding:4px 6px;font-size:0.75rem">
+                <option value="1">Baixa</option>
+                <option value="2" selected>Normal</option>
+                <option value="3">Alta</option>
+                <option value="4">Urgente</option>
+                <option value="5">Crítica</option>
+            </select>
+            <button class="btn btn-cyan btn-sm" onclick="saveNote('${appId}')"><i class="fa-solid fa-check"></i></button>
+            <button class="btn btn-sm" onclick="document.getElementById('noteForm_${appId}').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>`;
+}
+
+async function saveNote(appId) {
+    const note       = document.getElementById(`noteText_${appId}`)?.value.trim();
+    const importance = parseInt(document.getElementById(`noteImp_${appId}`)?.value || '2', 10);
+    if (!note) { showToast('Escreva a nota antes de salvar.', 'error'); return; }
+    try {
+        await api('POST', '/api/admin/applications?__h=context-notes', { entity_type: 'application', entity_id: appId, note, importance });
+        document.getElementById(`noteForm_${appId}`).style.display = 'none';
+        showToast('Nota salva.');
+        loadContextNotes(appId);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteNote(noteId, appId) {
+    try {
+        await api('DELETE', `/api/admin/applications?__h=context-notes&id=${noteId}`);
+        loadContextNotes(appId);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Resumo mensal (Onda 8) ─────────────────────────────────
+async function generateMonthlySummary() {
+    const month = document.getElementById('summaryMonthInput')?.value;
+    const btn   = document.getElementById('generateSummaryBtn');
+    const el    = document.getElementById('summaryOutput');
+    if (!month) { showToast('Selecione um mês.', 'error'); return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-brain fa-spin"></i> Gerando…'; }
+    if (el) el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Gerando resumo com IA…</div>';
+    try {
+        const result = await api('POST', '/api/admin/applications?__h=context-summary', { scope: 'month', scope_ref: month });
+        if (el) {
+            el.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;color:var(--text)">${esc(result.title || 'Resumo')}</div>
+                ${result.highlights?.length ? `<ul style="margin:0 0 10px 16px;padding:0;font-size:0.8rem;line-height:1.6">${result.highlights.map(h => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}
+                <div style="font-size:0.8rem;line-height:1.6;color:var(--text-soft)">${esc(result.summary_md || '').replace(/\n/g, '<br>')}</div>
+                ${result.provider ? `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:8px">Gerado por: ${esc(result.provider)}</div>` : ''}
+            </div>`;
+        }
+    } catch (e) {
+        if (el) el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-brain"></i> Gerar resumo'; }
+    }
+}
+
+// ── Entrevistas (Onda 7) ──────────────────────────────────
+async function openInterviewPanel(appId) {
+    const sec = document.getElementById('interviewSection');
+    if (!sec) return;
+    const isOpen = !sec.hidden && sec.dataset.appId === appId;
+    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; return; }
+    sec.hidden = false;
+    sec.dataset.appId = appId;
+    sec.innerHTML = `<div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <strong style="font-size:0.85rem"><i class="fa-solid fa-comments" style="color:var(--cyan);margin-right:6px"></i>Sessões de entrevista</strong>
+            <button class="btn btn-cyan btn-sm" style="font-size:0.72rem" onclick="openNewInterviewForm('${appId}')"><i class="fa-solid fa-plus"></i> Nova sessão</button>
+        </div>
+        <div id="interviewList_${appId}"><div style="color:var(--text-dim);font-size:0.8rem">Carregando…</div></div>
+        <div id="interviewForm_${appId}" style="display:none;margin-top:10px"></div>
+    </div>`;
+    await loadInterviewSessions(appId);
+}
+
+async function loadInterviewSessions(appId) {
+    const el = document.getElementById(`interviewList_${appId}`);
+    if (!el) return;
+    try {
+        const sessions = await api('GET', `/api/admin/applications?__h=interview-sessions&application_id=${appId}`);
+        if (!sessions?.length) {
+            el.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem">Nenhuma sessão. Clique em "Nova sessão" para registrar.</div>';
+            return;
+        }
+        el.innerHTML = sessions.map(s => {
+            const dateStr  = s.interview_at ? new Date(s.interview_at).toLocaleString('pt-BR') : 'Data não definida';
+            const analyses = s.interview_analyses || [];
+            const score    = analyses[0]?.overall_score;
+            const statusColor = { planned: 'var(--text-dim)', in_progress: 'var(--cyan)', done: 'var(--success)', cancelled: 'var(--danger)' }[s.status] || 'var(--text-dim)';
+            return `<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${esc(s.stage_name || 'Entrevista')}</div>
+                    <div style="font-size:0.75rem;color:var(--text-dim)">${dateStr}${s.interviewer_name ? ` · ${esc(s.interviewer_name)}` : ''}</div>
+                    <div style="font-size:0.72rem;color:${statusColor};margin-top:2px">${s.status}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    ${score != null ? `<span style="font-size:0.8rem;font-weight:700;color:var(--cyan)">${score}/10</span>` : ''}
+                    ${s.status === 'done' && !analyses.length ? `<button class="btn btn-cyan btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="openAnalyzeForm('${s.id}','${appId}')"><i class="fa-solid fa-brain"></i> Analisar</button>` : ''}
+                    ${analyses.length ? `<button class="btn btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="openAnalysisResult('${analyses[0].id}','${s.id}','${appId}')"><i class="fa-solid fa-chart-bar"></i> Ver análise</button>` : ''}
+                    <button class="btn btn-sm" style="padding:2px 8px;font-size:0.7rem" onclick="openMarkDone('${s.id}','${appId}')" title="${s.status === 'done' ? 'Editar notas' : 'Marcar como concluída'}"><i class="fa-solid fa-${s.status === 'done' ? 'pen' : 'check'}"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { el.innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`; }
+}
+
+function openNewInterviewForm(appId) {
+    const formEl = document.getElementById(`interviewForm_${appId}`);
+    if (!formEl) return;
+    formEl.style.display = 'block';
+    formEl.innerHTML = `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg)">
+        <div style="font-size:0.78rem;font-weight:600;margin-bottom:8px">Nova sessão de entrevista</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div class="form-group" style="margin:0"><label style="font-size:0.72rem">Etapa</label>
+                <input id="intStageName_${appId}" class="mock-input" placeholder="RH / Técnica / Gestor" maxlength="80"></div>
+            <div class="form-group" style="margin:0"><label style="font-size:0.72rem">Data/hora</label>
+                <input id="intDate_${appId}" class="mock-input" type="datetime-local"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div class="form-group" style="margin:0"><label style="font-size:0.72rem">Entrevistador</label>
+                <input id="intName_${appId}" class="mock-input" placeholder="Nome" maxlength="100"></div>
+            <div class="form-group" style="margin:0"><label style="font-size:0.72rem">E-mail</label>
+                <input id="intEmail_${appId}" class="mock-input" placeholder="email@empresa.com" maxlength="120"></div>
+        </div>
+        <div class="form-group" style="margin:0 0 8px"><label style="font-size:0.72rem">Notas de preparação</label>
+            <textarea id="intNotesBefore_${appId}" class="mock-input" rows="2" maxlength="2000" style="resize:vertical;font-family:inherit;font-size:inherit" placeholder="Pontos para estudar, perguntas para fazer…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="document.getElementById('interviewForm_${appId}').style.display='none'">Cancelar</button>
+            <button class="btn btn-cyan btn-sm" onclick="saveInterview('${appId}')"><i class="fa-solid fa-check"></i> Salvar</button>
+        </div>
+    </div>`;
+}
+
+async function saveInterview(appId) {
+    const stageName   = document.getElementById(`intStageName_${appId}`)?.value.trim();
+    const interviewAt = document.getElementById(`intDate_${appId}`)?.value;
+    const intName     = document.getElementById(`intName_${appId}`)?.value.trim();
+    const intEmail    = document.getElementById(`intEmail_${appId}`)?.value.trim();
+    const notesBefore = document.getElementById(`intNotesBefore_${appId}`)?.value.trim();
+    try {
+        await api('POST', '/api/admin/applications?__h=interview-sessions', {
+            application_id: appId, stage_name: stageName || null, interview_at: interviewAt || null,
+            interviewer_name: intName || null, interviewer_email: intEmail || null, notes_before: notesBefore || null,
+        });
+        const formEl = document.getElementById(`interviewForm_${appId}`);
+        if (formEl) formEl.style.display = 'none';
+        showToast('Sessão de entrevista salva.');
+        loadInterviewSessions(appId);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+function openMarkDone(sessionId, appId) {
+    const formEl = document.getElementById(`interviewForm_${appId}`);
+    if (!formEl) return;
+    formEl.style.display = 'block';
+    formEl.innerHTML = `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg)">
+        <div style="font-size:0.78rem;font-weight:600;margin-bottom:8px">Registrar conclusão da entrevista</div>
+        <div class="form-group" style="margin:0 0 8px"><label style="font-size:0.72rem">Notas pós-entrevista</label>
+            <textarea id="notesAfter_${sessionId}" class="mock-input" rows="3" maxlength="2000" style="resize:vertical;font-family:inherit;font-size:inherit" placeholder="Como foi? Tom do entrevistador, perguntas difíceis, impressões gerais…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="document.getElementById('interviewForm_${appId}').style.display='none'">Cancelar</button>
+            <button class="btn btn-cyan btn-sm" onclick="markInterviewDone('${sessionId}','${appId}')"><i class="fa-solid fa-check"></i> Concluir</button>
+        </div>
+    </div>`;
+}
+
+async function markInterviewDone(sessionId, appId) {
+    const notesAfter = document.getElementById(`notesAfter_${sessionId}`)?.value.trim();
+    try {
+        await api('PUT', `/api/admin/applications?__h=interview-sessions&id=${sessionId}`, { status: 'done', notes_after: notesAfter || null });
+        document.getElementById(`interviewForm_${appId}`).style.display = 'none';
+        showToast('Entrevista marcada como concluída.');
+        loadInterviewSessions(appId);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+function openAnalyzeForm(sessionId, appId) {
+    const formEl = document.getElementById(`interviewForm_${appId}`);
+    if (!formEl) return;
+    formEl.style.display = 'block';
+    formEl.innerHTML = `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg)">
+        <div style="font-size:0.78rem;font-weight:600;margin-bottom:8px"><i class="fa-solid fa-brain" style="color:var(--cyan);margin-right:4px"></i>Analisar com IA</div>
+        <p style="font-size:0.75rem;color:var(--text-soft);margin:0 0 8px">Cole a transcrição ou escreva um resumo do que foi discutido. A IA gera pontuações e feedback.</p>
+        <div class="form-group" style="margin:0 0 8px"><label style="font-size:0.72rem">Transcrição / resumo da entrevista</label>
+            <textarea id="transcript_${sessionId}" class="mock-input" rows="5" maxlength="5000" style="resize:vertical;font-family:inherit;font-size:inherit" placeholder="Transcrição completa ou resumo detalhado do que foi perguntado e respondido…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="document.getElementById('interviewForm_${appId}').style.display='none'">Cancelar</button>
+            <button class="btn btn-cyan btn-sm" id="analyzeBtn_${sessionId}" onclick="runInterviewAnalysis('${sessionId}','${appId}')"><i class="fa-solid fa-brain"></i> Analisar</button>
+        </div>
+    </div>`;
+}
+
+async function runInterviewAnalysis(sessionId, appId) {
+    const transcript = document.getElementById(`transcript_${sessionId}`)?.value.trim();
+    const btn = document.getElementById(`analyzeBtn_${sessionId}`);
+    if (!transcript) { showToast('Adicione a transcrição ou resumo.', 'error'); return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-brain fa-spin"></i> Analisando…'; }
+    try {
+        await api('POST', '/api/admin/applications?__h=interview-analyze', { session_id: sessionId, transcript });
+        document.getElementById(`interviewForm_${appId}`).style.display = 'none';
+        showToast('Análise concluída! Clique em "Ver análise".', 'success');
+        loadInterviewSessions(appId);
+    } catch (e) {
+        showToast(e.message, 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-brain"></i> Analisar'; }
+    }
+}
+
+async function openAnalysisResult(analysisId, sessionId, appId) {
+    const formEl = document.getElementById(`interviewForm_${appId}`);
+    if (!formEl) return;
+    formEl.style.display = 'block';
+    formEl.innerHTML = '<div style="padding:10px;text-align:center;color:var(--text-dim)">Carregando…</div>';
+    try {
+        const { data } = await api('GET', `/api/admin/applications?__h=interview-sessions&id=${sessionId}`);
+        const analysis  = data?.interview_analyses?.[0];
+        if (!analysis) { formEl.innerHTML = '<div style="color:var(--danger)">Análise não encontrada.</div>'; return; }
+
+        const bar = (v) => v != null ? `<div style="display:inline-block;width:${Math.round(v * 10)}%;height:4px;background:var(--cyan);border-radius:2px;vertical-align:middle;margin-left:6px"></div>` : '';
+        const score = (label, v) => v != null ? `<div style="display:flex;align-items:center;justify-content:space-between;font-size:0.78rem;margin-bottom:4px"><span style="color:var(--text-soft)">${label}</span><span style="font-weight:600">${v.toFixed(1)}${bar(v)}</span></div>` : '';
+
+        formEl.innerHTML = `<div style="padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <strong style="font-size:0.85rem"><i class="fa-solid fa-chart-bar" style="color:var(--cyan);margin-right:4px"></i>Análise da entrevista</strong>
+                <button class="btn btn-sm" style="font-size:0.7rem" onclick="document.getElementById('interviewForm_${appId}').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            ${score('Geral', analysis.overall_score)}
+            ${score('Comunicação', analysis.communication)}
+            ${score('Técnico', analysis.technical)}
+            ${score('Comportamental', analysis.behavioral)}
+            ${analysis.strengths?.length ? `<div style="margin-top:8px;font-size:0.78rem"><strong style="color:var(--success)">Pontos fortes:</strong><ul style="margin:4px 0 0 16px;padding:0;font-size:0.75rem">${analysis.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+            ${analysis.improvements?.length ? `<div style="margin-top:6px;font-size:0.78rem"><strong style="color:var(--warn,#fbbf24)">Melhorias:</strong><ul style="margin:4px 0 0 16px;padding:0;font-size:0.75rem">${analysis.improvements.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+            ${analysis.full_feedback ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--text-soft);line-height:1.5">${esc(analysis.full_feedback)}</div>` : ''}
+            ${analysis.next_steps ? `<div style="margin-top:6px;font-size:0.78rem;padding:6px 8px;border-radius:5px;background:rgba(34,211,238,0.06);color:var(--cyan)"><i class="fa-solid fa-arrow-right" style="margin-right:4px"></i>${esc(analysis.next_steps)}</div>` : ''}
+        </div>`;
+    } catch (e) {
+        formEl.innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`;
+    }
 }
 
 // ── Quick Answers ──────────────────────────────────────────

@@ -4,6 +4,7 @@ import { getSupabase, BUCKET } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
 import { buildMessagePrompt, parseMessageResponse } from '../_lib/message-prompt.js';
 import { calcCLT, calcPJ, calcMEI } from '../_lib/tax-calc.js';
+import { providerStats } from '../_lib/llm-router.js';
 
 const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB (Supabase free)
 const STORAGE_ALERT_THRESHOLD = 0.80;
@@ -576,40 +577,29 @@ export default async function handler(req, res) {
         const charLimit = platformRow?.char_limit ?? 0;
         const platformDisplay = platformRow?.display_name ?? fonte ?? null;
 
-        if (!process.env.LLM_API_KEY) {
-            return res.status(200).json({
-                message_text: null,
-                prompt: buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [] }),
-                char_limit: charLimit,
-                provider: 'mcp',
-            });
-        }
-
-        const baseUrl = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
-        const model = process.env.LLM_MODEL || 'gpt-4o-mini';
         const prompt = buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [] });
 
+        // Tenta roteamento multi-provider; fallback para prompt-only (MCP)
         try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 45000);
-            let resp;
-            try {
-                resp = await fetch(`${baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    signal: ctrl.signal,
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LLM_API_KEY}` },
-                    body: JSON.stringify({ model, temperature: 0.4, max_tokens: 800, messages: [{ role: 'user', content: prompt }] }),
-                });
-            } finally { clearTimeout(timer); }
-
-            if (!resp.ok) { const d = await resp.text().catch(() => ''); throw new Error(`LLM ${resp.status}: ${d.slice(0, 200)}`); }
-            const data = await resp.json();
-            const raw = data?.choices?.[0]?.message?.content || '';
-            const message_text = parseMessageResponse(raw);
-
-            return res.status(200).json({ message_text, char_count: message_text?.length ?? 0, char_limit: charLimit, provider: model, prompt });
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
+            const { routeChat } = await import('../_lib/llm-router.js');
+            const result = await routeChat({
+                taskType: 'message',
+                messages: [{ role: 'user', content: prompt }],
+                maxTokens: 800,
+                temperature: 0.4,
+                refId: lead_id || null,
+            });
+            const message_text = parseMessageResponse(result.content);
+            return res.status(200).json({ message_text, char_count: message_text?.length ?? 0, char_limit: charLimit, provider: result.provider, model: result.model, prompt });
+        } catch (_routeErr) {
+            // Nenhum provider configurado → retorna prompt para uso via MCP
+            return res.status(200).json({
+                message_text: null,
+                prompt,
+                char_limit: charLimit,
+                provider: 'mcp',
+                note: 'Nenhum provider LLM configurado. Configure pelo menos uma env var (GROQ_API_KEY, GEMINI_API_KEY, etc.) para geração automática.',
+            });
         }
     }
 
@@ -829,6 +819,408 @@ export default async function handler(req, res) {
             .sort((a, b) => b.count - a.count)
             .slice(0, 20);
         return res.status(200).json({ gaps: sorted, total_leads: total, period_days: days });
+    }
+
+    // ── llm-providers ────────────────────────────────────────
+    if (req.query.__h === 'llm-providers') {
+        if (req.method === 'GET') {
+            try {
+                const stats = await providerStats();
+                return res.status(200).json(stats);
+            } catch (e) {
+                return res.status(500).json({ error: e.message });
+            }
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { enabled, priority } = req.body || {};
+            const patch = { updated_at: new Date().toISOString() };
+            if (enabled !== undefined) patch.enabled = Boolean(enabled);
+            if (priority !== undefined) patch.priority = Math.max(0, parseInt(priority, 10) || 0);
+            const { data, error } = await supabase.from('llm_providers').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── llm-usage ─────────────────────────────────────────────
+    if (req.query.__h === 'llm-usage') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const days = Math.min(parseInt(req.query.days, 10) || 7, 90);
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+        const { data, error } = await supabase
+            .from('llm_usage_log')
+            .select('provider_id, task_type, tokens_in, tokens_out, status, latency_ms, created_at')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(500);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json(data ?? []);
+    }
+
+    // ── platform-sessions ────────────────────────────────────
+    // Armazena cookies/tokens de sessão por plataforma (gravados pelo MCP local)
+    if (req.query.__h === 'platform-sessions') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase
+                .from('platform_sessions')
+                .select('id, fonte, display_name, session_type, expires_at, last_used_at, is_valid, created_at')
+                .order('fonte');
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { fonte, session_data, session_type, expires_at, display_name } = req.body || {};
+            if (!fonte || !session_data) return res.status(400).json({ error: 'fonte e session_data obrigatórios' });
+            const safeSource = String(fonte).toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40);
+            const row = {
+                fonte:        safeSource,
+                display_name: display_name ? String(display_name).slice(0, 100) : safeSource,
+                session_data: String(session_data).slice(0, 65536),
+                session_type: ['cookie', 'token', 'credentials'].includes(session_type) ? session_type : 'cookie',
+                expires_at:   expires_at || null,
+                is_valid:     true,
+                last_used_at: new Date().toISOString(),
+            };
+            const { data, error } = await supabase
+                .from('platform_sessions')
+                .upsert(row, { onConflict: 'fonte' })
+                .select('id, fonte, display_name, session_type, expires_at, is_valid').single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { fonte } = req.query;
+            if (!fonte) return res.status(400).json({ error: 'fonte obrigatório' });
+            const { error } = await supabase.from('platform_sessions').delete().eq('fonte', fonte);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── sync-status ───────────────────────────────────────────
+    // Registra resultado de sync e grava histórico de status
+    if (req.query.__h === 'sync-status') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { application_id, fonte, external_status, new_result, platform_application_id, error: syncError } = req.body || {};
+        if (!application_id || !fonte) return res.status(400).json({ error: 'application_id e fonte obrigatórios' });
+
+        // Busca status atual para comparar
+        const { data: app } = await supabase
+            .from('job_applications').select('result, external_status').eq('id', application_id).single();
+
+        const patch = {
+            last_synced_at: new Date().toISOString(),
+            sync_error:     syncError ? String(syncError).slice(0, 500) : null,
+        };
+        if (external_status !== undefined) patch.external_status = String(external_status).slice(0, 100);
+        if (platform_application_id !== undefined) patch.platform_application_id = String(platform_application_id).slice(0, 200);
+        if (new_result && VALID_RESULTS.has(new_result)) patch.result = new_result;
+
+        await supabase.from('job_applications').update(patch).eq('id', application_id);
+
+        // Registra no histórico apenas se houve mudança de status
+        const oldResult = app?.result || null;
+        if (new_result && new_result !== oldResult) {
+            await supabase.from('application_status_history').insert({
+                application_id,
+                fonte,
+                previous_status: oldResult,
+                new_status:      new_result,
+                external_status: external_status || null,
+                change_source:   'auto_sync',
+            });
+        }
+
+        // Marca sessão como usada
+        await supabase.from('platform_sessions')
+            .update({ last_used_at: new Date().toISOString(), is_valid: !syncError })
+            .eq('fonte', fonte);
+
+        return res.status(200).json({ ok: true, status_changed: new_result && new_result !== oldResult });
+    }
+
+    // ── status-history ────────────────────────────────────────
+    if (req.query.__h === 'status-history') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { application_id } = req.query;
+        if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+        const { data, error } = await supabase
+            .from('application_status_history')
+            .select('*')
+            .eq('application_id', application_id)
+            .order('changed_at', { ascending: false })
+            .limit(50);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json(data ?? []);
+    }
+
+    // ── interview-sessions ────────────────────────────────────
+    if (req.query.__h === 'interview-sessions') {
+        if (req.method === 'GET') {
+            const { application_id, id } = req.query;
+            if (id) {
+                const { data, error } = await supabase
+                    .from('interview_sessions')
+                    .select('*, interview_analyses(*)')
+                    .eq('id', id).single();
+                if (error || !data) return res.status(404).json({ error: 'Sessão não encontrada' });
+                return res.status(200).json(data);
+            }
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            const { data, error } = await supabase
+                .from('interview_sessions')
+                .select('*, interview_analyses(id, overall_score, generated_at)')
+                .eq('application_id', application_id)
+                .order('interview_at', { ascending: false });
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { application_id, stage_name, interview_at, interviewer_name, interviewer_email, notes_before } = req.body || {};
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            const { data, error } = await supabase.from('interview_sessions').insert({
+                application_id,
+                stage_name:        stage_name ? String(stage_name).slice(0, 80) : null,
+                interview_at:      interview_at || null,
+                interviewer_name:  interviewer_name ? String(interviewer_name).slice(0, 100) : null,
+                interviewer_email: interviewer_email ? String(interviewer_email).slice(0, 120) : null,
+                notes_before:      notes_before ? String(notes_before).slice(0, 2000) : null,
+                status:            'planned',
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { stage_name, interview_at, interviewer_name, interviewer_email, notes_before, notes_after, status, recording_available } = req.body || {};
+            const patch = { updated_at: new Date().toISOString() };
+            if (stage_name !== undefined)          patch.stage_name = stage_name ? String(stage_name).slice(0, 80) : null;
+            if (interview_at !== undefined)        patch.interview_at = interview_at || null;
+            if (interviewer_name !== undefined)    patch.interviewer_name = interviewer_name ? String(interviewer_name).slice(0, 100) : null;
+            if (interviewer_email !== undefined)   patch.interviewer_email = interviewer_email ? String(interviewer_email).slice(0, 120) : null;
+            if (notes_before !== undefined)        patch.notes_before = notes_before ? String(notes_before).slice(0, 2000) : null;
+            if (notes_after !== undefined)         patch.notes_after = notes_after ? String(notes_after).slice(0, 2000) : null;
+            if (recording_available !== undefined) patch.recording_available = Boolean(recording_available);
+            if (status && ['planned', 'in_progress', 'done', 'cancelled'].includes(status)) patch.status = status;
+            const { data, error } = await supabase.from('interview_sessions').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('interview_sessions').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── interview-analyze ─────────────────────────────────────
+    // Gera análise IA a partir de transcrição/notas pós-entrevista
+    if (req.query.__h === 'interview-analyze') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { session_id, transcript, notes_after } = req.body || {};
+        if (!session_id) return res.status(400).json({ error: 'session_id obrigatório' });
+        if (!transcript && !notes_after) return res.status(400).json({ error: 'transcript ou notes_after obrigatório' });
+
+        const { data: session } = await supabase
+            .from('interview_sessions')
+            .select('*, job_applications(empresa, vaga)')
+            .eq('id', session_id).single();
+
+        const empresa = session?.job_applications?.empresa || '';
+        const vagoName = session?.job_applications?.vaga || '';
+
+        const analysisPrompt = `Você é um coach de carreira experiente. Analise esta entrevista e forneça feedback estruturado em JSON.
+
+Vaga: ${vagoName} @ ${empresa}
+Etapa: ${session?.stage_name || 'não informada'}
+${transcript ? `\nTranscrição:\n${String(transcript).slice(0, 4000)}` : ''}
+${notes_after ? `\nNotas do candidato:\n${String(notes_after).slice(0, 1000)}` : ''}
+
+Retorne APENAS JSON válido com esta estrutura:
+{
+  "overall_score": <0-10>,
+  "communication": <0-10>,
+  "technical": <0-10>,
+  "behavioral": <0-10>,
+  "strengths": ["ponto forte 1", "ponto forte 2"],
+  "improvements": ["melhoria 1", "melhoria 2"],
+  "red_flags": ["alerta 1 se houver"],
+  "next_steps": "próximos passos recomendados",
+  "full_feedback": "feedback completo em 2-3 parágrafos"
+}`;
+
+        try {
+            const { routeChat } = await import('../_lib/llm-router.js');
+            const result = await routeChat({
+                taskType: 'analysis',
+                messages: [{ role: 'user', content: analysisPrompt }],
+                maxTokens: 1200,
+                temperature: 0.3,
+                refId: session_id,
+            });
+
+            let analysisData;
+            try {
+                const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+                analysisData = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+            } catch (_) {
+                analysisData = { full_feedback: result.content };
+            }
+
+            const { data: saved, error: saveErr } = await supabase.from('interview_analyses').insert({
+                session_id,
+                analysis_type:  'full',
+                overall_score:  analysisData.overall_score ?? null,
+                communication:  analysisData.communication ?? null,
+                technical:      analysisData.technical ?? null,
+                behavioral:     analysisData.behavioral ?? null,
+                questions_asked: analysisData.questions_asked ?? null,
+                strengths:      analysisData.strengths ?? [],
+                improvements:   analysisData.improvements ?? [],
+                red_flags:      analysisData.red_flags ?? [],
+                next_steps:     analysisData.next_steps ?? null,
+                full_feedback:  analysisData.full_feedback ?? null,
+                raw_transcript: transcript ? String(transcript).slice(0, 10000) : null,
+                provider:       result.provider,
+            }).select().single();
+
+            if (saveErr) return res.status(500).json({ error: saveErr.message });
+
+            // Marca sessão como concluída
+            await supabase.from('interview_sessions').update({ status: 'done', notes_after: notes_after || session?.notes_after || null }).eq('id', session_id);
+
+            return res.status(201).json(saved);
+        } catch (e) {
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
+    // ── context-notes ─────────────────────────────────────────
+    if (req.query.__h === 'context-notes') {
+        if (req.method === 'GET') {
+            const { entity_type, entity_id } = req.query;
+            let q = supabase.from('context_notes').select('*').order('importance', { ascending: false }).order('created_at', { ascending: false });
+            if (entity_type) q = q.eq('entity_type', entity_type);
+            if (entity_id)   q = q.eq('entity_id', entity_id);
+            const { data, error } = await q.limit(50);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { entity_type, entity_id, note, tags, importance } = req.body || {};
+            if (!entity_type || !note) return res.status(400).json({ error: 'entity_type e note obrigatórios' });
+            const { data, error } = await supabase.from('context_notes').insert({
+                entity_type: String(entity_type).slice(0, 30),
+                entity_id:   entity_id ? String(entity_id).slice(0, 100) : null,
+                note:        String(note).slice(0, 3000),
+                tags:        Array.isArray(tags) ? tags.map(t => String(t).slice(0, 50)) : [],
+                importance:  Math.min(5, Math.max(1, parseInt(importance, 10) || 2)),
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('context_notes').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── context-summary ────────────────────────────────────────
+    // Gera ou busca resumo de contexto para um período/escopo
+    if (req.query.__h === 'context-summary') {
+        if (req.method === 'GET') {
+            const { scope, scope_ref } = req.query;
+            let q = supabase.from('context_summaries').select('*').order('generated_at', { ascending: false });
+            if (scope)     q = q.eq('scope', scope);
+            if (scope_ref) q = q.eq('scope_ref', scope_ref);
+            const { data, error } = await q.limit(10);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { scope = 'month', scope_ref } = req.body || {};
+
+            // Busca candidaturas do período
+            let appQuery = supabase.from('job_applications')
+                .select('id, empresa, vaga, result, data_envio, observacoes, stages')
+                .order('created_at', { ascending: false })
+                .limit(30);
+            if (scope === 'month' && scope_ref) {
+                const [y, m] = scope_ref.split('-').map(Number);
+                const from = new Date(y, m - 1, 1).toISOString();
+                const to   = new Date(y, m, 0, 23, 59, 59).toISOString();
+                appQuery = appQuery.gte('created_at', from).lte('created_at', to);
+            }
+            const { data: apps } = await appQuery;
+
+            // Busca notas do período
+            const { data: notes } = await supabase.from('context_notes')
+                .select('entity_type, entity_id, note, importance, tags')
+                .order('importance', { ascending: false }).limit(50);
+
+            if (!apps?.length && !notes?.length) {
+                return res.status(200).json({ summary_md: 'Nenhum dado encontrado para o período.', highlights: [] });
+            }
+
+            const appsText = (apps || []).map(a =>
+                `- ${a.empresa}${a.vaga ? ` (${a.vaga})` : ''}: ${a.result || 'em_processo'}${a.observacoes ? ` — ${a.observacoes.slice(0, 100)}` : ''}`
+            ).join('\n');
+
+            const notesText = (notes || []).filter(n => n.importance >= 3).map(n =>
+                `[${n.entity_type}${n.entity_id ? ':' + n.entity_id.slice(0, 8) : ''}] (imp:${n.importance}) ${n.note.slice(0, 200)}`
+            ).join('\n');
+
+            const summaryPrompt = `Você é um coach de carreira. Gere um resumo conciso do período de busca de emprego em Markdown.
+
+Candidaturas:
+${appsText || 'Nenhuma'}
+
+Notas de contexto:
+${notesText || 'Nenhuma'}
+
+Retorne JSON com:
+{
+  "title": "Resumo de [período]",
+  "summary_md": "## Resumo\\n\\n[2-3 parágrafos em markdown]",
+  "highlights": ["ponto 1", "ponto 2", "ponto 3"],
+  "keywords": ["keyword1", "keyword2"]
+}`;
+
+            try {
+                const { routeChat } = await import('../_lib/llm-router.js');
+                const result = await routeChat({ taskType: 'analysis', messages: [{ role: 'user', content: summaryPrompt }], maxTokens: 800, temperature: 0.3 });
+                let parsed;
+                try { const m = result.content.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : JSON.parse(result.content); }
+                catch (_) { parsed = { title: 'Resumo', summary_md: result.content, highlights: [], keywords: [] }; }
+
+                const { data: saved } = await supabase.from('context_summaries').insert({
+                    scope, scope_ref: scope_ref || null,
+                    title:      parsed.title || 'Resumo',
+                    summary_md: parsed.summary_md || '',
+                    highlights: parsed.highlights || [],
+                    keywords:   parsed.keywords || [],
+                    entity_ids: (apps || []).map(a => a.id),
+                    provider:   result.provider,
+                    valid_until: new Date(Date.now() + 30 * 86400000).toISOString(),
+                }).select().single();
+                return res.status(201).json(saved || parsed);
+            } catch (e) {
+                return res.status(500).json({ error: e.message });
+            }
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     // GET — lista candidaturas ou detalhe individual (?id=)
