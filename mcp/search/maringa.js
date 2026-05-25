@@ -33,16 +33,32 @@ async function fetchJobDescription(page, url) {
         await new Promise(r => setTimeout(r, 500));
 
         return await page.evaluate(() => {
-            // Regex no body: corta de "Descrição:" até "Enviar Currículo"/etc.
-            // (Seletor p.description é ambíguo — pega banner de cookies LGPD).
             const all = document.body?.innerText || '';
+
+            // 1) Regex no body entre "Descrição:" e marcadores de fim
             const m = all.match(/Descri[çc][ãa]o:?\s*([\s\S]*?)(?=Enviar Curr[íi]culo|Compartilhar|Voltar para|©|$)/i);
             if (m && m[1].trim().length > 50) return m[1].trim();
-            // Fallback: descrição + requisitos + benefícios via p.description que NÃO contenha "cookies"
-            const blocks = [...document.querySelectorAll('p.description, ul.description')]
-                .map(el => el.innerText.trim())
-                .filter(t => t && !/cookies|essenciais/i.test(t));
-            return blocks.length ? blocks.join('\n') : null;
+
+            // 2) Seletores semânticos sem cookies
+            const SELECTORS = [
+                'p.description', 'ul.description',
+                '.job-description', '.vaga-descricao', '.descricao',
+                'section.description', 'div.description',
+                '[class*="descri"]', '[id*="descri"]',
+                'article p', 'main p',
+            ];
+            for (const sel of SELECTORS) {
+                const blocks = [...document.querySelectorAll(sel)]
+                    .map(el => el.innerText?.trim())
+                    .filter(t => t && t.length > 30 && !/cookies|essenciais|privacidade/i.test(t));
+                if (blocks.length) return blocks.join('\n');
+            }
+
+            // 3) Último recurso: maior bloco de texto da página
+            const paras = [...document.querySelectorAll('p, li')]
+                .map(el => el.innerText?.trim())
+                .filter(t => t && t.length > 80 && !/cookies|essenciais/i.test(t));
+            return paras.length ? paras.slice(0, 10).join('\n') : null;
         });
     } catch (e) {
         console.error(`[maringa] Erro ao buscar descrição ${url}: ${e.message}`);
@@ -78,25 +94,53 @@ export async function searchMaringa({ keywords, maxResults = 15 }) {
             const url = `${BASE_URL}/?text=${encodeURIComponent(keyword)}&ordem=publicacao`;
 
             try {
-                await listPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
-                await new Promise(r => setTimeout(r, 1500));
+                await listPage.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
             } catch {
-                console.error(`[maringa] Timeout em "${keyword}", tentando mesmo assim`);
-                await new Promise(r => setTimeout(r, 1500));
+                // networkidle pode timeout em sites lentos — tenta com load
+                try {
+                    await listPage.goto(url, { waitUntil: 'load', timeout: 25_000 });
+                } catch {
+                    console.error(`[maringa] Timeout total em "${keyword}", pulando`);
+                    continue;
+                }
             }
+            await new Promise(r => setTimeout(r, 2000));
 
-            const cards = await listPage.evaluate(() =>
-                [...document.querySelectorAll('.card-anuncio')].map(card => {
+            // Detecta seletores disponíveis para debug
+            const pageInfo = await listPage.evaluate(() => ({
+                title: document.title,
+                cardAnuncio: document.querySelectorAll('.card-anuncio').length,
+                cardJob: document.querySelectorAll('.card-job, .job-card, [class*="card"]').length,
+                allLinks: document.querySelectorAll('a[href*="/emprego/"], a[href*="/vaga/"]').length,
+            }));
+            console.error(`[maringa] Página "${keyword}": title="${pageInfo.title}" .card-anuncio=${pageInfo.cardAnuncio} outros-cards=${pageInfo.cardJob} links-vaga=${pageInfo.allLinks}`);
+
+            const cards = await listPage.evaluate(() => {
+                // Seletor primário
+                let items = [...document.querySelectorAll('.card-anuncio')];
+
+                // Fallback: links diretos para páginas de emprego
+                if (!items.length) {
+                    const linkEls = [...document.querySelectorAll('a[href*="/emprego/"], a[href*="/vaga/"]')];
+                    return linkEls.map(a => ({
+                        title:   a.textContent?.trim() || a.href,
+                        company: null,
+                        lines:   [a.textContent?.trim()].filter(Boolean),
+                        link:    a.href,
+                    })).filter(c => c.title && c.link);
+                }
+
+                return items.map(card => {
                     const lines = card.innerText.split('\n').map(l => l.trim()).filter(Boolean);
                     const linkEl = card.querySelector('a[href]');
                     return {
-                        title:  card.querySelector('b.flex-wrap')?.textContent?.trim() || lines[0],
+                        title:   card.querySelector('b.flex-wrap, h2, h3, .title, strong')?.textContent?.trim() || lines[0],
                         company: lines[1] || null,
                         lines,
-                        link:   linkEl?.href || null,
+                        link:    linkEl?.href || null,
                     };
-                }).filter(c => c.title && c.link)
-            );
+                }).filter(c => c.title && c.link);
+            });
 
             console.error(`[maringa] Cards para "${keyword}": ${cards.length}`);
 
