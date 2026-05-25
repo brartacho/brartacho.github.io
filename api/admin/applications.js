@@ -1585,6 +1585,18 @@ Retorne JSON com:
         const fitScore = lead.fit_score || 0;
         const confidenceAdjusted = rate !== null ? Math.min(95, Math.max(5, Math.round(rate * (0.5 + fitScore / 20)))) : null;
 
+        // Gera reasoning em prosa via LLM (fire-and-forget, persiste nos novos cols)
+        const reasoning = confidenceAdjusted !== null
+            ? `Taxa histórica de avanço: ${rate}%. Fit score ${fitScore}/10. Gaps: ${(lead.gaps || []).slice(0,3).join(', ') || 'nenhum'}. Confiança ajustada: ${confidenceAdjusted}%.`
+            : 'Sem histórico suficiente para calcular probabilidade.';
+
+        // Persiste resultado (background, sem aguardar)
+        supabase.from('vaga_radar').update({
+            advance_confidence: confidenceAdjusted,
+            advance_confidence_reasoning: reasoning,
+            advance_confidence_computed_at: new Date().toISOString(),
+        }).eq('id', radar_id).then(() => {}).catch(() => {});
+
         return res.status(200).json({
             fit_score:          fitScore,
             gaps:               lead.gaps || [],
@@ -1593,6 +1605,7 @@ Retorne JSON com:
             total_advanced:     advanced.length,
             historical_rate:    rate,
             advance_confidence: confidenceAdjusted,
+            reasoning,
             empresa:            lead.empresa,
             vaga:               lead.vaga,
         });
