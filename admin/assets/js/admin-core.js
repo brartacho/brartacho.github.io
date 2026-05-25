@@ -3340,15 +3340,18 @@ async function renderFollowupSuggestions() {
         if (!rows?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum follow-up pendente. Candidaturas em dia!</div>'; return; }
         el.innerHTML = rows.map(s => {
             const app = s.job_applications || {};
-            return `<div class="followup-card">
+            return `<div class="followup-card" data-followup-id="${s.id}">
                 <div class="followup-header">
                     <span class="followup-company">${esc(app.empresa || '—')}</span>
                     <span class="followup-days">${s.days_idle}d parado</span>
                 </div>
                 <div style="font-size:0.8rem;color:var(--text-soft);margin:2px 0 6px">${esc(app.vaga || '')} · Etapa: ${esc(s.current_stage || '—')}</div>
-                <div class="followup-msg">${esc(s.suggested_message || '')}</div>
-                <div style="display:flex;gap:6px;margin-top:8px">
-                    <button class="btn btn-sm btn-cyan" style="font-size:0.72rem" onclick="copyFollowupMsg('${s.id}','${esc(s.suggested_message || '')}')">
+                <div class="followup-msg" id="followup-msg-${s.id}">${esc(s.suggested_message || '')}</div>
+                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+                    <button class="btn btn-sm" style="font-size:0.72rem;color:var(--cyan)" onclick="generateFollowupMsg('${s.id}')">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar com IA
+                    </button>
+                    <button class="btn btn-sm btn-cyan" style="font-size:0.72rem" onclick="copyFollowupMsg('${s.id}')">
                         <i class="fa-regular fa-copy"></i> Copiar
                     </button>
                     <button class="btn btn-sm" style="font-size:0.72rem" onclick="markFollowupSent('${s.id}')">
@@ -3362,7 +3365,20 @@ async function renderFollowupSuggestions() {
         }).join('');
     } catch { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Erro ao carregar.</div>'; }
 }
-async function copyFollowupMsg(id, msg) {
+async function generateFollowupMsg(id) {
+    const card = document.querySelector(`[data-followup-id="${id}"]`) || document.getElementById('followupSuggestionsList');
+    try {
+        showToast('Gerando mensagem personalizada…');
+        const r = await api('POST', '/api/admin/applications?__h=followup-generate', { suggestion_id: id });
+        // Atualiza a mensagem exibida no card sem recarregar a lista
+        const msgEl = document.getElementById(`followup-msg-${id}`);
+        if (msgEl) msgEl.textContent = r.message_text || '';
+        showToast('Mensagem gerada!','success');
+    } catch(e) { showToast(e.message,'error'); }
+}
+async function copyFollowupMsg(id) {
+    const msgEl = document.getElementById(`followup-msg-${id}`);
+    const msg = msgEl?.textContent || '';
     await navigator.clipboard?.writeText(msg).catch(() => {});
     showToast('Mensagem copiada!');
 }
@@ -8176,11 +8192,19 @@ function startVoiceMemo(appId) {
         lead_medio:'fa-star-half-stroke', lead_novo:'fa-circle-plus'
     };
 
-    async function loadInbox() {
+    async function loadInbox(skipScan = false) {
         const feed = document.getElementById('inboxFeed');
         if (!feed) return;
         const filterVal = document.getElementById('inboxFilter')?.value || 'all';
         feed.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:32px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+
+        // Dispara followup-scan em background ao abrir inbox (sem bloquear carregamento)
+        if (!skipScan) {
+            apiFetch('/api/admin/applications?__h=followup-scan', { method: 'POST' })
+                .then(r => { if (r.created > 0) loadInbox(true); })
+                .catch(() => {});
+        }
+
         try {
             const r = await apiFetch('/api/admin/applications?__h=inbox');
             let items = r.items || [];

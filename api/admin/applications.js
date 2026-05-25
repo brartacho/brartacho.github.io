@@ -467,6 +467,58 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── followup-generate (gera mensagem LLM para follow-up) ────
+    if (req.query.__h === 'followup-generate') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { suggestion_id } = req.body || {};
+        if (!suggestion_id) return res.status(400).json({ error: 'suggestion_id obrigatório' });
+
+        const { data: sug } = await supabase
+            .from('followup_suggestions')
+            .select('*, job_applications(empresa, vaga, stages, data_envio, modalidade, tipo_contratacao)')
+            .eq('id', suggestion_id)
+            .single();
+        if (!sug) return res.status(404).json({ error: 'Sugestão não encontrada' });
+
+        const app = sug.job_applications || {};
+        const { data: profile } = await supabase
+            .from('candidate_profile').select('nome').order('updated_at', { ascending: false }).limit(1).single();
+
+        const nomeCandidato = profile?.nome || 'Candidato';
+        const empresa       = app.empresa || '–';
+        const vaga          = app.vaga || 'a vaga';
+        const etapa         = sug.current_stage || 'candidatura';
+        const diasParado    = sug.days_idle || 0;
+        const dataEnvio     = app.data_envio ? new Date(app.data_envio).toLocaleDateString('pt-BR') : null;
+
+        const prompt = [
+            `Escreva um e-mail/mensagem de follow-up profissional para ${empresa} sobre a candidatura de ${nomeCandidato} à vaga de ${vaga}.`,
+            `A candidatura está na etapa "${etapa}" há ${diasParado} dias sem atualização.`,
+            dataEnvio ? `A candidatura foi enviada em ${dataEnvio}.` : '',
+            `Tom: cordial, breve (máx 150 palavras), primeira pessoa, sem desperança ou pressão.`,
+            `Inclua: saudação, referência específica à vaga e empresa, interesse reforçado, solicitar atualização amigavelmente, encerramento profissional.`,
+            `Idioma: português brasileiro. Não adicione assunto nem cabeçalho — apenas o corpo da mensagem.`,
+        ].filter(Boolean).join('\n');
+
+        let message_text = null;
+        try {
+            const result = await routeChat({
+                taskType: 'message',
+                messages: [{ role: 'user', content: prompt }],
+                maxTokens: 300,
+                temperature: 0.45,
+            });
+            message_text = (result.content || '').trim();
+        } catch {
+            message_text = `Olá, tudo bem?\n\nGostaria de saber se há alguma atualização sobre minha candidatura à vaga de ${vaga} na ${empresa}. Continuo muito interessado na oportunidade e fico à disposição para qualquer informação.\n\nAgradeço desde já!\nAtenciosamente, ${nomeCandidato}`;
+        }
+
+        // Persiste a mensagem melhorada na sugestão
+        await supabase.from('followup_suggestions').update({ suggested_message: message_text }).eq('id', suggestion_id);
+
+        return res.status(200).json({ message_text });
+    }
+
     // ── calc-liquido ──────────────────────────────────────────
     if (req.query.__h === 'calc-liquido') {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
