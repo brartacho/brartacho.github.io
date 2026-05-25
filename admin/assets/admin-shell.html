@@ -388,6 +388,7 @@
 
             <div class="vagas-subtabs">
                 <button class="vagas-subtab-btn active" onclick="switchVagasSubTab('lista',this)">Lista</button>
+                <button class="vagas-subtab-btn" onclick="switchVagasSubTab('kanban',this)">Kanban</button>
                 <button class="vagas-subtab-btn" onclick="switchVagasSubTab('analise',this)">Análise</button>
             </div>
 
@@ -464,6 +465,11 @@
                 </table>
             </div>
             </div><!-- /vagasListView -->
+
+            <!-- ─── KANBAN ──────────────────────────────────── -->
+            <div id="vagasKanbanView" style="display:none">
+                <div id="kanbanBoard" class="kanban-board"></div>
+            </div><!-- /vagasKanbanView -->
 
             <!-- ─── ANÁLISE DE VAGAS ──────────────────────── -->
             <div id="vagasAnalysisView" style="display:none">
@@ -683,6 +689,7 @@
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                     <button class="btn btn-sm" onclick="openLimparModal()" title="Limpar leads antigos/obsoletos"><i class="fa-solid fa-broom"></i> Limpar</button>
+                    <button class="btn btn-cyan btn-sm" onclick="openTriagemSwipe()" title="Triagem rápida: revisar leads um a um (A/D/→)"><i class="fa-solid fa-bolt"></i> Triagem rápida</button>
                     <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
                     <button class="btn btn-sm" id="radarFiltersToggleBtn" onclick="toggleRadarFilters()" title="Mostrar/ocultar filtros" style="display:inline-flex;align-items:center;gap:5px">
                         <i class="fa-solid fa-sliders"></i> Filtros
@@ -1168,6 +1175,25 @@
                     <div id="followupSuggestionsList"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Escanear" para verificar.</div></div>
                 </div>
 
+                <!-- Q&A bank (item K) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-comments" style="color:var(--cyan);margin-right:6px"></i> Banco de perguntas & respostas</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openQAModal()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir banco</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Perguntas de RH, técnicas e comportamentais com respostas preparadas. Usadas no briefing pré-entrevista.</p>
+                </div>
+
+                <!-- Gaps dashboard (item L) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-chart-bar" style="color:var(--cyan);margin-right:6px"></i> Gaps recorrentes</h3>
+                        <button class="btn btn-sm" onclick="loadGapsDashboard()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 10px;line-height:1.6">Skills mais pedidas nas vagas que você não possui — direciona estudos.</p>
+                    <div id="gapsDashboard"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Atualizar" para carregar.</div></div>
+                </div>
+
                 <!-- Pipeline padrão (item B) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1254,6 +1280,78 @@
 </div>
 
 <!-- ─── CONFIRM MODAL ────────────────────────────── -->
+<!-- ─── TRIAGEM SWIPE MODAL ──────────────────────────────── -->
+<div class="modal-overlay" id="triagemModal">
+    <div class="modal-box" style="max-width:640px;width:95%">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-bolt"></i> Triagem rápida</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-left:auto;margin-right:12px"><span id="triagemCounter"></span></div>
+            <button class="modal-close" onclick="closeTriagemSwipe()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding:0">
+            <div id="triagemCard" style="padding:16px 20px"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-soft)">
+                <button class="btn btn-danger btn-sm" onclick="triagemAction('discard')" title="Descartar (D)"><i class="fa-solid fa-ban"></i> Descartar (D)</button>
+                <button class="btn btn-sm" onclick="triagemAction('skip')" title="Próximo (→)"><i class="fa-solid fa-arrow-right"></i> Pular (→)</button>
+                <button class="btn btn-cyan btn-sm" onclick="triagemAction('promote')" title="Promover (A)"><i class="fa-solid fa-rocket"></i> Promover (A)</button>
+            </div>
+        </div>
+        <div style="padding:8px 20px 12px;text-align:center;font-size:0.72rem;color:var(--text-dim)">A = Promover · D = Descartar · → = Pular · L = Deixar para depois</div>
+    </div>
+</div>
+
+<!-- ─── Q&A BANK MODAL ───────────────────────────────────── -->
+<div class="modal-overlay" id="qaModal">
+    <div class="modal-box" style="max-width:700px;width:95%">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-comments"></i> Banco de Perguntas & Respostas</div>
+            <button class="modal-close" onclick="closeQAModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+                <select id="qaFilterCat" class="mock-input" style="width:auto;padding:5px 10px;font-size:0.82rem" onchange="loadQABank()">
+                    <option value="">Todas categorias</option>
+                    <option value="rh">RH</option>
+                    <option value="tecnica">Técnica</option>
+                    <option value="comportamental">Comportamental</option>
+                </select>
+                <button class="btn btn-cyan btn-sm" onclick="openAddQA()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+            </div>
+            <div id="qaBankList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+            <div id="qaForm" style="display:none;margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="form-group" style="margin:0">
+                        <label style="font-size:0.75rem">Categoria</label>
+                        <select id="qaFormCat" class="mock-input" style="padding:5px 10px;font-size:0.82rem">
+                            <option value="">—</option>
+                            <option value="rh">RH</option>
+                            <option value="tecnica">Técnica</option>
+                            <option value="comportamental">Comportamental</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label style="font-size:0.75rem">Tags (sep. por vírgula)</label>
+                        <input id="qaFormTags" class="mock-input" placeholder="lideranca, conflito" maxlength="200" autocomplete="off" data-form-type="other">
+                    </div>
+                </div>
+                <div class="form-group" style="margin:0 0 8px">
+                    <label style="font-size:0.75rem">Pergunta *</label>
+                    <textarea id="qaFormQuestion" class="mock-input" rows="2" placeholder="Conte sobre um caso em que…" maxlength="500" style="resize:vertical;font-family:inherit;font-size:inherit"></textarea>
+                </div>
+                <div class="form-group" style="margin:0 0 10px">
+                    <label style="font-size:0.75rem">Resposta / Notas</label>
+                    <textarea id="qaFormAnswer" class="mock-input" rows="3" placeholder="Minha resposta preparada…" maxlength="2000" style="resize:vertical;font-family:inherit;font-size:inherit"></textarea>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <button class="btn btn-sm" onclick="closeQAForm()">Cancelar</button>
+                    <button class="btn btn-cyan btn-sm" onclick="saveQA()"><i class="fa-solid fa-check"></i> Salvar</button>
+                </div>
+                <input type="hidden" id="qaFormId">
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="calcModal">
     <div class="modal-box" style="max-width:680px;width:95%">
         <div class="modal-header">

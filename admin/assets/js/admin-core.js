@@ -1014,6 +1014,7 @@ function renderDrawerBody(app) {
             <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
             <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
             <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
+            <button class="btn btn-sm" onclick="startVoiceMemo('${app.id}')" title="Adicionar nota por voz (Web Speech API)"><i class="fa-solid fa-microphone"></i></button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
@@ -4605,8 +4606,11 @@ function switchVagasSubTab(tab, btn) {
     _vagasSubTab = tab;
     document.querySelectorAll('.vagas-subtab-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    document.getElementById('vagasListView').style.display    = tab === 'lista'   ? '' : 'none';
-    document.getElementById('vagasAnalysisView').style.display = tab === 'analise' ? '' : 'none';
+    document.getElementById('vagasListView').style.display      = tab === 'lista'   ? '' : 'none';
+    const kanbanEl = document.getElementById('vagasKanbanView');
+    if (kanbanEl) kanbanEl.style.display                        = tab === 'kanban'  ? '' : 'none';
+    document.getElementById('vagasAnalysisView').style.display  = tab === 'analise' ? '' : 'none';
+    if (tab === 'kanban')  renderKanban(_applications);
     if (tab === 'analise' && !_vagasAnalysisLoaded) loadVagasAnalysis();
 }
 
@@ -6146,3 +6150,319 @@ async function saveRadarProfile(btn) {
         showToast('Perfil salvo.');
     } catch (e) { showToast(e.message, 'error'); }
 }
+
+// ═══════════════════════════════════════════════════════════
+// ONDA 3 — Produtividade do dia a dia
+// ═══════════════════════════════════════════════════════════
+
+// ── Kanban (item J) ──────────────────────────────────────
+function renderKanban(apps) {
+    const board = document.getElementById('kanbanBoard');
+    if (!board) return;
+
+    const COLS = ['Aplicado', 'Triagem', 'Entrevista com RH', 'Entrevista Técnica', 'Entrevista com Gestor', 'Teste', 'Proposta', 'Recusado', 'Aprovado'];
+    const active = apps.filter(a => !a.archived);
+
+    const getStage = app => {
+        const stages = app.stages || [];
+        const last = [...stages].reverse().find(s => s.active !== false && (s.completed_at || s.date));
+        if (last) return last.name || last.label || 'Aplicado';
+        if (app.result === 'recusado') return 'Recusado';
+        if (app.result === 'aprovado') return 'Aprovado';
+        return 'Aplicado';
+    };
+
+    const byCol = {};
+    COLS.forEach(c => { byCol[c] = []; });
+    active.forEach(a => {
+        const col = getStage(a);
+        if (byCol[col]) byCol[col].push(a);
+        else byCol['Aplicado'].push(a);
+    });
+
+    board.innerHTML = COLS.map(col => {
+        const items = byCol[col] || [];
+        const colKey = col.toLowerCase().replace(/\s+/g, '-');
+        return `<div class="kanban-col" data-col="${esc(col)}">
+            <div class="kanban-col-header">
+                <span>${esc(col)}</span>
+                <span class="kanban-col-count">${items.length}</span>
+            </div>
+            <div class="kanban-cards" id="kcol-${esc(colKey)}">
+                ${items.map(a => `
+                <div class="kanban-card" onclick="openDrawer('${a.id}')">
+                    <div class="kanban-card-empresa">${esc(a.empresa)}</div>
+                    <div class="kanban-card-vaga">${esc(a.vaga || '')}</div>
+                    ${a.modalidade ? `<span class="radar-chip" style="font-size:0.68rem">${esc(a.modalidade)}</span>` : ''}
+                </div>`).join('')}
+                ${items.length === 0 ? '<div style="font-size:0.75rem;color:var(--text-dim);padding:8px;text-align:center">—</div>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Triagem swipe (item D) ───────────────────────────────
+let _triagemQueue = [];
+let _triagemIdx   = 0;
+
+function openTriagemSwipe() {
+    const novos = (_radarLeads || []).filter(l => l.status === 'novo' || l.status === 'avaliada');
+    if (!novos.length) { showToast('Nenhum lead novo para triagem.', 'info'); return; }
+    _triagemQueue = [...novos];
+    _triagemIdx   = 0;
+    document.getElementById('triagemModal').classList.add('open');
+    _renderTriagemCard();
+}
+
+function closeTriagemSwipe() {
+    document.getElementById('triagemModal').classList.remove('open');
+    _triagemQueue = [];
+    _triagemIdx   = 0;
+    loadRadar();
+}
+
+function _renderTriagemCard() {
+    const counter = document.getElementById('triagemCounter');
+    const card    = document.getElementById('triagemCard');
+    if (!card) return;
+
+    if (_triagemIdx >= _triagemQueue.length) {
+        counter.textContent = 'Concluída';
+        card.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text-soft)"><i class="fa-solid fa-check-circle" style="font-size:2rem;color:var(--cyan);display:block;margin-bottom:12px"></i>Triagem concluída! ${_triagemQueue.length} lead${_triagemQueue.length > 1 ? 's' : ''} revisado${_triagemQueue.length > 1 ? 's' : ''}.</div>`;
+        return;
+    }
+
+    const l = _triagemQueue[_triagemIdx];
+    counter.textContent = `${_triagemIdx + 1} / ${_triagemQueue.length}`;
+    const b = radarBadge(l.fit_score);
+    const kw = (l.keywords_match || []).slice(0, 10).map(k => `<span class="radar-chip kw">${esc(k)}</span>`).join('');
+    const gaps = (l.gaps || []).slice(0, 6).map(g => `<span class="radar-chip gap">${esc(g)}</span>`).join('');
+
+    card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
+            <div class="radar-score badge-${b.cls}" style="flex-shrink:0"><span class="rs-num">${b.num}</span></div>
+            <div>
+                <div style="font-weight:700;font-size:1rem">${esc(l.vaga || 'Vaga')}</div>
+                <div style="color:var(--text-soft);font-size:0.88rem">${esc(l.empresa)}</div>
+                <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+                    ${[l.nivel, l.modalidade, l.tipo_contratacao].filter(Boolean).map(c => `<span class="radar-chip">${esc(c)}</span>`).join('')}
+                </div>
+            </div>
+        </div>
+        ${l.positioning ? `<p style="font-size:0.82rem;color:var(--text-soft);margin:0 0 10px;line-height:1.45">${esc(l.positioning)}</p>` : ''}
+        ${kw ? `<div class="radar-chips" style="margin-bottom:6px">${kw}</div>` : ''}
+        ${gaps ? `<div class="radar-chips"><span class="radar-chip-label">Gaps:</span>${gaps}</div>` : ''}
+        ${l.link_vaga ? `<a href="${esc(l.link_vaga)}" target="_blank" rel="noopener" style="font-size:0.78rem;color:var(--cyan)" onclick="event.stopPropagation()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir vaga</a>` : ''}
+    `;
+}
+
+async function triagemAction(action) {
+    const l = _triagemQueue[_triagemIdx];
+    if (!l) return;
+
+    if (action === 'promote') {
+        closeTriagemSwipe();
+        await promoteRadar(l.id);
+        return;
+    }
+    if (action === 'discard') {
+        try {
+            await api('PUT', `/api/admin/radar?id=${l.id}`, { status: 'descartada', motivo_descarte: 'triagem-swipe' });
+        } catch { /* non-fatal */ }
+    }
+    // skip and discard both advance
+    _triagemIdx++;
+    _renderTriagemCard();
+}
+
+// Kanban subtab support is injected into switchVagasSubTab below
+
+// ── Q&A Bank (item K) ─────────────────────────────────────
+let _qaEditId = null;
+
+function openQAModal() {
+    document.getElementById('qaModal').classList.add('open');
+    loadQABank();
+}
+function closeQAModal() {
+    document.getElementById('qaModal').classList.remove('open');
+}
+
+async function loadQABank() {
+    const el = document.getElementById('qaBankList');
+    if (!el) return;
+    const cat = document.getElementById('qaFilterCat')?.value || '';
+    try {
+        const url = `/api/admin/applications?__h=interview-qa${cat ? '&category=' + encodeURIComponent(cat) : ''}`;
+        const data = await api('GET', url);
+        if (!data.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhuma pergunta cadastrada.</div>'; return; }
+        el.innerHTML = data.map(q => `
+            <div class="qa-bank-card">
+                <div class="qa-bank-cat">${q.category || '—'}</div>
+                <div class="qa-bank-q">${esc(q.question)}</div>
+                ${q.answer ? `<div class="qa-bank-a">${esc(q.answer)}</div>` : ''}
+                ${(q.tags || []).length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${q.tags.map(t => `<span class="radar-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-sm" style="font-size:0.72rem;padding:2px 8px" onclick="openEditQA('${q.id}')"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-danger btn-sm" style="font-size:0.72rem;padding:2px 8px" onclick="deleteQA('${q.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>`).join('');
+    } catch (e) { el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`; }
+}
+
+function openAddQA() {
+    _qaEditId = null;
+    document.getElementById('qaFormQuestion').value = '';
+    document.getElementById('qaFormAnswer').value = '';
+    document.getElementById('qaFormCat').value = '';
+    document.getElementById('qaFormTags').value = '';
+    document.getElementById('qaFormId').value = '';
+    document.getElementById('qaForm').style.display = '';
+}
+
+async function openEditQA(id) {
+    _qaEditId = id;
+    const url = `/api/admin/applications?__h=interview-qa`;
+    const data = await api('GET', url).catch(() => []);
+    const q = data.find(x => x.id === id);
+    if (!q) return;
+    document.getElementById('qaFormQuestion').value = q.question || '';
+    document.getElementById('qaFormAnswer').value = q.answer || '';
+    document.getElementById('qaFormCat').value = q.category || '';
+    document.getElementById('qaFormTags').value = (q.tags || []).join(', ');
+    document.getElementById('qaFormId').value = id;
+    document.getElementById('qaForm').style.display = '';
+}
+
+function closeQAForm() { document.getElementById('qaForm').style.display = 'none'; }
+
+async function saveQA() {
+    const id = document.getElementById('qaFormId').value;
+    const body = {
+        question: document.getElementById('qaFormQuestion').value.trim(),
+        answer:   document.getElementById('qaFormAnswer').value.trim() || null,
+        category: document.getElementById('qaFormCat').value || null,
+        tags:     document.getElementById('qaFormTags').value.split(',').map(s => s.trim()).filter(Boolean),
+    };
+    if (!body.question) { showToast('Pergunta obrigatória.', 'error'); return; }
+    try {
+        if (id) {
+            await api('PUT', `/api/admin/applications?__h=interview-qa&id=${id}`, body);
+        } else {
+            await api('POST', '/api/admin/applications?__h=interview-qa', body);
+        }
+        closeQAForm();
+        loadQABank();
+        showToast('Salvo.');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteQA(id) {
+    if (!await showConfirm('Excluir pergunta?', '', { okText: 'Excluir' })) return;
+    try {
+        await api('DELETE', `/api/admin/applications?__h=interview-qa&id=${id}`);
+        loadQABank();
+        showToast('Excluído.');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Gaps dashboard (item L) ───────────────────────────────
+async function loadGapsDashboard() {
+    const el = document.getElementById('gapsDashboard');
+    if (!el) return;
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>';
+    try {
+        const { gaps, total_leads } = await api('GET', '/api/admin/applications?__h=gaps-dashboard&days=90');
+        if (!gaps.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum gap identificado nos últimos 90 dias.</div>'; return; }
+        el.innerHTML = `
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:10px">Baseado em ${total_leads} vagas dos últimos 90 dias</div>
+            ${gaps.map(g => `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <div style="width:140px;font-size:0.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(g.skill)}">${esc(g.skill)}</div>
+                <div style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden">
+                    <div style="height:100%;width:${g.pct}%;background:var(--cyan);border-radius:5px"></div>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-soft);width:50px;text-align:right">${g.pct}% (${g.count})</div>
+            </div>`).join('')}
+        `;
+    } catch (e) { el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`; }
+}
+
+// ── Voice memo (item N) ───────────────────────────────────
+let _voiceRecognition = null;
+let _voiceTargetId = null;
+
+function startVoiceMemo(appId) {
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+        showToast('Reconhecimento de voz não suportado neste navegador.', 'error');
+        return;
+    }
+    _voiceTargetId = appId;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    _voiceRecognition = new SR();
+    _voiceRecognition.lang = 'pt-BR';
+    _voiceRecognition.interimResults = false;
+    _voiceRecognition.maxAlternatives = 1;
+    _voiceRecognition.onresult = async e => {
+        const transcript = e.results[0][0].transcript;
+        showToast(`Gravado: "${transcript.slice(0, 50)}${transcript.length > 50 ? '…' : ''}"`, 'success');
+        const app = _applications.find(a => a.id === appId);
+        const obs = [app?.observacoes, transcript].filter(Boolean).join('\n\n[voz] ');
+        try {
+            const updated = await api('PUT', `/api/admin/applications?id=${appId}`, { observacoes: obs });
+            const idx = _applications.findIndex(a => a.id === appId);
+            if (idx !== -1) _applications[idx] = updated;
+            if (document.getElementById('drawer')?.classList.contains('open')) renderDrawerBody(updated);
+        } catch { /* non-fatal */ }
+    };
+    _voiceRecognition.onerror = e => showToast(`Erro de voz: ${e.error}`, 'error');
+    _voiceRecognition.start();
+    showToast('Gravando… Fale agora.', 'info');
+}
+
+// ── Atalhos de teclado globais (item G) ──────────────────
+(function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', e => {
+        // Ignore when typing in inputs/textarea
+        const tag = document.activeElement?.tagName;
+        if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+
+        // Triagem swipe keys
+        if (document.getElementById('triagemModal')?.classList.contains('open')) {
+            if (e.key === 'a' || e.key === 'A') { e.preventDefault(); triagemAction('promote'); }
+            else if (e.key === 'd' || e.key === 'D') { e.preventDefault(); triagemAction('discard'); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); triagemAction('skip'); }
+            else if (e.key === 'l' || e.key === 'L') { e.preventDefault(); triagemAction('skip'); }
+            return;
+        }
+
+        // Global shortcuts
+        if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+            e.preventDefault();
+            showToast('Atalhos: g=gerar msg · c=copiar msg · a=triagem · n=nova candidatura · r=Radar', 'info');
+            return;
+        }
+
+        // Only active when no modal is open
+        const anyModalOpen = document.querySelector('.modal-overlay.open');
+        if (anyModalOpen) return;
+
+        if (e.key === 'g') {
+            e.preventDefault();
+            const btn = document.getElementById('vfGenerateBtn');
+            if (btn && !btn.hidden) btn.click();
+        } else if (e.key === 'c') {
+            e.preventDefault();
+            const btn = document.getElementById('vfCopyBtn');
+            if (btn && !btn.hidden) btn.click();
+        } else if (e.key === 'a' && !e.shiftKey) {
+            e.preventDefault();
+            openTriagemSwipe();
+        } else if (e.key === 'n') {
+            e.preventDefault();
+            if (document.getElementById('tab-vagas')?.classList.contains('active-tab')) {
+                openNovaVaga();
+            }
+        }
+    });
+})();

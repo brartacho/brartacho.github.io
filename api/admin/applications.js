@@ -764,6 +764,30 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── gaps-dashboard ────────────────────────────────────────
+    if (req.query.__h === 'gaps-dashboard') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const days = parseInt(req.query.days, 10) || 90;
+        const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+        const { data: leads, error } = await supabase
+            .from('vaga_radar').select('gaps').gte('created_at', since).not('gaps', 'is', null);
+        if (error) return res.status(500).json({ error: error.message });
+
+        const freq = {};
+        for (const lead of leads ?? []) {
+            for (const gap of (lead.gaps || [])) {
+                const k = String(gap).trim().toLowerCase();
+                if (k) freq[k] = (freq[k] || 0) + 1;
+            }
+        }
+        const total = leads?.length || 1;
+        const sorted = Object.entries(freq)
+            .map(([skill, count]) => ({ skill, count, pct: Math.round(count / total * 100) }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 20);
+        return res.status(200).json({ gaps: sorted, total_leads: total, period_days: days });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {

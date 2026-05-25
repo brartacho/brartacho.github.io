@@ -2895,3 +2895,20 @@
 .ps-fonte { font-weight:600; }
 .ps-limit-input { width:70px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:3px 6px; font-size:0.8rem; }
 .ps-save-btn { font-size:0.72rem; padding:3px 8px; }
+
+/* ── Kanban (item J) ─────────────────────────────────────── */
+.kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:12px; min-height:300px; }
+.kanban-col { flex:0 0 180px; display:flex; flex-direction:column; gap:8px; }
+.kanban-col-header { display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); padding:4px 2px; border-bottom:2px solid var(--border); }
+.kanban-col-count { background:var(--border); border-radius:10px; padding:1px 7px; font-size:0.68rem; color:var(--text-soft); font-weight:600; }
+.kanban-cards { display:flex; flex-direction:column; gap:6px; }
+.kanban-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; cursor:pointer; transition:border-color 0.15s; }
+.kanban-card:hover { border-color:var(--cyan); }
+.kanban-card-empresa { font-weight:600; font-size:0.82rem; margin-bottom:2px; }
+.kanban-card-vaga { font-size:0.75rem; color:var(--text-soft); line-height:1.3; }
+
+/* ── Q&A bank cards ──────────────────────────────────────── */
+.qa-bank-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; }
+.qa-bank-cat { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--cyan); margin-bottom:6px; }
+.qa-bank-q { font-weight:600; font-size:0.88rem; margin-bottom:6px; line-height:1.4; }
+.qa-bank-a { font-size:0.8rem; color:var(--text-soft); line-height:1.45; border-left:2px solid var(--border); padding-left:10px; }
