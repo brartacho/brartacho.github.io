@@ -601,10 +601,13 @@ function renderApplicationsTable() {
     const search = (document.getElementById('vagasSearch')?.value || '').toLowerCase();
 
     let filtered = _applications;
-    if (_vagasFilter === 'arquivadas') {
+    // N39: ocultar candidaturas privadas por padrão (exceto se filtro 'privadas' ativo)
+    if (_vagasFilter === 'privadas') {
+        filtered = filtered.filter(app => app.private);
+    } else if (_vagasFilter === 'arquivadas') {
         filtered = filtered.filter(app => app.archived);
     } else {
-        filtered = filtered.filter(app => !app.archived);
+        filtered = filtered.filter(app => !app.archived && !app.private);
         if (_vagasFilter !== 'all') filtered = filtered.filter(app => getAppStatus(app) === _vagasFilter);
     }
     if (_vagasModalidadeFilter !== 'all') filtered = filtered.filter(app => app.modalidade === _vagasModalidadeFilter);
@@ -1040,6 +1043,8 @@ function renderDrawerBody(app) {
             <button class="btn btn-sm" onclick="openBriefing('${app.id}')" title="Briefing pré-entrevista: dados consolidados da candidatura e vaga"><i class="fa-solid fa-file-lines"></i> Briefing</button>
             <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
             <button class="btn btn-sm" onclick="openEmailThreads('${app.id}')" title="E-mails vinculados a esta candidatura"><i class="fa-solid fa-envelope"></i> E-mails</button>
+            <button class="btn btn-sm" onclick="openMessageTimeline('${app.id}')" title="Timeline de mensagens desta candidatura"><i class="fa-solid fa-timeline"></i> Mensagens</button>
+            <button class="btn btn-sm${app.private ? ' active' : ''}" onclick="toggleAppPrivate('${app.id}', ${!app.private})" title="${app.private ? 'Candidatura privada — clique para tornar pública' : 'Tornar privada (modo stealth)'}" style="${app.private ? 'border-color:var(--cyan);color:var(--cyan)' : 'opacity:0.7'}"><i class="fa-solid fa-${app.private ? 'eye-slash' : 'eye'}"></i></button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
             <button class="btn btn-danger btn-sm" style="padding:6px 10px" title="Deletar candidatura"
@@ -1052,6 +1057,7 @@ function renderDrawerBody(app) {
         <div id="contextNotesSection" hidden></div>
         <div id="emailThreadsSection" hidden></div>
         <div id="briefingSection" hidden></div>
+        <div id="messagesSection" hidden></div>
     `;
 }
 
@@ -1129,6 +1135,102 @@ async function toggleArchive(id, currentlyArchived) {
     } catch (e) {
         showToast(e.message, 'error');
     }
+}
+
+// ─── N39 — Modo stealth ────────────────────────────────────────────────────
+async function toggleAppPrivate(id, makePrivate) {
+    try {
+        const updated = await api('PUT', `/api/admin/applications?id=${id}`, { private: makePrivate });
+        const idx = _applications.findIndex(a => a.id === id);
+        if (idx !== -1) _applications[idx] = updated;
+        renderDrawerBody(updated);
+        openDrawer(id);
+        showToast(makePrivate ? 'Candidatura marcada como privada.' : 'Candidatura agora visível na lista.','success');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─── N28 — Timeline de mensagens ───────────────────────────────────────────
+const _channelIcons = { email:'fa-envelope', linkedin:'fa-linkedin', whatsapp:'fa-whatsapp', platform_chat:'fa-comment', phone_call:'fa-phone', manual:'fa-pen' };
+const _channelColors = { email:'var(--text-soft)', linkedin:'#0a66c2', whatsapp:'#25d366', platform_chat:'var(--cyan)', phone_call:'#a78bfa', manual:'var(--text-dim)' };
+
+async function openMessageTimeline(appId) {
+    const sec = document.getElementById('messagesSection');
+    if (!sec) return;
+    if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; return; }
+    sec.dataset.appId = appId;
+    sec.hidden = false;
+    sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+    try {
+        const r = await apiFetch(`/api/admin/applications?__h=application-messages&application_id=${appId}`);
+        const msgs = r.messages || [];
+        const channelOpts = ['email','linkedin','whatsapp','platform_chat','phone_call','manual'].map(c => `<option value="${c}">${c}</option>`).join('');
+        sec.innerHTML = `<div style="padding:12px;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-size:0.82rem;font-weight:600;color:var(--text)"><i class="fa-solid fa-timeline" style="color:var(--cyan);margin-right:6px"></i> Mensagens (${msgs.length})</span>
+                <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="_openAddMessageForm('${appId}')"><i class="fa-solid fa-plus"></i> Adicionar</button>
+            </div>
+            <div id="addMsgForm-${appId}" style="display:none;margin-bottom:10px;padding:10px;background:var(--bg-soft);border:1px solid var(--border);border-radius:6px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <select id="msgChannel-${appId}" class="mock-input" style="padding:5px 8px;font-size:0.8rem">${channelOpts}</select>
+                    <select id="msgDir-${appId}" class="mock-input" style="padding:5px 8px;font-size:0.8rem"><option value="inbound">Recebida</option><option value="outbound" selected>Enviada</option></select>
+                </div>
+                <input id="msgSubject-${appId}" class="mock-input" placeholder="Assunto (opcional)" style="margin-bottom:6px;font-size:0.8rem">
+                <textarea id="msgBody-${appId}" class="mock-input" rows="3" placeholder="Conteúdo da mensagem…" style="resize:vertical;font-size:0.8rem;margin-bottom:6px"></textarea>
+                <div style="display:flex;gap:6px;justify-content:flex-end">
+                    <button class="btn btn-sm" onclick="document.getElementById('addMsgForm-${appId}').style.display='none'">Cancelar</button>
+                    <button class="btn btn-cyan btn-sm" onclick="_saveMessage('${appId}')"><i class="fa-solid fa-check"></i> Salvar</button>
+                </div>
+            </div>
+            ${msgs.length ? msgs.map(m => {
+                const isIn = m.direction === 'inbound';
+                const icon = _channelIcons[m.channel] || 'fa-message';
+                const color = _channelColors[m.channel] || 'var(--text-dim)';
+                const dt = new Date(m.message_at).toLocaleString('pt-BR', { day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit' });
+                return `<div style="display:flex;gap:8px;margin-bottom:8px;${isIn?'':'flex-direction:row-reverse'}">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--bg-soft);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fa-${m.channel==='linkedin'?'brands':'solid'} ${icon}" style="font-size:0.75rem;color:${color}"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:8px 10px;${isIn?'border-top-left-radius:2px':'border-top-right-radius:2px'}">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                            <span style="font-size:0.72rem;color:var(--text-dim)">${isIn ? esc(m.sender_name||'Empresa') : 'Você'} · ${dt}</span>
+                            <button class="btn btn-sm" style="padding:1px 5px;font-size:0.65rem;opacity:0.5" onclick="_deleteMessage('${m.id}','${appId}')"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        ${m.subject ? `<div style="font-size:0.78rem;font-weight:600;color:var(--text);margin-bottom:2px">${esc(m.subject)}</div>` : ''}
+                        <div style="font-size:0.8rem;color:var(--text);white-space:pre-wrap;word-break:break-word">${esc(m.body||'')}</div>
+                    </div>
+                </div>`;
+            }).join('') : '<div style="color:var(--text-dim);font-size:0.82rem;padding:8px 0">Nenhuma mensagem registrada.</div>'}
+        </div>`;
+    } catch(e) { sec.innerHTML = `<div style="color:var(--danger);padding:12px;font-size:0.8rem">${esc(e.message)}</div>`; }
+}
+
+function _openAddMessageForm(appId) {
+    const f = document.getElementById(`addMsgForm-${appId}`);
+    if (f) f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+
+async function _saveMessage(appId) {
+    const channel = document.getElementById(`msgChannel-${appId}`)?.value;
+    const direction = document.getElementById(`msgDir-${appId}`)?.value || 'outbound';
+    const subject = document.getElementById(`msgSubject-${appId}`)?.value.trim() || null;
+    const body = document.getElementById(`msgBody-${appId}`)?.value.trim() || null;
+    if (!body) { showToast('Conteúdo obrigatório.','error'); return; }
+    try {
+        await apiFetch('/api/admin/applications?__h=application-messages', {
+            method: 'POST',
+            body: JSON.stringify({ application_id: appId, channel, direction, subject, body })
+        });
+        showToast('Mensagem adicionada.','success');
+        openMessageTimeline(appId);
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+async function _deleteMessage(msgId, appId) {
+    if (!confirm('Remover mensagem?')) return;
+    try {
+        await apiFetch(`/api/admin/applications?__h=application-messages&id=${msgId}`, { method:'DELETE' });
+        openMessageTimeline(appId);
+    } catch(e) { showToast(e.message,'error'); }
 }
 
 async function deleteApplication(id) {
@@ -7750,6 +7852,14 @@ function startVoiceMemo(appId) {
         sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i> Montando briefing…</div>';
         try {
             const r = await apiFetch(`/api/admin/applications?__h=briefing-build&application_id=${appId}`);
+            // N13: busca intel do entrevistador se app tem next_interview_with
+            const interviewerName = r.app?.next_interview_with || r.interview?.interviewer_name || null;
+            if (interviewerName) {
+                try {
+                    const ir = await apiFetch(`/api/admin/applications?__h=interviewer-intel&name=${encodeURIComponent(interviewerName)}`);
+                    r.interviewer_intel = ir.intel || null;
+                } catch(_) {}
+            }
             sec.innerHTML = _renderBriefing(r);
         } catch(e) {
             sec.innerHTML = `<div style="color:#f87171;padding:8px;font-size:0.82rem">${esc(e.message)}</div>`;
@@ -7810,13 +7920,69 @@ function startVoiceMemo(appId) {
                 </div>`).join('')}
             </div>` : '';
 
+        // N13 — Entrevistador
+        const itvIntel = r.interviewer_intel;
+        const interviewerBlock = itvIntel ? `
+            <div style="margin-bottom:8px;padding:8px 10px;border-radius:6px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.2)">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#a78bfa;letter-spacing:0.07em;margin-bottom:5px"><i class="fa-solid fa-user-tie" style="margin-right:4px"></i>Entrevistador</div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(itvIntel.display_name||itvIntel.name_normalized)}</div>
+                ${itvIntel.role_title ? `<div style="font-size:0.75rem;color:var(--text-soft)">${esc(itvIntel.role_title)}${itvIntel.company_at_match?' @ '+esc(itvIntel.company_at_match):''}</div>` : ''}
+                ${itvIntel.bio_summary ? `<div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px;line-height:1.4">${esc(itvIntel.bio_summary.slice(0,200))}${itvIntel.bio_summary.length>200?'…':''}</div>` : ''}
+                ${(itvIntel.topics_of_interest||[]).length ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px">${(itvIntel.topics_of_interest||[]).slice(0,5).map(t=>`<span style="font-size:0.65rem;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:10px;padding:1px 6px;color:#a78bfa">${esc(t)}</span>`).join('')}</div>` : ''}
+                ${itvIntel.linkedin_url ? `<a href="${esc(itvIntel.linkedin_url)}" target="_blank" rel="noopener" style="font-size:0.72rem;color:#0a66c2;margin-top:4px;display:inline-block"><i class="fa-brands fa-linkedin" style="margin-right:3px"></i>LinkedIn</a>` : ''}
+            </div>` :
+            (interview?.interviewer_name ? `<div style="margin-bottom:8px;font-size:0.78rem;color:var(--text-dim)">
+                <i class="fa-solid fa-user-tie" style="margin-right:4px;color:var(--text-dim)"></i>Entrevistador: <strong style="color:var(--text)">${esc(interview.interviewer_name)}</strong>
+                <button class="btn btn-sm" style="padding:1px 6px;font-size:0.65rem;margin-left:6px" onclick="_openAddInterviewerForm('${app.id}','${esc(interview.interviewer_name)}')">+ Intel</button>
+            </div>` : '');
+
         return `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
                 <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);font-weight:700"><i class="fa-solid fa-file-lines" style="color:var(--cyan);margin-right:4px"></i>Briefing — ${esc(app.empresa)}</div>
                 <button class="btn btn-sm" style="padding:2px 6px;font-size:0.72rem" onclick="openContextNotes('${app.id}')" title="Adicionar nota"><i class="fa-solid fa-plus"></i> Nota</button>
             </div>
-            ${interviewBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}${starBlock}
+            ${interviewBlock}${interviewerBlock}${radarBlock}${stagesBlock}${notesBlock}${qaBlock}${starBlock}
         </div>`;
+    }
+
+    // ─── N13 — Adicionar intel de entrevistador ───────────────
+    function _openAddInterviewerForm(appId, interviewerName) {
+        const existing = document.getElementById('addInterviewerForm');
+        if (existing) { existing.remove(); return; }
+        const sec = document.getElementById('briefingSection');
+        if (!sec) return;
+        const div = document.createElement('div');
+        div.id = 'addInterviewerForm';
+        div.style.cssText = 'padding:10px;margin-top:8px;border:1px solid rgba(167,139,250,0.3);border-radius:6px;background:rgba(167,139,250,0.04)';
+        div.innerHTML = `<div style="font-size:0.78rem;font-weight:600;color:#a78bfa;margin-bottom:8px">Adicionar intel: ${esc(interviewerName)}</div>
+            <input id="itv_role" class="mock-input" placeholder="Cargo" style="margin-bottom:6px;font-size:0.8rem">
+            <input id="itv_linkedin" class="mock-input" placeholder="LinkedIn URL" style="margin-bottom:6px;font-size:0.8rem">
+            <textarea id="itv_bio" class="mock-input" rows="2" placeholder="Bio / resumo (opcional)" style="resize:vertical;font-size:0.8rem;margin-bottom:6px"></textarea>
+            <input id="itv_topics" class="mock-input" placeholder="Tópicos de interesse (vírgulas)" style="margin-bottom:8px;font-size:0.8rem">
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+                <button class="btn btn-sm" onclick="document.getElementById('addInterviewerForm').remove()">Cancelar</button>
+                <button class="btn btn-cyan btn-sm" onclick="_saveInterviewerIntel('${esc(interviewerName)}','${appId}')"><i class="fa-solid fa-check"></i> Salvar</button>
+            </div>`;
+        sec.appendChild(div);
+        div.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+
+    async function _saveInterviewerIntel(name, appId) {
+        const body = {
+            name,
+            role_title:   document.getElementById('itv_role')?.value.trim() || null,
+            linkedin_url: document.getElementById('itv_linkedin')?.value.trim() || null,
+            bio_summary:  document.getElementById('itv_bio')?.value.trim() || null,
+            topics_of_interest: (document.getElementById('itv_topics')?.value || '').split(',').map(t => t.trim()).filter(Boolean),
+        };
+        try {
+            await apiFetch('/api/admin/applications?__h=interviewer-intel', {
+                method: 'POST', body: JSON.stringify(body)
+            });
+            showToast('Intel salvo.','success');
+            document.getElementById('addInterviewerForm')?.remove();
+            openBriefing(appId); // refresh
+        } catch(e) { showToast(e.message,'error'); }
     }
 
     // ─── ADVANCE CONFIDENCE (N2) ──────────────────────────────

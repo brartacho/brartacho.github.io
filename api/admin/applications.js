@@ -2139,6 +2139,81 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ─── N13 — Interviewer intel ─────────────────────────────────────────────
+    if (req.query.__h === 'interviewer-intel') {
+        if (req.method === 'GET') {
+            const { name } = req.query;
+            if (!name) return res.status(400).json({ error: 'name obrigatório' });
+            const normalized = String(name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,100);
+            const { data } = await supabase.from('interviewer_intel').select('*').eq('name_normalized', normalized).single();
+            if (data) {
+                const ageMs = Date.now() - new Date(data.fetched_at).getTime();
+                if (ageMs < 14 * 86400000) return res.status(200).json({ intel: data, source: 'cache' });
+            }
+            return res.status(200).json({ intel: data || null, source: 'cache_stale' });
+        }
+        if (req.method === 'POST') {
+            const { name, display_name, email, linkedin_url, company_at_match, role_title, years_in_role, bio_summary, recent_posts, topics_of_interest } = req.body || {};
+            if (!name) return res.status(400).json({ error: 'name obrigatório' });
+            const normalized = String(name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,100);
+            const row = {
+                name_normalized: normalized,
+                display_name: display_name || name,
+                email: email || null,
+                linkedin_url: linkedin_url || null,
+                company_at_match: company_at_match || null,
+                role_title: role_title || null,
+                years_in_role: parseInt(years_in_role)||null,
+                bio_summary: bio_summary ? String(bio_summary).slice(0,2000) : null,
+                recent_posts: Array.isArray(recent_posts) ? recent_posts : null,
+                topics_of_interest: Array.isArray(topics_of_interest) ? topics_of_interest : null,
+                fetched_at: new Date().toISOString(),
+            };
+            const { data, error } = await supabase.from('interviewer_intel').upsert(row, { onConflict: 'name_normalized' }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ intel: data });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ─── N28 — Mensagens da candidatura (timeline unificado) ─────────────────
+    if (req.query.__h === 'application-messages') {
+        const { application_id, id } = req.query;
+        if (req.method === 'GET') {
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            const { data, error } = await supabase.from('application_messages')
+                .select('*')
+                .eq('application_id', application_id)
+                .order('message_at', { ascending: false })
+                .limit(50);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ messages: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { application_id: appId, channel, direction, sender_name, sender_email, subject, body: msgBody, message_at } = req.body || {};
+            if (!appId || !channel) return res.status(400).json({ error: 'application_id e channel obrigatórios' });
+            const { data, error } = await supabase.from('application_messages').insert({
+                application_id: appId,
+                channel: String(channel).slice(0,50),
+                direction: direction || 'outbound',
+                sender_name: sender_name ? String(sender_name).slice(0,200) : null,
+                sender_email: sender_email ? String(sender_email).slice(0,200) : null,
+                subject: subject ? String(subject).slice(0,500) : null,
+                body: msgBody ? String(msgBody).slice(0,10000) : null,
+                message_at: message_at || new Date().toISOString(),
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'DELETE') {
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('application_messages').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // ─── N41 — Mapa de carreira ──────────────────────────────────────────────
     if (req.query.__h === 'career-paths') {
         if (req.method === 'GET') {
