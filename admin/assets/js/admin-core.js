@@ -3879,6 +3879,9 @@ function switchTab(name) {
     document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
     document.getElementById(`tab-${name}`).classList.add('active');
     document.querySelectorAll(`[data-tab="${name}"]`).forEach(b => b.classList.add('active'));
+    // Tablet: rola a tab ativa para o campo de visão nas top tabs
+    const _activeTabEl = document.querySelector(`.app-tabs [data-tab="${name}"]`);
+    if (_activeTabEl) _activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 
     if (name === 'cvs') loadCVs();
     if (name === 'tokens') { loadCVs(); loadTokens(); }

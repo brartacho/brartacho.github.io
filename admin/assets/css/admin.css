@@ -293,6 +293,7 @@
         }
 
         .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+        .tab-btn:hover:not(.active) { color: var(--text-soft); background: rgba(255,255,255,0.03); }
 
         .app-content { padding: 28px 24px; max-width: 1100px; margin: 0 auto; }
 
@@ -365,7 +366,7 @@
 
         .mobile-nav-btn i { font-size: 1.15rem; transition: transform 0.15s; }
         .mobile-nav-btn:active i { transform: scale(0.88); }
-        .mobile-nav-btn.active { color: var(--cyan); }
+        .mobile-nav-btn.active { color: var(--cyan); background: var(--cyan-soft); border-radius: 10px; }
         .mobile-nav-btn.active::after {
             content: '';
             position: absolute;
@@ -1451,6 +1452,11 @@
         }
         .cv-btn-lbl { display: none; }
 
+        /* ════════════════════════════════════════════════════════════
+           MOBILE  ≤600px
+           Altere SOMENTE aqui para ajustes de mobile.
+           NÃO adicione regras de tablet/desktop neste bloco.
+           ════════════════════════════════════════════════════════════ */
         @media (max-width: 600px) {
             /* ── Bottom nav: visível; top tabs: ocultas ── */
             .mobile-bottom-nav { display: flex; }
@@ -1516,7 +1522,15 @@
             .app-header { padding: 0 12px; }
 
             /* Filtros com scroll horizontal */
-            .vagas-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+            .vagas-filters {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 4px;
+                padding-left: 12px;
+                padding-right: 12px;
+                -webkit-overflow-scrolling: touch;
+                scroll-padding-inline: 12px;
+            }
             .vagas-filter-chip { flex-shrink: 0; }
 
             /* ── Vagas table: card 2-col ── */
@@ -1622,8 +1636,23 @@
             .filter-date-group { width: 100%; flex-wrap: wrap; gap: 6px; }
             .filter-date-group .th-filter-input[type="date"] { flex: 1; width: auto !important; min-width: 110px; }
 
-            /* ── Drawer: full-screen ── */
-            .vagas-drawer { width: 100vw; max-width: 100vw; }
+            /* ── Drawer → bottom sheet no mobile ── */
+            .vagas-drawer {
+                top: auto !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 90dvh !important;
+                border-left: none !important;
+                border-top: 1px solid var(--border) !important;
+                border-radius: 16px 16px 0 0 !important;
+                transform: translateY(100%) !important;
+                transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
+            }
+            .vagas-drawer.open { transform: translateY(0) !important; }
+            .drawer-handle { display: block; }
             .drawer-body { padding: 14px 16px; }
             .drawer-header { padding: 16px 16px 12px; }
 
@@ -2014,6 +2043,31 @@
 
             /* Padding do conteúdo: mais respiro nas bordas */
             .app-content { padding: 8px 10px calc(80px + env(safe-area-inset-bottom, 0px)); }
+
+            /* ── Métricas ── */
+            .kpi-detail-row { gap: 8px; word-break: break-word; }
+            .kpi-detail-row .meta { font-size: 0.7rem; }
+            .kpi-detail-section { margin-bottom: 14px; }
+
+            /* ── Métricas — painel / funnel / visitor journey ── */
+            .metrics-kpis { grid-template-columns: repeat(2, 1fr); }
+            .metrics-panels-grid { grid-template-columns: 1fr; }
+            .metrics-funnel-step-label { width: 100px; font-size: 0.72rem; }
+            .metrics-funnel-grid, .metrics-temporal-grid { grid-template-columns: 1fr; }
+            .vj-row { grid-template-columns: 1fr; gap: 2px; }
+            .vj-sess { text-align: left; }
+
+            /* ── Vagas — barra de período ── */
+            .vagas-period-dates { margin-left:0; width:100%; }
+            .vagas-analysis-period-bar .period-date { width:calc(50% - 32px) !important; min-width:110px; }
+
+            /* ── Radar profile / search ── */
+            .radar-profile-grid, .radar-add-grid { grid-template-columns:1fr; }
+
+            .rsq-form { grid-template-columns:1fr; }
+            .rp-row, .rp-row.cols-2 { grid-template-columns:1fr; }
+
+            .rsq-row-2 { grid-template-columns:1fr; }
         }
 
         @keyframes tabFadeIn {
@@ -2021,11 +2075,22 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ─── TABLET (601px – 1024px) ─────────────────── */
+        /* ════════════════════════════════════════════════════════════
+           TABLET  601–1024px
+           Altere SOMENTE aqui para ajustes de tablet.
+           NÃO adicione regras de mobile/desktop neste bloco.
+           ════════════════════════════════════════════════════════════ */
         @media (min-width: 601px) and (max-width: 1024px) {
             /* Esconde bottom-nav; mantém top tabs */
             .mobile-bottom-nav { display: none !important; }
-            .app-tabs { display: flex !important; }
+            .app-tabs {
+                display: flex !important;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+            .app-tabs::-webkit-scrollbar { display: none; }
 
             /* Padding lateral generoso em tablet */
             .app-content { padding: 20px 24px; }
@@ -2065,14 +2130,24 @@
             }
 
             /* Vagas: tabela normal */
-            .vagas-table { display: table; }
+            .vagas-table { display: table; table-layout: fixed; width: 100%; }
             .vagas-table thead { display: table-header-group; }
             .vagas-table tbody { display: table-row-group; }
             .vagas-table tbody tr { display: table-row; border: none; border-radius: 0; }
-            .vagas-table tbody tr td { border: none; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 10px; }
-            .col-gestor, .col-date, .col-cadastrado { display: table-cell; }
+            .vagas-table tbody tr td { border: none; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            /* Oculta colunas de baixa prioridade no tablet */
+            .col-gestor    { display: none; }
+            .col-cadastrado { display: none; }
+            .col-date      { display: table-cell; }
+            .col-vaga-title { width: 44%; }
+            .col-empresa    { width: 26%; }
+            .col-date       { width: 14%; }
+            .col-score      { width: 16%; }
             #vagas-bulk-bar { bottom: 0; }
             .vaga-meta-mobile { display: none; }
+            .vagas-drawer { max-width: min(560px, 80vw) !important; }
+            .vagas-filters { flex-wrap: wrap; gap: 6px; }
+            .vagas-filter-chip { min-width: 64px; }
         }
 
         /* ─── GESTÃO DE VAGAS ───────────────────────── */
@@ -2095,6 +2170,7 @@
         .vagas-table th {
             text-align:left; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em;
             color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border-soft);
+            position: sticky; top: 0; z-index: 1; background: var(--bg-elevated);
         }
         .vagas-table td { padding:10px 10px; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; }
         .vagas-table tr { cursor:pointer; transition:background 0.1s; }
@@ -2154,13 +2230,23 @@
         .vagas-drawer-overlay.open { opacity:1; pointer-events:all; }
 
         .vagas-drawer {
-            position:fixed; top:0; right:0; bottom:0; width:420px; max-width:95vw;
+            position:fixed; top:0; right:0; bottom:0; width:480px; max-width:95vw;
             background:var(--bg-elevated); border-left:1px solid var(--border);
             z-index:201; display:flex; flex-direction:column;
             transform:translateX(100%); transition:transform 0.25s ease;
             overflow:hidden;
         }
         .vagas-drawer.open { transform:translateX(0); }
+
+        .drawer-handle {
+            display: none;
+            width: 40px;
+            height: 4px;
+            background: var(--border-soft);
+            border-radius: 2px;
+            margin: 12px auto 4px;
+            flex-shrink: 0;
+        }
 
         .drawer-header {
             padding:20px 20px 14px; border-bottom:1px solid var(--border-soft);
@@ -2479,12 +2565,6 @@
         .kpi-detail-explain summary:hover { color: var(--text); }
         .kpi-detail-explain p { padding: 6px 0 4px; line-height: 1.5; margin: 0; }
         .kpi-detail-explain code { background: var(--bg-dark); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
-        @media (max-width: 600px) {
-            .kpi-detail-row { gap: 8px; word-break: break-word; }
-            .kpi-detail-row .meta { font-size: 0.7rem; }
-            .kpi-detail-section { margin-bottom: 14px; }
-        }
-
         /* Funil — duas visões lado a lado */
         .metrics-funnel-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
@@ -2526,15 +2606,6 @@
         .vj-path  { color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .vj-sess  { color: var(--text-dim); font-family: var(--font-mono); font-size: 0.7rem; text-align: right; }
 
-        @media (max-width: 600px) {
-            .metrics-kpis { grid-template-columns: repeat(2, 1fr); }
-            .metrics-panels-grid { grid-template-columns: 1fr; }
-            .metrics-funnel-step-label { width: 100px; font-size: 0.72rem; }
-            .metrics-funnel-grid, .metrics-temporal-grid { grid-template-columns: 1fr; }
-            .vj-row { grid-template-columns: 1fr; gap: 2px; }
-            .vj-sess { text-align: left; }
-        }
-
         /* ─── Sub-abas Vagas ───────────────────────────────── */
         .vagas-subtabs {
             display:flex; gap:0; margin-bottom:16px;
@@ -2575,10 +2646,6 @@
         }
         .period-toggle-switch input:checked + .period-toggle-track { background:var(--cyan,#22d3ee); }
         .period-toggle-switch input:checked + .period-toggle-track::before { transform:translateX(13px); }
-        @media (max-width: 600px) {
-            .vagas-period-dates { margin-left:0; width:100%; }
-            .vagas-analysis-period-bar .period-date { width:calc(50% - 32px) !important; min-width:110px; }
-        }
         .vagas-bucket-bar { display:flex; gap:4px; }
         .vagas-bucket-bar .metrics-period-btn { font-size:0.72rem; padding:4px 10px; }
 
@@ -2655,10 +2722,6 @@
         .radar-pre { background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:14px; max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:0.78rem; color:var(--text-soft); white-space:pre-wrap; }
         .radar-json-input { width:100%; box-sizing:border-box; background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:var(--font-mono); font-size:0.8rem; outline:none; }
         .radar-json-input:focus { border-color:var(--cyan-mid); }
-        @media (max-width: 600px) {
-            .radar-profile-grid, .radar-add-grid { grid-template-columns:1fr; }
-        }
-
         /* ── Radar search bar ── */
         .radar-search-row { margin:10px 0 6px; }
         .radar-search-wrap {
@@ -2742,7 +2805,6 @@
         .rsq-hist-row { display:flex; gap:10px; align-items:center; font-size:0.78rem; color:var(--text-soft); flex-wrap:wrap; }
         .rsq-hist-plat { font-weight:600; color:var(--text); min-width:72px; }
         .rsq-hist-new  { color:var(--success); font-weight:600; }
-        @media (max-width:600px) { .rsq-form { grid-template-columns:1fr; } }
         /* ── Radar bulk action bar ── */
         .radar-bulk-bar {
             display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
@@ -2843,10 +2905,6 @@
         .rp-saved-hint { display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; color:#4ade80; opacity:0; transition:opacity 0.2s; }
         .rp-saved-hint.visible { opacity:1; }
 
-        @media (max-width:600px) {
-            .rp-row, .rp-row.cols-2 { grid-template-columns:1fr; }
-        }
-
         /* ── Parte 5: Modal "Buscar vagas" reorganizado ── */
         .rsq-modal { padding:0; display:flex; flex-direction:column; max-height:85vh; }
         .rsq-modal .modal-body { padding:24px; }
@@ -2877,8 +2935,6 @@
         .rsq-history-details .rsq-history { max-height:200px; overflow-y:auto; padding-right:4px; border-top:none; margin-top:0; padding-top:0; }
         .rsq-history-details .rsq-history::-webkit-scrollbar { width:6px; }
         .rsq-history-details .rsq-history::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-
-        @media (max-width:600px) { .rsq-row-2 { grid-template-columns:1fr; } }
 
         /* ── Parte 7: Limpeza otimizada — breakdown e modal ── */
         .radar-stats-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px; font-size:0.78rem; color:var(--text-dim); }
