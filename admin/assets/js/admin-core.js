@@ -8449,7 +8449,10 @@ function startVoiceMemo(appId) {
                 sec.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
                     <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">E-mails vinculados</div>
                     <div style="color:var(--text-dim);font-size:0.82rem">Nenhum e-mail vinculado.</div>
-                    <div style="margin-top:10px"><button class="btn btn-sm" onclick="linkEmailThread('${appId}')"><i class="fa-solid fa-link"></i> Vincular thread Gmail</button></div>
+                    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+                        <button class="btn btn-sm" onclick="linkEmailThread('${appId}')"><i class="fa-solid fa-link"></i> Vincular thread Gmail</button>
+                        <button class="btn btn-sm" style="color:var(--cyan)" onclick="generateAvailability()" title="Gerar 3 horários disponíveis para copiar"><i class="fa-solid fa-calendar-plus"></i> Disponibilidade</button>
+                    </div>
                 </div>`;
                 return;
             }
@@ -8468,13 +8471,44 @@ function startVoiceMemo(appId) {
                         <span style="font-size:0.68rem;color:var(--text-dim);text-transform:capitalize">${esc(t.status||'auto')}</span>
                     </div>
                 </div>`).join('')}
-                <div style="margin-top:8px">
+                <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
                     <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px" onclick="detectRejectionFromThread('${appId}')"><i class="fa-solid fa-magnifying-glass"></i> Detectar rejeição</button>
+                    <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px;color:var(--cyan)" onclick="generateAvailability()" title="Gerar texto com 3 horários disponíveis para entrevista"><i class="fa-solid fa-calendar-plus"></i> Disponibilidade</button>
                 </div>
             </div>`;
         } catch(e) {
             sec.innerHTML = `<div style="color:#f87171;padding:8px;font-size:0.82rem">${esc(e.message)}</div>`;
         }
+    }
+
+    // ─── N12 — Sugerir disponibilidade ────────────────────────────────────────
+    function generateAvailability() {
+        const now = new Date();
+        const slots = [];
+        let d = new Date(now);
+        d.setDate(d.getDate() + 1); // começa amanhã
+        const timeOptions = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+        const dayNames = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+        const monthNames = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        let attempts = 0;
+        while (slots.length < 3 && attempts < 30) {
+            attempts++;
+            const dow = d.getDay();
+            if (dow !== 0 && dow !== 6) { // não é fim de semana
+                const time = timeOptions[slots.length * 2]; // espalha horários
+                const dayStr = `${dayNames[dow]}, ${d.getDate().toString().padStart(2,'0')}/${monthNames[d.getMonth()]}`;
+                slots.push({ label: `${dayStr} às ${time}`, iso: `${d.toISOString().slice(0,10)}T${time}:00` });
+            }
+            d.setDate(d.getDate() + 1);
+        }
+        if (!slots.length) { showToast('Não foi possível gerar slots.','error'); return; }
+        const bullets = slots.map(s => `• ${s.label}`).join('\n');
+        const text = `Tenho disponibilidade nos seguintes horários:\n${bullets}\nAlgum funciona para você?`;
+        navigator.clipboard.writeText(text).then(() => showToast('Disponibilidade copiada!','success'))
+            .catch(() => {
+                prompt('Copie o texto abaixo:', text);
+            });
+        return text;
     }
 
     async function detectRejectionFromThread(appId) {
