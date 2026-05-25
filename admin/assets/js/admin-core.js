@@ -1096,8 +1096,23 @@ function renderDrawerBody(app) {
 
 function renderTimeline(stages) {
     const visible = stages.filter(s => s.active !== false);
-    return visible.map((s, i) => {
-        const isLast = i === visible.length - 1;
+
+    // Normaliza dados antigos: "Enviado" running → done, e promove próxima etapa para running
+    const normalized = visible.map(s =>
+        (s.name === 'Enviado' && (s.status === 'running' || s.current))
+            ? { ...s, status: 'done', done: true, current: false }
+            : s
+    );
+    const hasRunning = normalized.some(s => stageStatus(s) === 'running');
+    if (!hasRunning) {
+        const lastDoneIdx = [...normalized].map(s => stageStatus(s) === 'done').lastIndexOf(true);
+        if (lastDoneIdx >= 0 && lastDoneIdx < normalized.length - 1) {
+            normalized[lastDoneIdx + 1] = { ...normalized[lastDoneIdx + 1], status: 'running' };
+        }
+    }
+
+    return normalized.map((s, i) => {
+        const isLast = i === normalized.length - 1;
         const st = stageStatus(s);
         let circleClass, lineClass, labelClass, content = '';
 
