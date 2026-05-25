@@ -2805,6 +2805,9 @@
         }
 
         /* ── Parte 5: Modal "Buscar vagas" reorganizado ── */
+        .rsq-modal { padding:0; display:flex; flex-direction:column; max-height:85vh; }
+        .rsq-modal .modal-body { padding:24px; }
+        .rp-chip-disabled { opacity:0.35; cursor:not-allowed; pointer-events:none; }
         .rsq-section { display:flex; flex-direction:column; gap:12px; margin-bottom:14px; }
         .rsq-section-title { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); font-weight:600; margin:0; }
         .rsq-field { display:flex; flex-direction:column; gap:5px; }

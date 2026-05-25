@@ -6986,19 +6986,26 @@ function _rsqKeywords() {
 function _rsqSyncPlatforms(profile) {
     const container = document.getElementById('rsqPlatforms');
     if (!container) return;
+    const VALID = new Set(['linkedin', 'gupy', 'maringa', 'indeed']);
     const allPlats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
     if (!allPlats.length) {
-        // Fallback: lista padrão se perfil não tem search_platforms
         _chipsRender(container, [
             { value: 'linkedin', label: 'LinkedIn' },
             { value: 'gupy',     label: 'Gupy' },
-            { value: 'maringa',  label: 'Maringá' },
+            { value: 'maringa',  label: 'Empregos Maringá' },
             { value: 'indeed',   label: 'Indeed' },
-        ], ['linkedin', 'gupy', 'maringa']);
+        ], ['linkedin', 'gupy', 'maringa', 'indeed']);
         return;
     }
-    _chipsRender(container, allPlats.map(p => ({ value: p.id, label: p.label || p.id })),
-        allPlats.filter(p => p.enabled !== false).map(p => p.id));
+    _chipsRender(container,
+        allPlats.map(p => ({
+            value:    p.id,
+            label:    p.label || p.id,
+            disabled: !VALID.has(p.id),
+            hint:     VALID.has(p.id) ? undefined : 'Em breve',
+        })),
+        allPlats.filter(p => p.enabled !== false && VALID.has(p.id)).map(p => p.id)
+    );
 }
 
 function _rsqStartElapsed(isoDate) {
@@ -7765,6 +7772,11 @@ function _chipsRender(container, items, selected) {
     container.innerHTML = items.map(it => {
         const val = typeof it === 'string' ? it : it.value;
         const lbl = typeof it === 'string' ? it : it.label;
+        const disabled = typeof it === 'object' && it.disabled;
+        if (disabled) {
+            const hint = it.hint ? ` title="${esc(it.hint)}"` : '';
+            return `<button type="button" class="rp-chip rp-chip-disabled" data-value="${esc(val)}" data-selected="false" disabled${hint}>${esc(lbl)}</button>`;
+        }
         return `<button type="button" class="rp-chip" data-value="${esc(val)}" data-selected="${sel.has(val)}" onclick="_chipToggle(this)">${esc(lbl)}</button>`;
     }).join('');
 }
