@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 const BASE_URL = process.env.BASE_URL || 'https://artacho.dev';
 
 // Specs que devem rodar em todos os projetos (incluindo mobile/tablet)
-const ALL_PROJECTS_MATCH = ['**/responsive.spec.js', '**/admin-full.spec.js'];
+const ALL_PROJECTS_MATCH = ['**/responsive.spec.js', '**/admin-full.spec.js', '**/admin-responsive.spec.js'];
 
 export default defineConfig({
   testDir: './tests',
