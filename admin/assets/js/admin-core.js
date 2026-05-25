@@ -7349,6 +7349,15 @@ function renderRadarList(leads) {
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
         const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
+        const FONTE_META = {
+            linkedin:  { icon:'fa-brands fa-linkedin',       label:'LinkedIn' },
+            gupy:      { icon:'fa-solid fa-briefcase',        label:'Gupy' },
+            indeed:    { icon:'fa-solid fa-magnifying-glass', label:'Indeed' },
+            infojobs:  { icon:'fa-solid fa-building',         label:'InfoJobs' },
+            maringa:   { icon:'fa-solid fa-location-dot',     label:'Maringá' },
+        };
+        const fm = FONTE_META[l.fonte] || { icon:'fa-solid fa-globe', label: l.fonte || '' };
+        const fonteBadge = l.fonte ? `<span class="radar-fonte-badge fonte-${esc(l.fonte)}" title="Plataforma: ${fm.label}"><i class="${fm.icon} fa-fw"></i>${fm.label}</span>` : '';
         const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${l.reverse_fit_score}</span>` : '';
         const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${l.alignment_score}</span>` : '';
         const confPct = l.advance_confidence != null ? `<span title="Estimativa de avançar para entrevista" style="font-size:0.62rem;color:${l.advance_confidence>=50?'#4ade80':l.advance_confidence>=25?'#fb923c':'#f87171'};margin-top:1px;display:block;text-align:center">${l.advance_confidence}%</span>` : '';
@@ -7359,7 +7368,7 @@ function renderRadarList(leads) {
             <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}${aln}${confPct}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
-                    <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
+                    ${fonteBadge}<strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
                     <span class="radar-status-tag s-${esc(l.status)}">${esc(l.status)}</span>
                     ${suspBadge}
                 </div>
@@ -7387,6 +7396,19 @@ function _updateRadarFilterBadge() {
     if (_radarModFilter   !== 'all') n++;
     const badge = document.getElementById('radarFiltersBadge');
     if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
+}
+function toggleRadarShowDescartadas() {
+    const cb = document.getElementById('radarShowAll');
+    const btn = document.getElementById('radarShowDescartadasBtn');
+    if (!cb) return;
+    cb.checked = !cb.checked;
+    if (btn) {
+        btn.classList.toggle('active', cb.checked);
+        btn.innerHTML = cb.checked
+            ? '<i class="fa-solid fa-eye"></i> Descartadas'
+            : '<i class="fa-solid fa-eye-slash"></i> Descartadas';
+    }
+    loadRadar();
 }
 function setRadarSearch(val) {
     _radarSearchQuery = (val || '').trim();
