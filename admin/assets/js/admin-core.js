@@ -2007,6 +2007,83 @@ async function saveWeeklyGoals() {
     } catch(e) { showToast(e.message,'error'); }
 }
 
+// ─── TENDÊNCIAS DE MERCADO (N18) ─────────────────────────────
+async function loadTrends() {
+    const el = document.getElementById('trendsContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:32px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=market-trends');
+        const { total_leads, total_apps, conversion_rate_pct, modalidade, status, fit_buckets, top_keywords, monthly_leads, monthly_apps, fonte } = r;
+
+        const kpiCard = (label, val, sub) => `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:var(--cyan)">${val}</div>
+            <div style="font-size:0.72rem;color:var(--text)">${label}</div>
+            ${sub ? `<div style="font-size:0.68rem;color:var(--text-dim)">${sub}</div>` : ''}
+        </div>`;
+
+        const barChart = (data, total) => Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([k,v]) => {
+            const pct = total > 0 ? Math.round(v/total*100) : 0;
+            return `<div style="margin-bottom:6px">
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text);margin-bottom:2px"><span>${esc(k)}</span><span style="color:var(--text-dim)">${v} (${pct}%)</span></div>
+                <div style="height:5px;background:var(--border);border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--cyan);border-radius:3px"></div></div>
+            </div>`;
+        }).join('');
+
+        const topKwHtml = top_keywords.map(kw => `<span style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:0.72rem;color:var(--text)">
+            ${esc(kw.skill)} <span style="color:var(--cyan)">${kw.count}</span>
+        </span>`).join(' ');
+
+        const months = [...new Set([...Object.keys(monthly_leads||{}), ...Object.keys(monthly_apps||{})])].sort();
+        const monthlyHtml = months.length ? months.slice(-6).map(m => {
+            const l = monthly_leads[m] || 0;
+            const a = monthly_apps[m] || { total: 0, aprovado: 0, recusado: 0 };
+            return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
+                <div style="font-size:0.75rem;color:var(--text-dim);min-width:55px">${m}</div>
+                <div style="flex:1">
+                    <div style="font-size:0.75rem;color:var(--text)"><span style="color:var(--cyan)">${l}</span> leads capturados</div>
+                    ${a.total ? `<div style="font-size:0.72rem;color:var(--text-dim)">${a.total} candidaturas · ${a.aprovado} aprovadas · ${a.recusado} recusadas</div>` : ''}
+                </div>
+            </div>`;
+        }).join('') : '<div style="color:var(--text-dim);font-size:0.82rem">Sem dados mensais ainda.</div>';
+
+        el.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+                ${kpiCard('Leads (6 meses)', total_leads, 'Total capturado')}
+                ${kpiCard('Candidaturas', total_apps, 'Total enviadas')}
+                ${kpiCard('Taxa de conversão', conversion_rate_pct !== null ? conversion_rate_pct+'%' : '—', 'Aprovadas / enviadas')}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">Modalidade</div>
+                    ${barChart(modalidade, total_leads)}
+                </div>
+                <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">Fit score</div>
+                    ${barChart(fit_buckets, total_leads)}
+                </div>
+                <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">Status no Radar</div>
+                    ${barChart(status, total_leads)}
+                </div>
+                <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">Fonte</div>
+                    ${barChart(fonte, total_leads)}
+                </div>
+            </div>
+            <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:10px">Top skills nas vagas</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${topKwHtml || '<span style="color:var(--text-dim);font-size:0.82rem">Sem dados ainda.</span>'}</div>
+            </div>
+            <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">Evolução mensal</div>
+                ${monthlyHtml}
+            </div>`;
+    } catch(e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+
 // ─── DIÁRIO DE CARREIRA (N15) ────────────────────────────────
 async function loadJournal() {
     const el = document.getElementById('journalList');
@@ -3277,6 +3354,7 @@ function switchTab(name) {
     if (name === 'inbox') loadInbox();
     if (name === 'rede') loadRede();
     if (name === 'diario') loadJournal();
+    if (name === 'tendencias') loadTrends();
     _scheduleRefresh();
 }
 
@@ -6083,6 +6161,7 @@ const ADMIN_TABS = [
     { key: 'inbox',     label: 'Inbox',           shortLabel: 'Inbox',      icon: 'fa-inbox',          demoEligible: false, mobileOverflow: false },
     { key: 'rede',      label: 'Rede',            shortLabel: 'Rede',       icon: 'fa-people-group',   demoEligible: false, mobileOverflow: true  },
     { key: 'diario',    label: 'Diário',          shortLabel: 'Diário',     icon: 'fa-book-open',      demoEligible: false, mobileOverflow: true  },
+    { key: 'tendencias',label: 'Tendências',      shortLabel: 'Tendências', icon: 'fa-arrow-trend-up', demoEligible: false, mobileOverflow: true  },
     { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true,  mobileOverflow: false },
     { key: 'config',    label: 'Configurar',      shortLabel: 'Config',     icon: 'fa-sliders',        demoEligible: false, mobileOverflow: true  },
     { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true,  mobileOverflow: true  },
@@ -8028,6 +8107,85 @@ function startVoiceMemo(appId) {
             showToast('Thread vinculada','success');
             openEmailThreads(appId);
         } catch(e) { showToast(e.message,'error'); }
+    }
+
+    // ── VOICE COMMANDS (N37) ──────────────────────────────────
+    let _voiceRecog = null;
+    let _voiceActive = false;
+
+    function toggleVoiceCommand() {
+        if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+            showToast('Seu navegador não suporta reconhecimento de voz.','error');
+            return;
+        }
+        if (_voiceActive) {
+            _voiceRecog?.stop();
+            _stopVoice();
+            return;
+        }
+        const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        _voiceRecog = new Rec();
+        _voiceRecog.lang = 'pt-BR';
+        _voiceRecog.interimResults = true;
+        _voiceRecog.maxAlternatives = 1;
+        document.getElementById('voiceOverlay').style.display = 'block';
+        document.getElementById('voiceBtnIcon').style.color = 'var(--cyan)';
+        document.getElementById('voiceBtn').style.background = 'rgba(34,211,238,0.15)';
+        document.getElementById('voiceTranscript').textContent = '';
+        _voiceActive = true;
+
+        _voiceRecog.onresult = (evt) => {
+            const t = evt.results[evt.results.length-1][0].transcript;
+            document.getElementById('voiceTranscript').textContent = t;
+            if (evt.results[evt.results.length-1].isFinal) {
+                _execVoiceCommand(t.toLowerCase().trim());
+            }
+        };
+        _voiceRecog.onerror = _voiceRecog.onend = () => _stopVoice();
+        _voiceRecog.start();
+    }
+
+    function _stopVoice() {
+        _voiceActive = false;
+        document.getElementById('voiceOverlay').style.display = 'none';
+        document.getElementById('voiceBtnIcon').style.color = 'var(--text-dim)';
+        document.getElementById('voiceBtn').style.background = 'var(--bg-soft)';
+    }
+
+    function _execVoiceCommand(cmd) {
+        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const c = norm(cmd);
+        // Navegação entre abas
+        const tabMap = { radar:'radar', inbox:'inbox', vagas:'vagas', curriculos:'cvs', curriculo:'cvs', rede:'rede', diario:'diario', tendencias:'tendencias', metricas:'metricas', configurar:'config', config:'config' };
+        for (const [kw, tab] of Object.entries(tabMap)) {
+            if (c.includes(norm('ir para ' + kw)) || c.includes(norm('abrir ' + kw)) || c === norm(kw)) {
+                showToast('Abrindo ' + kw + '…');
+                switchTab(tab);
+                _stopVoice(); return;
+            }
+        }
+        if (c.includes('nova candidatura') || c.includes('criar candidatura')) {
+            switchTab('vagas');
+            setTimeout(() => openNovaVaga?.(), 300);
+            _stopVoice(); return;
+        }
+        if (c.includes('atualizar') || c.includes('recarregar')) {
+            manualRefresh();
+            showToast('Atualizando…');
+            _stopVoice(); return;
+        }
+        if (c.includes('sair') || c.includes('logout')) {
+            logout?.();
+            _stopVoice(); return;
+        }
+        showToast('Comando não reconhecido: "' + cmd + '"');
+        _stopVoice();
+    }
+
+    // Exibe botão de voz se API disponível
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        const btn = document.getElementById('voiceBtn');
+        if (btn) btn.style.display = 'flex';
     }
 
 })();

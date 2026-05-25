@@ -1709,6 +1709,81 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── market-trends (N18) ───────────────────────────────────────
+    if (req.query.__h === 'market-trends') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+        const since = new Date(); since.setMonth(since.getMonth() - 6);
+        const [radarRes, appsRes] = await Promise.allSettled([
+            supabase.from('vaga_radar').select('status,fit_score,modalidade,tipo_contratacao,nivel,fonte,created_at,faixa_salarial,keywords_match').gte('created_at', since.toISOString()),
+            supabase.from('job_applications').select('result,created_at,empresa,stages').gte('created_at', since.toISOString()),
+        ]);
+
+        const leads = radarRes.status === 'fulfilled' ? (radarRes.value.data ?? []) : [];
+        const apps  = appsRes.status === 'fulfilled'  ? (appsRes.value.data  ?? []) : [];
+
+        // Modalidade distribution
+        const modalidade = {};
+        leads.forEach(l => { const k = l.modalidade || 'Não informado'; modalidade[k] = (modalidade[k]||0)+1; });
+
+        // Status distribution
+        const status = {};
+        leads.forEach(l => { const k = l.status || 'novo'; status[k] = (status[k]||0)+1; });
+
+        // Fit score buckets
+        const fitBuckets = { '0-4': 0, '5-6': 0, '7-8': 0, '9-10': 0 };
+        leads.forEach(l => {
+            const s = l.fit_score || 0;
+            if (s <= 4) fitBuckets['0-4']++;
+            else if (s <= 6) fitBuckets['5-6']++;
+            else if (s <= 8) fitBuckets['7-8']++;
+            else fitBuckets['9-10']++;
+        });
+
+        // Top keywords
+        const kwFreq = {};
+        leads.forEach(l => (l.keywords_match || []).forEach(k => { kwFreq[k] = (kwFreq[k]||0)+1; }));
+        const topKeywords = Object.entries(kwFreq).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([k,v])=>({ skill: k, count: v }));
+
+        // Leads per month
+        const monthlyLeads = {};
+        leads.forEach(l => { const m = l.created_at?.slice(0,7); if (m) monthlyLeads[m] = (monthlyLeads[m]||0)+1; });
+
+        // Apps per month + results
+        const monthlyApps = {};
+        apps.forEach(a => {
+            const m = a.created_at?.slice(0,7);
+            if (!m) return;
+            if (!monthlyApps[m]) monthlyApps[m] = { total: 0, aprovado: 0, recusado: 0 };
+            monthlyApps[m].total++;
+            if (a.result === 'aprovado') monthlyApps[m].aprovado++;
+            if (a.result === 'recusado') monthlyApps[m].recusado++;
+        });
+
+        // Fonte distribution
+        const fonte = {};
+        leads.forEach(l => { const k = l.fonte || 'manual'; fonte[k] = (fonte[k]||0)+1; });
+
+        // Conversion rate
+        const concluded = apps.filter(a => a.result && a.result !== 'em_processo');
+        const advanced  = apps.filter(a => a.result === 'aprovado');
+        const convRate  = concluded.length > 0 ? Math.round(advanced.length / apps.length * 100) : null;
+
+        return res.status(200).json({
+            total_leads: leads.length,
+            total_apps:  apps.length,
+            conversion_rate_pct: convRate,
+            modalidade,
+            status,
+            fit_buckets: fitBuckets,
+            top_keywords: topKeywords,
+            monthly_leads: monthlyLeads,
+            monthly_apps: monthlyApps,
+            fonte,
+            period_months: 6,
+        });
+    }
+
     // ── career-journal (N15) ──────────────────────────────────────
     if (req.query.__h === 'career-journal') {
         if (req.method === 'GET') {
