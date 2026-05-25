@@ -16,6 +16,7 @@ test.beforeAll(async ({ browser }) => {
     await pg.goto('/admin', { waitUntil: 'domcontentloaded' });
     await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
     await pg.locator('#loginPassword').fill(ADMIN_PASS);
+    await pg.waitForTimeout(1000); // fillMs >= 800ms (bot-detection guard)
     await pg.locator('#loginBtn').click();
     await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 15000 });
     _savedCookies = await ctx.cookies();
@@ -27,13 +28,12 @@ test.beforeAll(async ({ browser }) => {
 });
 
 async function injectAndGoto(page) {
-  if (_savedCookies?.length) {
-    await page.context().addCookies(_savedCookies);
+  if (!_savedCookies?.length) {
+    test.skip(true, 'ADMIN_EMAIL / ADMIN_PASSWORD não definidos — skip de todos os testes autenticados');
   }
+  await page.context().addCookies(_savedCookies);
   await page.goto('/admin', { waitUntil: 'domcontentloaded' });
-  if (_savedCookies?.length) {
-    await page.waitForSelector('.app-logout', { state: 'visible', timeout: 12000 });
-  }
+  await page.waitForSelector('.app-logout', { state: 'visible', timeout: 12000 });
 }
 
 function vp(page) { return page.viewportSize()?.width ?? 1280; }
