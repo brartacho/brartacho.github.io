@@ -7293,6 +7293,7 @@ async function saveQuickSearches(btn) {
 }
 
 let _radarLeads = [];
+let _radarSearchQuery = '';
 let _radarMinScore = 0;
 let _radarFonteFilter = 'all';
 let _radarModFilter   = 'all';
@@ -7310,6 +7311,17 @@ function renderRadarList(leads) {
 
     // Apply filters
     let filtered = leads;
+    if (_radarSearchQuery) {
+        const q = _radarSearchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        filtered = filtered.filter(l => {
+            const haystack = [
+                l.empresa, l.vaga, l.fonte, l.link_vaga,
+                l.descricao, l.modalidade, l.tipo_contratacao, l.nivel,
+                ...(l.keywords_match || []), ...(l.gaps || []),
+            ].filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            return haystack.includes(q);
+        });
+    }
     if (_radarMinScore > 0) filtered = filtered.filter(l => (l.fit_score ?? 0) >= _radarMinScore);
     if (_radarFonteFilter !== 'all') filtered = filtered.filter(l => (l.fonte || '') === _radarFonteFilter);
     if (_radarModFilter !== 'all') filtered = filtered.filter(l => (l.modalidade || '') === _radarModFilter);
@@ -7375,6 +7387,20 @@ function _updateRadarFilterBadge() {
     if (_radarModFilter   !== 'all') n++;
     const badge = document.getElementById('radarFiltersBadge');
     if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
+}
+function setRadarSearch(val) {
+    _radarSearchQuery = (val || '').trim();
+    const clearBtn = document.getElementById('radarSearchClearBtn');
+    if (clearBtn) clearBtn.style.display = _radarSearchQuery ? '' : 'none';
+    renderRadarList(_radarLeads);
+}
+function clearRadarSearch() {
+    _radarSearchQuery = '';
+    const inp = document.getElementById('radarSearchInput');
+    if (inp) inp.value = '';
+    const clearBtn = document.getElementById('radarSearchClearBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderRadarList(_radarLeads);
 }
 
 // ── Filter / sort helpers ──

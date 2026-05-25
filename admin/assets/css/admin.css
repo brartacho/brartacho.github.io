@@ -2656,6 +2656,25 @@
             .radar-profile-grid, .radar-add-grid { grid-template-columns:1fr; }
         }
 
+        /* ── Radar search bar ── */
+        .radar-search-row { margin:10px 0 6px; }
+        .radar-search-wrap { position:relative; display:flex; align-items:center; }
+        .radar-search-icon { position:absolute; left:10px; color:var(--text-dim); font-size:0.8rem; pointer-events:none; }
+        .radar-search-input {
+            width:100%; padding:7px 32px 7px 32px; border:1px solid var(--border);
+            border-radius:6px; background:var(--bg-soft); color:var(--text);
+            font-family:inherit; font-size:0.83rem; outline:none;
+            transition:border-color .15s; box-sizing:border-box;
+        }
+        .radar-search-input:focus { border-color:var(--cyan-mid); }
+        .radar-search-input::placeholder { color:var(--text-dim); }
+        .radar-search-clear {
+            position:absolute; right:8px; background:none; border:none;
+            color:var(--text-dim); cursor:pointer; padding:4px; line-height:1;
+            font-size:0.8rem;
+        }
+        .radar-search-clear:hover { color:var(--text); }
+
         /* ── Radar filter panel (colapsável) ── */
         #radarFiltersPanel { overflow:hidden; max-height:200px; opacity:1; transition:max-height 0.25s ease, opacity 0.18s ease; }
         #radarFiltersPanel.collapsed { max-height:0; opacity:0; }
