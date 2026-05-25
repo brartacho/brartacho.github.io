@@ -1441,6 +1441,52 @@
                     <div id="vaultDocsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
                 </div>
 
+                <!-- Compass de valores (N42) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-compass" style="color:var(--cyan);margin-right:6px"></i> Compass de valores</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveValuesWeights()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 14px;line-height:1.6">Defina o peso de cada valor na pontuação de alinhamento das vagas. Total deve somar 100%.</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">💰 Salário (%)</label>
+                            <input id="vwSalario" type="number" min="0" max="100" value="30" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">🌱 WLB / qualidade de vida (%)</label>
+                            <input id="vwWlb" type="number" min="0" max="100" value="20" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">🚀 Crescimento (%)</label>
+                            <input id="vwGrowth" type="number" min="0" max="100" value="20" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">🎯 Propósito / impacto (%)</label>
+                            <input id="vwProposito" type="number" min="0" max="100" value="10" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">🛡 Segurança (%)</label>
+                            <input id="vwSeguranca" type="number" min="0" max="100" value="10" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">🧭 Autonomia (%)</label>
+                            <input id="vwAutonomia" type="number" min="0" max="100" value="10" class="mock-input" style="padding:5px 8px" oninput="updateValuesTotal()">
+                        </div>
+                    </div>
+                    <div id="valuesTotalIndicator" style="font-size:0.78rem;color:var(--text-dim)">Total: 100%</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">Salário mínimo esperado (R$)</label>
+                            <input id="expSalaryMin" type="number" min="0" max="100000" step="500" placeholder="Ex: 8000" class="mock-input" style="padding:5px 8px">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-soft);display:block;margin-bottom:4px">Salário máximo esperado (R$)</label>
+                            <input id="expSalaryMax" type="number" min="0" max="100000" step="500" placeholder="Ex: 12000" class="mock-input" style="padding:5px 8px">
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

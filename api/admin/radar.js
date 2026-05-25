@@ -8,7 +8,7 @@
 import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
-import { scoreVaga, detectSuspiciousFlags, computeReverseFit } from '../_lib/scoring.js';
+import { scoreVaga, detectSuspiciousFlags, computeReverseFit, computeAlignmentScore } from '../_lib/scoring.js';
 import { isConfigured, analyze, providerInfo } from '../_lib/ai-provider.js';
 import { buildAnalysisPrompt, parseAnalysisJson } from '../_lib/radar-prompt.js';
 
@@ -384,6 +384,8 @@ export default async function handler(req, res) {
             modalidade: b.modalidade || null,
             tipo_contratacao: b.tipo_contratacao || null,
             nivel: clean(b.nivel, TEXT_MAX.nivel),
+            nivel_alvo: b.nivel_alvo ? clean(b.nivel_alvo, 50) : null,
+            faixa_salarial: b.faixa_salarial ? clean(b.faixa_salarial, 100) : null,
             requires_cnh: clean(b.requires_cnh, TEXT_MAX.requires_cnh),
         };
 
@@ -399,6 +401,9 @@ export default async function handler(req, res) {
         const rev = computeReverseFit(lead, profile);
         lead.reverse_fit_score = rev.score;
         lead.reverse_fit_breakdown = rev;
+        const aln = computeAlignmentScore(lead, profile);
+        lead.alignment_score = aln.score;
+        lead.alignment_breakdown = aln;
 
         const { data, error } = await supabase.from('vaga_radar').insert(lead).select().single();
         if (error) return res.status(500).json({ error: error.message });

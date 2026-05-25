@@ -205,6 +205,60 @@ export function computeReverseFit(vaga = {}, profile = {}) {
 }
 
 /**
+ * N42 — Alinhamento de valores: quanto a vaga alinha com os valores do candidato.
+ * @param {object} vaga    { modalidade, tipo_contratacao, faixa_salarial, fit_score, descricao }
+ * @param {object} profile { values_weights, modalidade_pref, expected_salary_min, expected_salary_max,
+ *                           setores, contratacao_pref }
+ * @returns {{ score: number, breakdown: object }}
+ */
+export function computeAlignmentScore(vaga = {}, profile = {}) {
+    const weights = Object.assign({
+        salario: 0.30, proposito: 0.10, wlb: 0.20,
+        growth: 0.20, seguranca: 0.10, autonomia: 0.10,
+    }, profile.values_weights || {});
+
+    const desc = norm(String(vaga.descricao || '') + ' ' + String(vaga.vaga || ''));
+    const breakdown = {};
+
+    // Salário — quanto da faixa anunciada cobre a expectativa
+    const fs = String(vaga.faixa_salarial || '');
+    const nums = [...fs.matchAll(/[\d.,]+/g)].map(m => parseFloat(m[0].replace(',','.')));
+    const salMax = nums[1] || nums[0] || 0;
+    const expMin = profile.expected_salary_min || 0;
+    breakdown.salario = !salMax || !expMin ? 0.5 : salMax >= expMin ? Math.min(1, salMax / expMin * 0.7 + 0.3) : salMax / expMin;
+
+    // WLB — presença de keywords de qualidade de vida
+    const wlbKws = ['flexivel','flex','remoto','home office','work from home','saude','bem-estar','wellbeing','folga'];
+    breakdown.wlb = wlbKws.filter(k => desc.includes(k)).length >= 2 ? 0.9 :
+                    wlbKws.some(k => desc.includes(k)) ? 0.65 : 0.4;
+    if (vaga.modalidade === 'Remota') breakdown.wlb = Math.max(breakdown.wlb, 0.85);
+
+    // Propósito — setor ou keywords de impacto
+    const propKws = ['impacto','proposito','sustentavel','social','educacao','saude','fintech','govtech'];
+    const setores = arr(profile.setores).map(s => norm(s));
+    const vagaSetorMatch = setores.some(s => desc.includes(s));
+    breakdown.proposito = vagaSetorMatch ? 0.9 : propKws.some(k => desc.includes(k)) ? 0.7 : 0.5;
+
+    // Crescimento — menção a desenvolvimento profissional
+    const growthKws = ['desenvolvimento','carreira','treinamento','mentoria','grow','learning','evolucao','certificado'];
+    breakdown.growth = growthKws.filter(k => desc.includes(k)).length >= 2 ? 0.85 :
+                       growthKws.some(k => desc.includes(k)) ? 0.65 : 0.45;
+
+    // Segurança — empresa sólida (não temos dados diretos, usa fit_score como proxy)
+    const fs2 = vaga.fit_score || 0;
+    breakdown.seguranca = fs2 >= 7 ? 0.8 : fs2 >= 5 ? 0.65 : 0.5;
+
+    // Autonomia — keywords de autonomia/liderança técnica
+    const autoKws = ['autonomia','lideranca','self-managed','tech lead','squad','ownership','decisao'];
+    breakdown.autonomia = autoKws.some(k => desc.includes(k)) ? 0.8 : 0.55;
+
+    const total = Object.entries(weights).reduce((sum, [k, w]) => sum + (breakdown[k] || 0.5) * w, 0);
+    const score = Math.max(0, Math.min(10, Math.round(total * 10)));
+
+    return { score, breakdown };
+}
+
+/**
  * Detecta flags de qualidade/suspeita em um lead.
  * @param {{ vaga: string, descricao: string, created_at: string, faixa_salarial: string }} vaga
  * @returns {string[]}  array de flag codes

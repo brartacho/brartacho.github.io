@@ -1422,7 +1422,7 @@ Retorne JSON com:
         if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
 
         const [appRes, interviewRes, notesRes, qaRes, profileRes, starsRes] = await Promise.allSettled([
-            supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel_alvo, modalidade, faixa_salarial, descricao_vaga)').eq('id', application_id).single(),
+            supabase.from('job_applications').select('*, vaga_radar(fit_score, gaps, suspicious_flags, nivel, nivel_alvo, modalidade, faixa_salarial, descricao)').eq('id', application_id).single(),
             supabase.from('interview_sessions').select('*').eq('application_id', application_id).eq('status', 'planned').gte('interview_at', new Date().toISOString()).order('interview_at').limit(1),
             supabase.from('context_notes').select('*').eq('application_id', application_id).order('created_at', { ascending: false }).limit(5),
             supabase.from('interview_qa').select('question,answer,category,difficulty').order('use_count', { ascending: false }).limit(10),
@@ -1705,6 +1705,29 @@ Retorne JSON com:
             const nextTouch = new Date(); nextTouch.setMonth(nextTouch.getMonth() + freqMonths);
             await supabase.from('contacts').update({ last_contact_at: new Date().toISOString(), last_contact_via: channel || null, next_touch_at: nextTouch.toISOString(), updated_at: new Date().toISOString() }).eq('id', contact_id);
             return res.status(201).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── values-weights (N42) ──────────────────────────────────────
+    if (req.query.__h === 'values-weights') {
+        if (req.method === 'GET') {
+            const { data: prof } = await supabase.from('candidate_profile').select('values_weights,expected_salary_min,expected_salary_max').single();
+            return res.status(200).json({
+                weights: prof?.values_weights || { salario: 0.30, proposito: 0.10, wlb: 0.20, growth: 0.20, seguranca: 0.10, autonomia: 0.10 },
+                expected_salary_min: prof?.expected_salary_min || null,
+                expected_salary_max: prof?.expected_salary_max || null,
+            });
+        }
+        if (req.method === 'PUT') {
+            const { weights, expected_salary_min, expected_salary_max } = req.body || {};
+            const patch = { updated_at: new Date().toISOString() };
+            if (weights && typeof weights === 'object') patch.values_weights = weights;
+            if (expected_salary_min != null) patch.expected_salary_min = Math.max(0, parseInt(expected_salary_min, 10) || 0);
+            if (expected_salary_max != null) patch.expected_salary_max = Math.max(0, parseInt(expected_salary_max, 10) || 0);
+            const { error } = await supabase.from('candidate_profile').update(patch).not('id', 'is', null);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
         }
         return res.status(405).json({ error: 'Method not allowed' });
     }

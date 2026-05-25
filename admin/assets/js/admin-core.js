@@ -1714,7 +1714,7 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts(), loadStarStories(), loadNotificationSettings()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts(), loadStarStories(), loadNotificationSettings(), loadValuesWeights()]);
 }
 
 // ─── HISTÓRIAS STAR (N6) ──────────────────────────────────────
@@ -2004,6 +2004,50 @@ async function saveWeeklyGoals() {
         await apiFetch('/api/admin/applications?__h=weekly-goals', { method:'PUT', body: JSON.stringify({ candidaturas_semana: cand, followups_semana: fup }) });
         showToast('Meta semanal salva');
         loadWeeklyGoals();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── COMPASS DE VALORES (N42) ────────────────────────────────
+async function loadValuesWeights() {
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=values-weights');
+        const w = r.weights || {};
+        const m = { salario: 'vwSalario', wlb: 'vwWlb', growth: 'vwGrowth', proposito: 'vwProposito', seguranca: 'vwSeguranca', autonomia: 'vwAutonomia' };
+        for (const [k, id] of Object.entries(m)) {
+            const el = document.getElementById(id);
+            if (el && w[k] !== undefined) el.value = Math.round((w[k] || 0) * 100);
+        }
+        if (r.expected_salary_min && document.getElementById('expSalaryMin')) document.getElementById('expSalaryMin').value = r.expected_salary_min;
+        if (r.expected_salary_max && document.getElementById('expSalaryMax')) document.getElementById('expSalaryMax').value = r.expected_salary_max;
+        updateValuesTotal();
+    } catch(e) { /* silencioso */ }
+}
+
+function updateValuesTotal() {
+    const ids = ['vwSalario','vwWlb','vwGrowth','vwProposito','vwSeguranca','vwAutonomia'];
+    const total = ids.reduce((s, id) => s + (parseInt(document.getElementById(id)?.value)||0), 0);
+    const ind = document.getElementById('valuesTotalIndicator');
+    if (!ind) return;
+    const ok = total === 100;
+    ind.textContent = `Total: ${total}%${ok ? ' ✓' : ' ⚠ deve somar 100%'}`;
+    ind.style.color = ok ? '#4ade80' : '#fb923c';
+}
+
+async function saveValuesWeights() {
+    const ids = ['vwSalario','vwWlb','vwGrowth','vwProposito','vwSeguranca','vwAutonomia'];
+    const keys = ['salario','wlb','growth','proposito','seguranca','autonomia'];
+    const total = ids.reduce((s, id) => s + (parseInt(document.getElementById(id)?.value)||0), 0);
+    if (total !== 100) { showToast('Os pesos devem somar 100%.','error'); return; }
+    const weights = {};
+    ids.forEach((id, i) => { weights[keys[i]] = (parseInt(document.getElementById(id)?.value)||0) / 100; });
+    const body = {
+        weights,
+        expected_salary_min: parseInt(document.getElementById('expSalaryMin')?.value)||null,
+        expected_salary_max: parseInt(document.getElementById('expSalaryMax')?.value)||null,
+    };
+    try {
+        await apiFetch('/api/admin/applications?__h=values-weights', { method:'PUT', body: JSON.stringify(body) });
+        showToast('Compass de valores salvo.');
     } catch(e) { showToast(e.message,'error'); }
 }
 
@@ -6521,11 +6565,12 @@ function renderRadarList(leads) {
         const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
         const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${l.reverse_fit_score}</span>` : '';
+        const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${l.alignment_score}</span>` : '';
         const isSelected = _radarSelected.has(l.id);
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
         return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
             ${_radarSelecting ? `<input type="checkbox" class="radar-row-check" ${isSelected ? 'checked' : ''} onchange="toggleRadarSelect('${l.id}')" style="margin:8px;align-self:center" onclick="event.stopPropagation()">` : ''}
-            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}</div>
+            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}${aln}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
                     <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
