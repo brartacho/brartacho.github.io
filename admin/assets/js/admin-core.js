@@ -313,6 +313,39 @@ async function api(method, path, body, auth = true) {
     return data;
 }
 
+// Wrapper fetch com assinatura nativa (url, opts?) + auth + demo mode
+async function apiFetch(url, opts = {}) {
+    const cfg = window.ADMIN_CONFIG || { mode: 'prod', apiBase: '/api/admin' };
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    const fetchOpts = { method: opts.method || 'GET', headers };
+    if (opts.body !== undefined) fetchOpts.body = opts.body;
+
+    if (cfg.mode === 'demo') {
+        const base = cfg.apiBase || '/api/demo';
+        url = url.replace(/^\/api\/admin/, base);
+        const sid = (typeof cfg.getSessionId === 'function')
+            ? cfg.getSessionId()
+            : sessionStorage.getItem(cfg.sessionKey || 'demo_session_id');
+        if (sid) headers['X-Demo-Session'] = sid;
+    } else {
+        fetchOpts.credentials = 'include';
+    }
+
+    const r = await fetch(url, fetchOpts);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+        if (r.status === 401) {
+            clearInterval(_sessionRefreshTimer);
+            clearTimeout(_refreshTimer);
+            _lastRefreshAt = null;
+            _showLoginScreen();
+            throw new Error('Sessão encerrada. Faça login novamente.');
+        }
+        throw new Error(data.error || `HTTP ${r.status}`);
+    }
+    return data;
+}
+
 // ─── HELPERS DE UI ASYNC ──────────────────────────────────
 // Botão fica desabilitado + spinner girando + label trocada durante a operação
 async function withLoading(btn, asyncFn, loadingLabel = 'Processando…') {
@@ -6661,7 +6694,7 @@ const ADMIN_TABS = [
     { key: 'cvs',       label: 'Currículos',      shortLabel: 'Currículos', icon: 'fa-file-pdf',       demoEligible: true,  mobileOverflow: false },
     { key: 'tokens',    label: 'Tokens',          shortLabel: 'Tokens',     icon: 'fa-key',            demoEligible: true,  mobileOverflow: true  },
     { key: 'logs',      label: 'Logs',            shortLabel: 'Logs',       icon: 'fa-chart-bar',      demoEligible: true,  mobileOverflow: true  },
-    { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true,  mobileOverflow: false },
+    { key: 'vagas',     label: 'Vagas',           shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true,  mobileOverflow: false },
     { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true,  mobileOverflow: false },
     { key: 'inbox',     label: 'Inbox',           shortLabel: 'Inbox',      icon: 'fa-inbox',          demoEligible: false, mobileOverflow: false },
     { key: 'rede',      label: 'Rede',            shortLabel: 'Rede',       icon: 'fa-people-group',   demoEligible: false, mobileOverflow: true  },
@@ -8884,5 +8917,18 @@ function startVoiceMemo(appId) {
         const btn = document.getElementById('voiceBtn');
         if (btn) btn.style.display = 'flex';
     }
+
+    // Expõe funções do IIFE ao escopo global (necessário para onclick e switchTab)
+    Object.assign(window, {
+        loadInbox, dismissInboxItem, snoozeInboxItem,
+        loadRede, filterContacts, openContactForm, closeContactForm,
+        saveContact, deleteContact, logInteractionModal, gerarMensagemContato,
+        openBriefing, showAdvanceConfidence,
+        openVaultUpload, closeVaultUpload, uploadVaultDoc,
+        loadVault, downloadVaultDoc, deleteVaultDoc,
+        openEmailThreads, linkEmailThread,
+        generateAvailability, detectRejectionFromThread,
+        toggleVoiceCommand,
+    });
 
 })();
