@@ -7208,11 +7208,12 @@ function renderRadarList(leads) {
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
         const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${l.reverse_fit_score}</span>` : '';
         const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${l.alignment_score}</span>` : '';
+        const confPct = l.advance_confidence != null ? `<span title="Estimativa de avançar para entrevista" style="font-size:0.62rem;color:${l.advance_confidence>=50?'#4ade80':l.advance_confidence>=25?'#fb923c':'#f87171'};margin-top:1px;display:block;text-align:center">${l.advance_confidence}%</span>` : '';
         const isSelected = _radarSelected.has(l.id);
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
         return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
             ${_radarSelecting ? `<input type="checkbox" class="radar-row-check" ${isSelected ? 'checked' : ''} onchange="toggleRadarSelect('${l.id}')" style="margin:8px;align-self:center" onclick="event.stopPropagation()">` : ''}
-            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}${aln}</div>
+            <div class="radar-score badge-${b.cls}"><span class="rs-num">${b.num}</span>${b.tier ? `<span class="rs-tier">${b.tier}</span>` : ''}${revFit}${aln}${confPct}</div>
             <div class="radar-lead-body">
                 <div class="radar-lead-head">
                     <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
@@ -7563,11 +7564,14 @@ async function restoreRadar(id) {
 // Parte 6: botões condicionais por status do lead
 function _renderLeadActions(l) {
     const id = l.id;
+    const empresa = encodeURIComponent(l.empresa || '');
     const analyze = `<button class="btn btn-sm" onclick="analyzeRadar('${id}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisar</button>`;
+    const intelBtn = l.empresa ? `<button class="btn btn-sm" onclick="showCompanyIntel('${id}','${esc(l.empresa)}')" title="Validar empresa (Receita Federal + red flags)"><i class="fa-solid fa-building-magnifying-glass"></i> Empresa</button>` : '';
     let extra = '';
     if (l.status === 'novo' || l.status === 'avaliada') {
         extra = `
             <button class="btn btn-sm" onclick="adaptarCvRadar('${id}')"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV</button>
+            ${intelBtn}
             <button class="btn btn-cyan btn-sm" onclick="promoteRadar('${id}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover</button>
             <button class="btn btn-sm" onclick="discardRadar('${id}')" title="Marcar como descartada (reversível)"><i class="fa-solid fa-ban"></i> Descartar</button>
         `;
@@ -7578,10 +7582,49 @@ function _renderLeadActions(l) {
         `;
     } else if (l.status === 'promovida') {
         extra = `
+            ${intelBtn}
             <button class="btn btn-danger btn-sm" onclick="deleteRadar('${id}')" title="Excluir permanentemente — não pode ser desfeito"><i class="fa-solid fa-trash-can"></i> Excluir</button>
         `;
     }
     return `<div class="radar-lead-actions">${analyze}${extra}</div>`;
+}
+
+async function showCompanyIntel(leadId, empresa) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML = `<div style="max-width:500px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+            <h4 style="margin:0;font-size:0.95rem;color:var(--text)"><i class="fa-solid fa-building-magnifying-glass" style="color:var(--cyan);margin-right:6px"></i>${esc(empresa)}</h4>
+            <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="companyIntelBody" style="font-size:0.82rem;color:var(--text-soft)"><i class="fa-solid fa-circle-notch fa-spin" style="color:var(--cyan)"></i> Buscando...</div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    try {
+        const r = await apiFetch(`/api/admin/applications?__h=company-intel&empresa=${encodeURIComponent(empresa)}`);
+        const intel = r.intel || {};
+        const body = document.getElementById('companyIntelBody');
+        if (!body) return;
+        const flags = Array.isArray(intel.red_flags) ? intel.red_flags : [];
+        const flagsHtml = flags.length
+            ? `<div style="margin-top:10px;padding:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:6px;font-size:0.78rem;color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Red flags:</strong> ${flags.map(f=>esc(f)).join(', ')}</div>`
+            : `<div style="margin-top:10px;padding:8px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:6px;font-size:0.78rem;color:#4ade80"><i class="fa-solid fa-check-circle"></i> Nenhum red flag detectado</div>`;
+        body.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                <div><span style="color:var(--text-dim)">Status CNPJ:</span> <strong>${esc(intel.situacao||'N/D')}</strong></div>
+                <div><span style="color:var(--text-dim)">Abertura:</span> <strong>${intel.date_abertura ? new Date(intel.date_abertura).toLocaleDateString('pt-BR') : 'N/D'}</strong></div>
+                <div><span style="color:var(--text-dim)">CNPJ:</span> <strong>${esc(intel.cnpj||'N/D')}</strong></div>
+                <div><span style="color:var(--text-dim)">Fonte:</span> <strong>${esc(r.source||'api')}</strong></div>
+            </div>
+            ${flagsHtml}
+            ${intel.fetch_status === 'partial' ? '<div style="margin-top:8px;font-size:0.72rem;color:var(--text-dim)">* Dados parciais — API da Receita Federal pode estar indisponível.</div>' : ''}
+        `;
+    } catch(e) {
+        const body = document.getElementById('companyIntelBody');
+        if (body) body.innerHTML = `<div style="color:#f87171">${esc(e.message)}</div>`;
+    }
 }
 
 // ── Helpers compartilhados: chips, tag-input, CNH toggle ──
