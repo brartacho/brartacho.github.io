@@ -8949,11 +8949,7 @@ function startVoiceMemo(appId) {
         _stopVoice();
     }
 
-    // Exibe botão de voz se API disponível
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        const btn = document.getElementById('voiceBtn');
-        if (btn) btn.style.display = 'flex';
-    }
+    // Botão de voz desativado (N37) — reativar quando mic estiver funcional
 
     // Expõe funções do IIFE ao escopo global (necessário para onclick e switchTab)
     Object.assign(window, {
