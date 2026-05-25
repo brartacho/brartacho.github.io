@@ -1396,16 +1396,15 @@ Retorne JSON com:
 
         // Coleta gaps de vagas recentes do radar
         const { data: leads } = await supabase.from('vaga_radar')
-            .select('gaps,skills_required')
-            .gte('created_at', since)
-            .not('gaps', 'is', null);
+            .select('gaps,keywords_match')
+            .gte('created_at', since);
 
         // Conta frequência de cada gap/skill
         const freq = {};
         for (const lead of leads || []) {
             const items = [
-                ...(Array.isArray(lead.gaps) ? lead.gaps : (lead.gaps || '').split(/[,;]+/)),
-                ...(Array.isArray(lead.skills_required) ? lead.skills_required : (lead.skills_required || '').split(/[,;]+/)),
+                ...(Array.isArray(lead.gaps) ? lead.gaps : typeof lead.gaps === 'string' ? lead.gaps.split(/[,;]+/) : []),
+                ...(Array.isArray(lead.keywords_match) ? lead.keywords_match : typeof lead.keywords_match === 'string' ? lead.keywords_match.split(/[,;]+/) : []),
             ].map(s => s?.trim().toLowerCase()).filter(s => s && s.length > 1 && s.length < 60);
             for (const skill of items) freq[skill] = (freq[skill] || 0) + 1;
         }
