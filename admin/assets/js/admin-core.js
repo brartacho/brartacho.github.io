@@ -7905,7 +7905,7 @@ function renderKanban(apps) {
         const colKey = col.toLowerCase().replace(/\s+/g, '-');
         return `<div class="kanban-col" data-col="${esc(col)}">
             <div class="kanban-col-header">
-                <span>${esc(col)}</span>
+                <span title="${esc(col)}">${esc(col)}</span>
                 <span class="kanban-col-count">${items.length}</span>
             </div>
             <div class="kanban-cards" id="kcol-${esc(colKey)}">
