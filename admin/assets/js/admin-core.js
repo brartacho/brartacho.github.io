@@ -7915,30 +7915,36 @@ function renderKanban(apps) {
 
     const active = apps.filter(a => !a.archived);
 
-    // Calcula o máximo de etapas entre todas as vagas (mínimo 5, máximo 9)
-    const maxStages = active.reduce((max, app) => {
+    // Índice 0 = "Enviado" (etapa zero). Colunas numéricas começam no índice 1.
+    // Calcula max de etapas descontando o Enviado (mínimo 4, máximo 8 colunas numeradas)
+    const maxProcessStages = active.reduce((max, app) => {
         const stages = normalizeStages(app.stages || []);
-        return Math.max(max, stages.length);
-    }, 5);
-    const numCols = Math.min(maxStages, 9);
+        return Math.max(max, Math.max(0, stages.length - 1));
+    }, 4);
+    const numStageCols = Math.min(maxProcessStages, 8);
 
     const ordinal = n => n + 'ª';
-    const STAGE_COLS = Array.from({ length: numCols }, (_, i) => `${ordinal(i + 1)} Etapa`);
-    const COLS = [...STAGE_COLS, 'Recusado', 'Aprovado'];
+    const STAGE_COLS = Array.from({ length: numStageCols }, (_, i) => `${ordinal(i + 1)} Etapa`);
+    const COLS = ['Enviado', ...STAGE_COLS, 'Recusado', 'Aprovado'];
 
     const getStageInfo = app => {
         if (app.result === 'recusado') return { col: 'Recusado', stageName: null };
         if (app.result === 'aprovado') return { col: 'Aprovado', stageName: null };
         const normalized = normalizeStages(app.stages || []);
         const runningIdx = normalized.findIndex(s => stageStatus(s) === 'running');
-        if (runningIdx >= 0) {
-            return { col: STAGE_COLS[Math.min(runningIdx, numCols - 1)], stageName: normalized[runningIdx].name };
+        if (runningIdx === 0) return { col: 'Enviado', stageName: null };
+        if (runningIdx > 0) {
+            const col = STAGE_COLS[Math.min(runningIdx - 1, numStageCols - 1)];
+            return { col, stageName: normalized[runningIdx].name };
         }
+        // sem running: olha última etapa done
         const lastDoneIdx = [...normalized].map((s, i) => stageStatus(s) === 'done' ? i : -1).filter(i => i >= 0).pop() ?? -1;
-        if (lastDoneIdx >= 0) {
-            return { col: STAGE_COLS[Math.min(lastDoneIdx, numCols - 1)], stageName: normalized[lastDoneIdx].name };
+        if (lastDoneIdx === 0) return { col: 'Enviado', stageName: null };
+        if (lastDoneIdx > 0) {
+            const col = STAGE_COLS[Math.min(lastDoneIdx - 1, numStageCols - 1)];
+            return { col, stageName: normalized[lastDoneIdx].name };
         }
-        return { col: STAGE_COLS[0], stageName: normalized[0]?.name || null };
+        return { col: 'Enviado', stageName: null };
     };
 
     const byCol = {};
