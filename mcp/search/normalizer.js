@@ -2,9 +2,9 @@
 // Todas as plataformas convertem seus resultados para este shape antes de ingest.
 
 const MODALIDADE_MAP = {
-    remoto: 'Remota', remote: 'Remota', 'home office': 'Remota', homeoffice: 'Remota',
-    hibrido: 'Híbrida', híbrido: 'Híbrida', hybrid: 'Híbrida',
-    presencial: 'Presencial', 'on-site': 'Presencial', onsite: 'Presencial',
+    remoto: 'Remota', remota: 'Remota', remote: 'Remota', 'home office': 'Remota', homeoffice: 'Remota',
+    hibrido: 'Híbrida', hibrida: 'Híbrida', hybrid: 'Híbrida',
+    presencial: 'Presencial', 'on-site': 'Presencial', onsite: 'Presencial', 'in-person': 'Presencial',
 };
 
 const TIPO_MAP = {
@@ -47,9 +47,11 @@ function cleanText(html) {
 }
 
 export function normalize(raw, fonte) {
+    // Prioridade: campo explícito > localização/tipo_local > descrição (evita falsos positivos)
     const modalidade = raw.modalidade
         ? (MODALIDADE_MAP[raw.modalidade.toLowerCase()] ?? raw.modalidade)
-        : inferModalidade(`${raw.localizacao ?? ''} ${raw.tipo_local ?? ''} ${raw.descricao ?? ''}`);
+        : (inferModalidade(`${raw.localizacao ?? ''} ${raw.tipo_local ?? ''}`) ||
+           inferModalidade(raw.descricao ?? ''));
 
     const tipo_contratacao = raw.tipo_contratacao
         ? (TIPO_MAP[raw.tipo_contratacao.toLowerCase()] ?? null)

@@ -51,11 +51,11 @@ async function extractJobCards(page) {
                     '.base-search-card__subtitle',
                     'h4 a',
                 ].join(','));
-                const locationEl = item.querySelector([
-                    '.job-card-container__metadata-item',
-                    '.job-search-card__location',
-                    '.base-search-card__metadata',
-                ].join(','));
+                // Captura TODOS os metadata items (localização + tipo de trabalho ficam em elementos separados)
+                const metaItems = [...item.querySelectorAll('.job-card-container__metadata-item')];
+                const locationEl = metaItems.length === 0
+                    ? item.querySelector('.job-search-card__location, .base-search-card__metadata')
+                    : null;
 
                 const href = titleEl?.href || titleEl?.closest('a')?.href || '';
                 // Normaliza link para canonical /jobs/view/ID/
@@ -63,11 +63,18 @@ async function extractJobCards(page) {
                 const link = match ? `https://www.linkedin.com/jobs/view/${match[1]}/` : href;
 
                 if (!link) continue;
+
+                // Junta todos os metadata items: o LinkedIn separa localização e tipo de trabalho
+                // ex: ["São Paulo, SP" , "Remoto"] → "São Paulo, SP · Remoto"
+                const localizacao = metaItems.length > 0
+                    ? metaItems.map(el => el.textContent.trim()).filter(Boolean).join(' · ')
+                    : locationEl?.textContent?.trim() || null;
+
                 cards.push({
-                    vaga:       titleEl?.textContent?.trim() || null,
-                    empresa:    companyEl?.textContent?.trim() || null,
-                    localizacao: locationEl?.textContent?.trim() || null,
-                    link_vaga:  link,
+                    vaga:        titleEl?.textContent?.trim() || null,
+                    empresa:     companyEl?.textContent?.trim() || null,
+                    localizacao,
+                    link_vaga:   link,
                 });
             } catch { /* ignora card com erro de parse */ }
         }
