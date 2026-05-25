@@ -383,6 +383,9 @@
         <!-- ─── TAB: GESTÃO DE VAGAS ──────────────────────────────────── -->
         <div id="tab-vagas" class="tab-panel">
 
+            <!-- Daily digest banner (item H) -->
+            <div id="digestBanner" class="digest-banner" hidden style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2);border-radius:8px;margin-bottom:12px;font-size:0.82rem;color:var(--text-soft)"></div>
+
             <div class="vagas-subtabs">
                 <button class="vagas-subtab-btn active" onclick="switchVagasSubTab('lista',this)">Lista</button>
                 <button class="vagas-subtab-btn" onclick="switchVagasSubTab('analise',this)">Análise</button>
@@ -1163,6 +1166,25 @@
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Candidaturas paradas além do prazo sugerido para follow-up.</p>
                     <div id="followupSuggestionsList"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Escanear" para verificar.</div></div>
+                </div>
+
+                <!-- Pipeline padrão (item B) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-list-check" style="color:var(--cyan);margin-right:6px"></i> Pipeline padrão de etapas</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="savePipelineTemplate()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Etapas criadas automaticamente em toda nova candidatura. Uma por linha.</p>
+                    <textarea id="pipelineTemplateInput" class="mock-input" rows="7" style="resize:vertical;font-family:inherit;font-size:0.82rem;width:100%;box-sizing:border-box" placeholder="Aplicado&#10;Triagem&#10;Entrevista com RH&#10;Entrevista Técnica&#10;Proposta"></textarea>
+                </div>
+
+                <!-- Manutenção automática (item O) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-broom" style="color:var(--cyan);margin-right:6px"></i> Manutenção automática</h3>
+                        <button class="btn btn-sm" onclick="runAutoArchiveScan()"><i class="fa-solid fa-box-archive"></i> Arquivar agora</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Arquiva candidaturas "em processo" sem atualização há mais de 60 dias, e recusadas automaticamente.</p>
                 </div>
 
             </div>

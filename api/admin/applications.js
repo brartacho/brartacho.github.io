@@ -613,6 +613,157 @@ export default async function handler(req, res) {
         }
     }
 
+    // ── duplicate-check ───────────────────────────────────────
+    if (req.query.__h === 'duplicate-check') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const empresa = (req.query.empresa || '').trim().toLowerCase();
+        if (!empresa) return res.status(400).json({ error: 'empresa obrigatório' });
+        const since = new Date(Date.now() - 365 * 24 * 3600 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('job_applications')
+            .select('id, empresa, vaga, result, created_at')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (error) return res.status(500).json({ error: error.message });
+        const matches = (data ?? []).filter(a =>
+            a.empresa && a.empresa.toLowerCase().includes(empresa.slice(0, 30))
+        );
+        return res.status(200).json({ found: matches.length > 0, matches: matches.slice(0, 5) });
+    }
+
+    // ── digest ────────────────────────────────────────────────
+    if (req.query.__h === 'digest') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        const [radarNew, radarHighFit, followupPending, msgPending, appActive] = await Promise.all([
+            supabase.from('vaga_radar').select('id', { count: 'exact', head: true }).eq('status', 'novo'),
+            supabase.from('vaga_radar').select('id', { count: 'exact', head: true }).eq('status', 'novo').gte('fit_score', 7),
+            supabase.from('followup_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('job_applications').select('id', { count: 'exact', head: true })
+                .eq('result', 'em_processo').eq('application_message_sent', false).not('application_message_text', 'is', null),
+            supabase.from('job_applications').select('id', { count: 'exact', head: true }).eq('result', 'em_processo').eq('archived', false),
+        ]);
+        return res.status(200).json({
+            radar_new:       radarNew.count ?? 0,
+            radar_high_fit:  radarHighFit.count ?? 0,
+            followup_due:    followupPending.count ?? 0,
+            message_pending: msgPending.count ?? 0,
+            active_apps:     appActive.count ?? 0,
+        });
+    }
+
+    // ── auto-archive-scan ─────────────────────────────────────
+    if (req.query.__h === 'auto-archive-scan') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { data: profile } = await supabase.from('candidate_profile')
+            .select('auto_archive_em_processo_days,auto_archive_recusado')
+            .order('updated_at', { ascending: false }).limit(1).single();
+        const emProcessoDays = profile?.auto_archive_em_processo_days ?? 60;
+        const archiveRecusado = profile?.auto_archive_recusado ?? true;
+
+        const staleEm = new Date(Date.now() - emProcessoDays * 24 * 3600 * 1000).toISOString();
+        const results = { archived_em_processo: 0, archived_recusado: 0, errors: [] };
+
+        const { data: staleApps } = await supabase.from('job_applications')
+            .select('id').eq('result', 'em_processo').eq('archived', false).lte('updated_at', staleEm);
+        if (staleApps?.length) {
+            const ids = staleApps.map(a => a.id);
+            const { error } = await supabase.from('job_applications').update({ archived: true }).in('id', ids);
+            if (error) results.errors.push(error.message);
+            else results.archived_em_processo = ids.length;
+        }
+        if (archiveRecusado) {
+            const { data: recusados } = await supabase.from('job_applications')
+                .select('id').eq('result', 'recusado').eq('archived', false);
+            if (recusados?.length) {
+                const ids = recusados.map(a => a.id);
+                const { error } = await supabase.from('job_applications').update({ archived: true }).in('id', ids);
+                if (error) results.errors.push(error.message);
+                else results.archived_recusado = ids.length;
+            }
+        }
+        return res.status(200).json(results);
+    }
+
+    // ── batch-promote ─────────────────────────────────────────
+    if (req.query.__h === 'batch-promote') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { lead_ids } = req.body || {};
+        if (!Array.isArray(lead_ids) || lead_ids.length === 0) return res.status(400).json({ error: 'lead_ids obrigatório' });
+        const { data: leads, error: leadsErr } = await supabase
+            .from('vaga_radar').select('*').in('id', lead_ids.slice(0, 20));
+        if (leadsErr) return res.status(500).json({ error: leadsErr.message });
+
+        const rows = leads.map(l => ({
+            empresa:          l.empresa,
+            vaga:             l.vaga,
+            link_vaga:        l.link_vaga,
+            modalidade:       l.modalidade || null,
+            tipo_contratacao: l.tipo_contratacao || null,
+            platform:         l.fonte || null,
+            origin_radar_id:  l.id,
+        }));
+        const { data: created, error: createErr } = await supabase
+            .from('job_applications').insert(rows).select('id, empresa, vaga, origin_radar_id');
+        if (createErr) return res.status(500).json({ error: createErr.message });
+
+        // mark leads as promoted
+        const promotedIds = leads.map(l => l.id);
+        await supabase.from('vaga_radar').update({ status: 'promovida' }).in('id', promotedIds);
+
+        return res.status(201).json({ created: created ?? [], count: (created ?? []).length });
+    }
+
+    // ── interview-qa ──────────────────────────────────────────
+    if (req.query.__h === 'interview-qa') {
+        if (req.method === 'GET') {
+            let q = supabase.from('interview_qa').select('*').order('created_at', { ascending: false });
+            if (req.query.category) q = q.eq('category', req.query.category);
+            if (req.query.tag) q = q.contains('tags', [req.query.tag]);
+            const { data, error } = await q.limit(200);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'POST') {
+            const { question, answer, category, tags, source_vaga_id, source_application_id } = req.body || {};
+            if (!question) return res.status(400).json({ error: 'question obrigatório' });
+            const { data, error } = await supabase.from('interview_qa').insert({
+                question: String(question).slice(0, 500),
+                answer: answer ? String(answer).slice(0, 2000) : null,
+                category: ['rh','tecnica','comportamental'].includes(category) ? category : null,
+                tags: Array.isArray(tags) ? tags.slice(0, 20) : [],
+                source_vaga_id: source_vaga_id || null,
+                source_application_id: source_application_id || null,
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { question, answer, category, tags } = req.body || {};
+            const patch = { updated_at: new Date().toISOString() };
+            if (question !== undefined) patch.question = String(question).slice(0, 500);
+            if (answer !== undefined) patch.answer = answer ? String(answer).slice(0, 2000) : null;
+            if (category !== undefined) patch.category = ['rh','tecnica','comportamental'].includes(category) ? category : null;
+            if (tags !== undefined) patch.tags = Array.isArray(tags) ? tags.slice(0, 20) : [];
+            const { data, error } = await supabase.from('interview_qa').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (!data) return res.status(404).json({ error: 'Pergunta não encontrada' });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('interview_qa').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {

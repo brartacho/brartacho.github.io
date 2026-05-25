@@ -448,6 +448,29 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true, application: app });
         }
 
+        // Ação: detect-suspicious — analisa lead e seta suspicious_flags
+        if (req.query.action === 'detect-suspicious') {
+            const { data: lead, error: e1 } = await supabase.from('vaga_radar').select('descricao,vaga,created_at,fonte,faixa_salarial').eq('id', id).single();
+            if (e1 || !lead) return res.status(404).json({ error: 'Lead não encontrado' });
+
+            const flags = [];
+            // Descrição muito curta (< 200 chars)
+            const descLen = (lead.descricao || '').replace(/<[^>]+>/g, '').length;
+            if (descLen > 0 && descLen < 200) flags.push('description_too_short');
+            // Título genérico
+            const vagaLower = (lead.vaga || '').toLowerCase();
+            if (['vaga', 'oportunidade', 'profissional', 'analista', 'desenvolvedor'].some(k => vagaLower === k)) flags.push('generic_title');
+            // Repostado (lead existe há > 90 dias mas status ainda novo)
+            if (lead.created_at) {
+                const ageDays = (Date.now() - new Date(lead.created_at).getTime()) / 86400000;
+                if (ageDays > 90) flags.push('reposted_90d');
+            }
+
+            const { error: e2 } = await supabase.from('vaga_radar').update({ suspicious_flags: flags, updated_at: new Date().toISOString() }).eq('id', id);
+            if (e2) return res.status(500).json({ error: e2.message });
+            return res.status(200).json({ ok: true, flags });
+        }
+
         // Atualização de campos do lead (inclui descartar com motivo)
         const b = req.body || {};
         const patch = {};

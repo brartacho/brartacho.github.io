@@ -2610,6 +2610,7 @@
         .radar-chip { font-size:0.72rem; padding:2px 8px; border-radius:6px; background:var(--bg-surface); color:var(--text-soft); border:1px solid var(--border); }
         .radar-chip.kw { background:var(--cyan-soft); color:var(--cyan); border-color:var(--cyan-mid); }
         .radar-chip.gap { background:var(--warning-soft); color:var(--warning); border:none; }
+        .radar-chip.suspicious { background:rgba(248,113,113,0.12); color:#f87171; border-color:rgba(248,113,113,0.3); font-weight:600; }
         .radar-chip-label { font-size:0.72rem; color:var(--text-dim); margin-right:2px; }
         .radar-pos { font-size:0.82rem; color:var(--text-soft); margin:8px 0 4px; line-height:1.45; }
         .radar-lead-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }

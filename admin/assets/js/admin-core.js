@@ -576,6 +576,22 @@ async function loadApplications() {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:32px">${esc(e.message)}</td></tr>`;
         }
     }
+    loadDigestBanner();
+}
+
+async function loadDigestBanner() {
+    const el = document.getElementById('digestBanner');
+    if (!el) return;
+    try {
+        const d = await api('GET', '/api/admin/applications?__h=digest');
+        const parts = [];
+        if (d.radar_new > 0) parts.push(`<b>${d.radar_new}</b> lead${d.radar_new > 1 ? 's' : ''} novo${d.radar_new > 1 ? 's' : ''} no Radar${d.radar_high_fit > 0 ? ` (${d.radar_high_fit} score ≥ 7)` : ''}`);
+        if (d.followup_due > 0) parts.push(`<b>${d.followup_due}</b> follow-up${d.followup_due > 1 ? 's' : ''} pendente${d.followup_due > 1 ? 's' : ''}`);
+        if (d.message_pending > 0) parts.push(`<b>${d.message_pending}</b> mensagem${d.message_pending > 1 ? 'ns' : ''} pronta${d.message_pending > 1 ? 's' : ''} sem envio`);
+        if (!parts.length) { el.hidden = true; return; }
+        el.hidden = false;
+        el.innerHTML = `<i class="fa-solid fa-circle-info" style="color:var(--cyan)"></i> ${parts.join(' · ')} <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="document.getElementById('digestBanner').hidden=true">×</button>`;
+    } catch { el.hidden = true; }
 }
 
 function renderApplicationsTable() {
@@ -994,6 +1010,7 @@ function renderDrawerBody(app) {
         </div>
 
         <div class="drawer-actions">
+            ${(app.application_message_text && !app.application_message_sent && app.link_vaga) ? `<button class="btn btn-cyan btn-sm" onclick="applyNow('${app.id}')" title="Copiar mensagem, abrir vaga e marcar como enviada"><i class="fa-solid fa-rocket"></i> Aplicar agora</button>` : ''}
             <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
             <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
             <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
@@ -1036,6 +1053,40 @@ function renderTimeline(stages) {
             <div class="stage-label ${labelClass}">${esc(normalizeStageName(s.name))}</div>
         </div>`;
     }).join('');
+}
+
+async function applyNow(id) {
+    const app = _applications.find(a => a.id === id);
+    if (!app) return;
+
+    // 1. Copy message to clipboard
+    if (app.application_message_text) {
+        try { await navigator.clipboard.writeText(app.application_message_text); } catch { /* ignore */ }
+    }
+
+    // 2. Open link_vaga in new tab
+    if (app.link_vaga) window.open(app.link_vaga, '_blank', 'noopener');
+
+    // 3. Optimistically update UI + toast with undo
+    const updated = await api('PUT', `/api/admin/applications?id=${id}`, { application_message_sent: true }).catch(() => null);
+    const appUpdated = updated || { ...app, application_message_sent: true };
+    const idx = _applications.findIndex(a => a.id === id);
+    if (idx !== -1) _applications[idx] = appUpdated;
+    renderDrawerBody(appUpdated);
+
+    // 4. Toast with undo for 6s
+    showToast('Mensagem copiada e vaga aberta. Enviada ✓', 'success', {
+        label: 'Não enviei',
+        callback: async () => {
+            const rev = await api('PUT', `/api/admin/applications?id=${id}`, { application_message_sent: false }).catch(() => null);
+            if (rev) {
+                const i = _applications.findIndex(a => a.id === id);
+                if (i !== -1) _applications[i] = rev;
+                renderDrawerBody(rev);
+            }
+            showToast('Marcação desfeita.', 'info');
+        },
+    });
 }
 
 async function toggleArchive(id, currentlyArchived) {
@@ -1631,7 +1682,35 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate()]);
+}
+
+async function loadPipelineTemplate() {
+    const el = document.getElementById('pipelineTemplateInput');
+    if (!el) return;
+    const saved = localStorage.getItem('stages_template');
+    if (saved) el.value = saved;
+    else el.value = 'Aplicado\nTriagem\nEntrevista com RH\nEntrevista Técnica\nEntrevista com Gestor\nTeste\nProposta';
+    window._stagesTemplate = el.value.split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+async function savePipelineTemplate() {
+    const el = document.getElementById('pipelineTemplateInput');
+    if (!el) return;
+    const stages = el.value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!stages.length) { showToast('Adicione ao menos uma etapa.', 'error'); return; }
+    localStorage.setItem('stages_template', el.value.trim());
+    window._stagesTemplate = stages;
+    showToast('Pipeline padrão salvo.');
+}
+
+async function runAutoArchiveScan() {
+    try {
+        const r = await api('POST', '/api/admin/applications?__h=auto-archive-scan', {});
+        const total = (r.archived_em_processo || 0) + (r.archived_recusado || 0);
+        showToast(`${total} candidatura${total !== 1 ? 's' : ''} arquivada${total !== 1 ? 's' : ''}.${r.errors?.length ? ' (com erros)' : ''}`);
+        if (total > 0) loadApplications();
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function renderPlatformSettingsTable() {
@@ -5526,6 +5605,8 @@ function renderRadarList(leads) {
         const promoted = l.status === 'promovida';
         const discarded = l.status === 'descartada';
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
+        const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
+        const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
         const isSelected = _radarSelected.has(l.id);
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
         return `<div class="radar-lead status-${esc(l.status)}" ${cardAction}>
@@ -5535,6 +5616,7 @@ function renderRadarList(leads) {
                 <div class="radar-lead-head">
                     <strong>${esc(l.vaga || 'Vaga')}</strong> — ${esc(l.empresa)} ${link}
                     <span class="radar-status-tag s-${esc(l.status)}">${esc(l.status)}</span>
+                    ${suspBadge}
                 </div>
                 <div class="radar-chips">${chips}</div>
                 ${kw ? `<div class="radar-chips">${kw}</div>` : ''}
@@ -5620,6 +5702,7 @@ function _renderRadarBulkBar() {
     bar.style.display = 'flex';
     bar.innerHTML = `
         <span style="font-size:0.8rem;color:var(--text-soft);margin-right:4px">${n} selecionado${n > 1 ? 's' : ''}</span>
+        <button class="btn btn-cyan btn-sm" onclick="bulkPromoteRadar()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover selecionados</button>
         <button class="btn btn-danger btn-sm" onclick="bulkDiscardRadar()"><i class="fa-solid fa-ban"></i> Descartar selecionados</button>
         <button class="btn btn-sm" onclick="toggleRadarSelectMode()" style="margin-left:auto">Cancelar</button>
     `;
@@ -5633,6 +5716,20 @@ async function bulkDiscardRadar() {
         showToast(`${ids.length} lead${ids.length > 1 ? 's' : ''} descartado${ids.length > 1 ? 's' : ''}.`);
         toggleRadarSelectMode();
         loadRadar();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function bulkPromoteRadar() {
+    const ids = [..._radarSelected];
+    if (!ids.length) return;
+    const n = ids.length;
+    if (!confirm(`Promover ${n} lead${n > 1 ? 's' : ''} como candidatura${n > 1 ? 's' : ''}?\n(Sem mensagem personalizada — edite depois em cada candidatura.)`)) return;
+    try {
+        const res = await api('POST', '/api/admin/applications?__h=batch-promote', { lead_ids: ids });
+        showToast(`${res.count} candidatura${res.count > 1 ? 's' : ''} criada${res.count > 1 ? 's' : ''}.`);
+        toggleRadarSelectMode();
+        loadRadar();
+        loadApplications();
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -5788,11 +5885,24 @@ async function saveRadarAnalysis(btn) {
 }
 
 async function promoteRadar(id) {
-    // Abre o form de nova candidatura pré-preenchido com dados do lead
-    // para que o usuário possa adicionar mensagem antes de promover.
     const lead = _radarLeads?.find(l => l.id === id);
+    const empresa = lead?.empresa || '';
+
+    // Aviso de candidatura repetida (item C)
+    if (empresa) {
+        try {
+            const dup = await api('GET', `/api/admin/applications?__h=duplicate-check&empresa=${encodeURIComponent(empresa)}`);
+            if (dup.found && dup.matches?.length) {
+                const last = dup.matches[0];
+                const lastDate = last.created_at ? new Date(last.created_at).toLocaleDateString('pt-BR') : '?';
+                const msg = `Você já aplicou em "${empresa}" (${dup.matches.length}×).\nÚltima: ${last.vaga || 'vaga'} em ${lastDate} — ${last.result || 'sem resultado'}.\n\nContinuar?`;
+                if (!confirm(msg)) return;
+            }
+        } catch { /* não bloqueia por falha no check */ }
+    }
+
     switchTab('vagas');
-    await new Promise(r => setTimeout(r, 100)); // aguarda render do tab
+    await new Promise(r => setTimeout(r, 100));
     openNovaVaga(lead || { id, empresa: '', vaga: '', link_vaga: '' });
     showToast('Preencha a mensagem e clique em "Criar candidatura".');
 }
