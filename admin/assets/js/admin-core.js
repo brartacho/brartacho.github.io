@@ -8904,7 +8904,7 @@ function startVoiceMemo(appId) {
             }
         };
         _voiceRecog.onerror = (e) => {
-            if (e.error === 'not-allowed') showToast('Permissão de microfone negada.', 'error');
+            if (e.error === 'not-allowed') showToast('Microfone bloqueado — libere nas configurações do Windows (Privacidade > Microfone) ou do Chrome.', 'error');
             else if (e.error !== 'no-speech') showToast('Erro no microfone: ' + e.error, 'error');
             _stopVoice();
         };
@@ -8949,19 +8949,10 @@ function startVoiceMemo(appId) {
         _stopVoice();
     }
 
-    // Exibe botão de voz apenas se API disponível E permissão não negada
+    // Exibe botão de voz se API disponível
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        const showBtn = () => {
-            const btn = document.getElementById('voiceBtn');
-            if (btn) btn.style.display = 'flex';
-        };
-        if (navigator.permissions) {
-            navigator.permissions.query({ name: 'microphone' })
-                .then(p => { if (p.state !== 'denied') showBtn(); })
-                .catch(showBtn);
-        } else {
-            showBtn();
-        }
+        const btn = document.getElementById('voiceBtn');
+        if (btn) btn.style.display = 'flex';
     }
 
     // Expõe funções do IIFE ao escopo global (necessário para onclick e switchTab)
