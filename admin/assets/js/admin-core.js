@@ -8903,7 +8903,12 @@ function startVoiceMemo(appId) {
                 _execVoiceCommand(t.toLowerCase().trim());
             }
         };
-        _voiceRecog.onerror = _voiceRecog.onend = () => _stopVoice();
+        _voiceRecog.onerror = (e) => {
+            if (e.error === 'not-allowed') showToast('Permissão de microfone negada.', 'error');
+            else if (e.error !== 'no-speech') showToast('Erro no microfone: ' + e.error, 'error');
+            _stopVoice();
+        };
+        _voiceRecog.onend = () => _stopVoice();
         _voiceRecog.start();
     }
 
