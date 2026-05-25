@@ -1038,6 +1038,7 @@ function renderDrawerBody(app) {
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
             <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
+            <button class="btn btn-sm" onclick="openEmailThreads('${app.id}')" title="E-mails vinculados a esta candidatura"><i class="fa-solid fa-envelope"></i> E-mails</button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
             <button class="btn btn-danger btn-sm" style="padding:6px 10px" title="Deletar candidatura"
@@ -1048,6 +1049,7 @@ function renderDrawerBody(app) {
         <div id="editVagaSection" hidden></div>
         <div id="interviewSection" hidden></div>
         <div id="contextNotesSection" hidden></div>
+        <div id="emailThreadsSection" hidden></div>
     `;
 }
 
@@ -1707,7 +1709,7 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault()]);
 }
 
 async function loadPipelineTemplate() {
@@ -2668,6 +2670,8 @@ function switchTab(name) {
     if (name === 'metricas') { loadAnalytics(); loadLoginAttempts(); }
     if (name === 'seguranca') { loadSessions(); loadDemoSettings(); }
     if (name === 'config') loadConfigTab();
+    if (name === 'inbox') loadInbox();
+    if (name === 'rede') loadRede();
     _scheduleRefresh();
 }
 
@@ -5471,6 +5475,8 @@ const ADMIN_TABS = [
     { key: 'logs',      label: 'Logs',            shortLabel: 'Logs',       icon: 'fa-chart-bar',      demoEligible: true,  mobileOverflow: true  },
     { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true,  mobileOverflow: false },
     { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true,  mobileOverflow: false },
+    { key: 'inbox',     label: 'Inbox',           shortLabel: 'Inbox',      icon: 'fa-inbox',          demoEligible: false, mobileOverflow: false },
+    { key: 'rede',      label: 'Rede',            shortLabel: 'Rede',       icon: 'fa-people-group',   demoEligible: false, mobileOverflow: true  },
     { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true,  mobileOverflow: false },
     { key: 'config',    label: 'Configurar',      shortLabel: 'Config',     icon: 'fa-sliders',        demoEligible: false, mobileOverflow: true  },
     { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true,  mobileOverflow: true  },
@@ -6888,7 +6894,7 @@ function startVoiceMemo(appId) {
         }
 
         // Only active when no modal is open
-        const anyModalOpen = document.querySelector('.modal-overlay.open');
+        const anyModalOpen = document.querySelector('.modal-overlay.open, #contactFormPanel:not([style*="display:none"])');
         if (anyModalOpen) return;
 
         if (e.key === 'g') {
@@ -6909,4 +6915,365 @@ function startVoiceMemo(appId) {
             }
         }
     });
+
+    // ─── INBOX (N7) ───────────────────────────────────────
+    const _inboxPriorityColors = { critico:'#f87171', alto:'#fb923c', medio:'var(--cyan)', baixo:'var(--text-dim)' };
+    const _inboxPriorityLabels = { critico:'Crítico', alto:'Alto', medio:'Médio', baixo:'Baixo' };
+    const _inboxCategoryIcons  = {
+        entrevista_hoje:'fa-calendar-check', resposta_atrasada:'fa-clock', email_novo:'fa-envelope',
+        status_mudou:'fa-rotate', lead_alto:'fa-star', followup_due:'fa-bell', sugestao_pendente:'fa-lightbulb',
+        lead_medio:'fa-star-half-stroke', lead_novo:'fa-circle-plus'
+    };
+
+    async function loadInbox() {
+        const feed = document.getElementById('inboxFeed');
+        if (!feed) return;
+        const filterVal = document.getElementById('inboxFilter')?.value || 'all';
+        feed.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:32px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+        try {
+            const r = await apiFetch('/api/admin/applications?__h=inbox');
+            let items = r.items || [];
+            if (filterVal !== 'all') items = items.filter(i => i.priority === filterVal);
+            if (!items.length) {
+                feed.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-check-circle" style="color:var(--cyan);margin-right:6px"></i> Tudo em dia!</div>';
+                return;
+            }
+            feed.innerHTML = items.map(item => _renderInboxItem(item)).join('');
+        } catch(e) {
+            feed.innerHTML = `<div style="color:#f87171;padding:16px">${esc(e.message)}</div>`;
+        }
+    }
+
+    function _renderInboxItem(item) {
+        const color = _inboxPriorityColors[item.priority] || 'var(--text-dim)';
+        const label = _inboxPriorityLabels[item.priority] || item.priority;
+        const icon  = _inboxCategoryIcons[item.category] || 'fa-circle-info';
+        const actions = (item.actions || []).map(a => {
+            if (a.type === 'open_application') return `<button class="btn btn-sm" onclick="openDrawer('${a.id}');dismissInboxItem('${item.id}')"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${esc(a.label||'Abrir')}</button>`;
+            if (a.type === 'dismiss')         return `<button class="btn btn-sm" onclick="dismissInboxItem('${item.id}')"><i class="fa-solid fa-xmark"></i> ${esc(a.label||'Dispensar')}</button>`;
+            if (a.type === 'snooze')          return `<button class="btn btn-sm" onclick="snoozeInboxItem('${item.id}')"><i class="fa-solid fa-clock"></i> +1d</button>`;
+            return `<button class="btn btn-sm" onclick="dismissInboxItem('${item.id}')">${esc(a.label||'OK')}</button>`;
+        }).join('');
+        return `<div id="inbox-item-${item.id}" style="display:flex;gap:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);align-items:flex-start">
+            <div style="padding-top:2px"><i class="fa-solid ${icon}" style="color:${color};font-size:1rem"></i></div>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                    <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${color}">${label}</span>
+                </div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:2px">${esc(item.title||'')}</div>
+                ${item.subtitle ? `<div style="font-size:0.78rem;color:var(--text-soft)">${esc(item.subtitle)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">${actions}</div>
+        </div>`;
+    }
+
+    function dismissInboxItem(id) {
+        const el = document.getElementById(`inbox-item-${id}`);
+        if (el) el.remove();
+        const feed = document.getElementById('inboxFeed');
+        if (feed && !feed.querySelector('[id^="inbox-item-"]')) {
+            feed.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-check-circle" style="color:var(--cyan);margin-right:6px"></i> Tudo em dia!</div>';
+        }
+    }
+
+    function snoozeInboxItem(id) { dismissInboxItem(id); }
+
+    // ─── REDE (N25) ───────────────────────────────────────
+    let _allContacts = [];
+
+    async function loadRede() {
+        const list = document.getElementById('redeList');
+        if (!list) return;
+        list.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:32px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+        try {
+            const r = await apiFetch('/api/admin/applications?__h=contacts');
+            _allContacts = r.contacts || [];
+            _renderContactsList(_allContacts);
+        } catch(e) {
+            list.innerHTML = `<div style="color:#f87171;padding:16px">${esc(e.message)}</div>`;
+        }
+    }
+
+    function filterContacts(q) {
+        const s = q.toLowerCase();
+        const filtered = s ? _allContacts.filter(c =>
+            (c.name||'').toLowerCase().includes(s) ||
+            (c.empresa||'').toLowerCase().includes(s) ||
+            (c.role||'').toLowerCase().includes(s)
+        ) : _allContacts;
+        _renderContactsList(filtered);
+    }
+
+    function _renderContactsList(contacts) {
+        const list = document.getElementById('redeList');
+        if (!list) return;
+        if (!contacts.length) {
+            list.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px">Nenhum contato cadastrado.</div>';
+            return;
+        }
+        const now = Date.now();
+        list.innerHTML = contacts.map(c => {
+            const nextTouch = c.next_touch_at ? new Date(c.next_touch_at) : null;
+            const overdue   = nextTouch && nextTouch.getTime() < now;
+            const str = c.relationship_strength || 3;
+            const strengthDots = '●'.repeat(str) + '○'.repeat(5 - str);
+            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:6px;border:1px solid ${overdue?'rgba(251,146,60,0.4)':'var(--border)'};border-radius:8px;background:var(--bg-soft)">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${esc(c.name)}</div>
+                    <div style="font-size:0.76rem;color:var(--text-soft)">${c.role?esc(c.role):''}${c.role&&c.empresa?' · ':''}${c.empresa?esc(c.empresa):''}</div>
+                    <div style="font-size:0.7rem;color:${overdue?'#fb923c':'var(--text-dim)'};margin-top:2px">
+                        ${overdue?'<i class="fa-solid fa-bell" style="margin-right:4px"></i>':''}
+                        ${nextTouch ? `Próximo contato: ${nextTouch.toLocaleDateString('pt-BR')}` : (c.last_contact_at ? `Último: ${new Date(c.last_contact_at).toLocaleDateString('pt-BR')}` : 'Sem contato registrado')}
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:0.7rem;color:var(--cyan);letter-spacing:1px;font-family:monospace">${strengthDots}</span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <button class="btn btn-sm" style="padding:4px 8px" onclick="openContactForm('${c.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-sm" style="padding:4px 8px" onclick="logInteractionModal('${c.id}','${esc(c.name)}')" title="Registrar interação"><i class="fa-solid fa-comment-dots"></i></button>
+                    <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteContact('${c.id}')" title="Remover"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function openContactForm(id) {
+        const panel = document.getElementById('contactFormPanel');
+        if (!panel) return;
+        let c = id ? (_allContacts.find(x => x.id === id) || {}) : {};
+        panel.innerHTML = `
+            <h4 style="margin:0 0 12px;font-size:0.9rem">${id ? 'Editar contato' : 'Novo contato'}</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Nome *</label><input id="ctName" class="mock-input" value="${esc(c.name||'')}" placeholder="Nome completo" maxlength="200"></div>
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Cargo</label><input id="ctRole" class="mock-input" value="${esc(c.role||'')}" placeholder="Head of People" maxlength="200"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Empresa</label><input id="ctEmpresa" class="mock-input" value="${esc(c.empresa||'')}" placeholder="Stone" maxlength="200"></div>
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">E-mail</label><input id="ctEmail" class="mock-input" type="email" value="${esc(c.email||'')}" placeholder="nome@empresa.com" maxlength="200"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">LinkedIn URL</label><input id="ctLinkedin" class="mock-input" value="${esc(c.linkedin_url||'')}" placeholder="https://linkedin.com/in/…" maxlength="400"></div>
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Força do vínculo (1-5)</label>
+                    <select id="ctStrength" class="mock-input" style="padding:5px 8px">
+                        ${[1,2,3,4,5].map(n=>`<option value="${n}"${(c.relationship_strength||3)==n?' selected':''}>${n}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Frequência de contato (meses)</label><input id="ctFreq" class="mock-input" type="number" min="1" max="36" value="${c.contact_frequency_months||6}"></div>
+                <div class="form-group" style="margin:0"><label style="font-size:0.75rem">Fonte</label><input id="ctSource" class="mock-input" value="${esc(c.source||'manual')}" placeholder="manual / meetup / indicacao" maxlength="100"></div>
+            </div>
+            <div class="form-group" style="margin:0 0 12px"><label style="font-size:0.75rem">Notas</label><textarea id="ctNotes" class="mock-input" rows="2" maxlength="1000" style="resize:vertical;font-family:inherit;font-size:inherit">${esc(c.notes||'')}</textarea></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn btn-sm" onclick="closeContactForm()">Cancelar</button>
+                <button class="btn btn-cyan btn-sm" onclick="saveContact('${id||''}')"><i class="fa-solid fa-check"></i> Salvar</button>
+            </div>`;
+        panel.style.display = '';
+        panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+
+    function closeContactForm() {
+        const panel = document.getElementById('contactFormPanel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    async function saveContact(id) {
+        const body = {
+            name:     document.getElementById('ctName')?.value.trim(),
+            role:     document.getElementById('ctRole')?.value.trim()||null,
+            empresa:  document.getElementById('ctEmpresa')?.value.trim()||null,
+            email:    document.getElementById('ctEmail')?.value.trim()||null,
+            linkedin_url: document.getElementById('ctLinkedin')?.value.trim()||null,
+            relationship_strength: parseInt(document.getElementById('ctStrength')?.value)||3,
+            contact_frequency_months: parseInt(document.getElementById('ctFreq')?.value)||6,
+            source:   document.getElementById('ctSource')?.value.trim()||'manual',
+            notes:    document.getElementById('ctNotes')?.value.trim()||null,
+        };
+        if (!body.name) { showToast('Nome é obrigatório','error'); return; }
+        try {
+            const url = id ? `/api/admin/applications?__h=contacts&id=${id}` : '/api/admin/applications?__h=contacts';
+            const method = id ? 'PUT' : 'POST';
+            await apiFetch(url, { method, body: JSON.stringify(body) });
+            closeContactForm();
+            showToast(id ? 'Contato atualizado' : 'Contato criado','success');
+            loadRede();
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
+    async function deleteContact(id) {
+        if (!confirm('Remover contato?')) return;
+        try {
+            await apiFetch(`/api/admin/applications?__h=contacts&id=${id}`, { method:'DELETE' });
+            showToast('Contato removido','success');
+            loadRede();
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
+    async function logInteractionModal(contactId, contactName) {
+        const channel = prompt(`Registrar interação com ${contactName}\nCanal (whatsapp/email/linkedin/in_person/call):`, 'linkedin');
+        if (!channel) return;
+        const summary = prompt('Resumo da conversa (opcional):') || null;
+        try {
+            await apiFetch('/api/admin/applications?__h=contact-interactions', {
+                method:'POST',
+                body: JSON.stringify({ contact_id: contactId, channel, direction:'outbound', summary })
+            });
+            showToast('Interação registrada','success');
+            loadRede();
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
+    // ─── VAULT (N4) ───────────────────────────────────────
+    const _vaultTypeLabels = { rg:'RG', cpf:'CPF', comprov_endereco:'Comprov. Endereço', diploma:'Diploma', cert:'Certificado', cnh:'CNH', foto:'Foto', outro:'Outro' };
+
+    function openVaultUpload() {
+        const form = document.getElementById('vaultUploadForm');
+        if (form) { form.style.display = ''; form.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+    }
+
+    function closeVaultUpload() {
+        const form = document.getElementById('vaultUploadForm');
+        if (form) form.style.display = 'none';
+    }
+
+    async function uploadVaultDoc() {
+        const fileInput = document.getElementById('vaultDocFile');
+        const file = fileInput?.files?.[0];
+        if (!file) { showToast('Selecione um arquivo','error'); return; }
+        const docType  = document.getElementById('vaultDocType')?.value || 'outro';
+        const docName  = document.getElementById('vaultDocName')?.value.trim() || file.name;
+        const validade = document.getElementById('vaultDocValidade')?.value || null;
+        const btn = document.getElementById('vaultUploadBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            await apiFetch('/api/admin/applications?__h=vault-register', {
+                method: 'POST',
+                body: JSON.stringify({
+                    doc_type: docType, display_name: docName,
+                    filename: file.name, mime_type: file.type,
+                    size_bytes: file.size, validade, base64_content: base64
+                })
+            });
+            showToast('Documento adicionado ao Vault','success');
+            closeVaultUpload();
+            if (fileInput) fileInput.value = '';
+            loadVault();
+        } catch(e) {
+            showToast(e.message,'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-upload"></i> Enviar'; }
+        }
+    }
+
+    async function loadVault() {
+        const el = document.getElementById('vaultDocsList');
+        if (!el) return;
+        try {
+            const r = await apiFetch('/api/admin/applications?__h=vault-list');
+            const docs = r.docs || [];
+            if (!docs.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum documento no Vault.</div>'; return; }
+            const now = Date.now();
+            el.innerHTML = docs.map(d => {
+                const val = d.validade ? new Date(d.validade) : null;
+                const expiring = val && (val.getTime() - now) < 60*24*3600*1000;
+                const expired  = val && val.getTime() < now;
+                const typeLabel = _vaultTypeLabels[d.doc_type] || d.doc_type;
+                const dateStr = val ? val.toLocaleDateString('pt-BR') : '';
+                const sizeStr = d.size_bytes ? `${(d.size_bytes/1024).toFixed(0)} KB` : '';
+                return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;border:1px solid ${expired?'rgba(248,113,113,0.4)':expiring?'rgba(251,146,60,0.4)':'var(--border)'};border-radius:6px;background:var(--bg-soft)">
+                    <div style="font-size:0.9rem;color:var(--cyan);width:20px;text-align:center"><i class="fa-solid fa-file-shield"></i></div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(d.display_name)}</div>
+                        <div style="font-size:0.72rem;color:var(--text-dim)">${typeLabel}${sizeStr?' · '+sizeStr:''}</div>
+                    </div>
+                    ${val?`<div style="font-size:0.72rem;color:${expired?'#f87171':expiring?'#fb923c':'var(--text-dim)'}">
+                        ${expired?'<i class="fa-solid fa-triangle-exclamation"></i> Vencido':expiring?`<i class="fa-solid fa-clock"></i> Vence ${dateStr}`:`Até ${dateStr}`}
+                    </div>`:''}
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-sm" style="padding:3px 8px;font-size:0.72rem" onclick="downloadVaultDoc('${d.id}','${esc(d.display_name)}')" title="Baixar"><i class="fa-solid fa-download"></i></button>
+                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:0.72rem" onclick="deleteVaultDoc('${d.id}')" title="Remover"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            el.innerHTML = `<div style="color:#f87171;font-size:0.82rem">${esc(e.message)}</div>`;
+        }
+    }
+
+    async function downloadVaultDoc(id, name) {
+        try {
+            const r = await apiFetch(`/api/admin/applications?__h=vault-download-url&id=${id}`);
+            if (r.url) {
+                const a = document.createElement('a');
+                a.href = r.url; a.download = name || 'documento';
+                document.body.appendChild(a); a.click(); a.remove();
+            }
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
+    async function deleteVaultDoc(id) {
+        if (!confirm('Remover documento do Vault?')) return;
+        try {
+            await apiFetch(`/api/admin/applications?__h=vault-delete&id=${id}`, { method:'DELETE' });
+            showToast('Documento removido','success');
+            loadVault();
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
+    // ─── E-MAIL THREADS (N8) ──────────────────────────────
+    async function openEmailThreads(appId) {
+        const sec = document.getElementById('emailThreadsSection');
+        if (!sec) return;
+        if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; return; }
+        sec.dataset.appId = appId;
+        sec.hidden = false;
+        sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+        try {
+            const r = await apiFetch(`/api/admin/applications?__h=email-threads&application_id=${appId}`);
+            const threads = r.threads || [];
+            if (!threads.length) {
+                sec.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                    <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);margin-bottom:8px">E-mails vinculados</div>
+                    <div style="color:var(--text-dim);font-size:0.82rem">Nenhum e-mail vinculado.</div>
+                    <div style="margin-top:10px"><button class="btn btn-sm" onclick="linkEmailThread('${appId}')"><i class="fa-solid fa-link"></i> Vincular thread Gmail</button></div>
+                </div>`;
+                return;
+            }
+            sec.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim)">E-mails vinculados</div>
+                    <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px" onclick="linkEmailThread('${appId}')"><i class="fa-solid fa-plus"></i> Vincular</button>
+                </div>
+                ${threads.map(t => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        ${t.unread_count?`<span style="font-size:0.68rem;background:var(--cyan);color:#000;border-radius:10px;padding:1px 6px;font-weight:700">${t.unread_count}</span>`:''}
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:0.82rem;font-weight:${t.unread_count?'700':'400'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.subject_snippet||'(sem assunto)')}</div>
+                            <div style="font-size:0.7rem;color:var(--text-dim)">${t.sender_name?esc(t.sender_name)+' · ':''}${t.email_count||0} e-mail(s)${t.last_email_at?' · '+new Date(t.last_email_at).toLocaleDateString('pt-BR'):''}</div>
+                        </div>
+                        <span style="font-size:0.68rem;color:var(--text-dim);text-transform:capitalize">${esc(t.status||'auto')}</span>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        } catch(e) {
+            sec.innerHTML = `<div style="color:#f87171;padding:8px;font-size:0.82rem">${esc(e.message)}</div>`;
+        }
+    }
+
+    async function linkEmailThread(appId) {
+        const threadId = prompt('Thread ID do Gmail (ex: 18f2a3b4c5d6e7f8):');
+        if (!threadId) return;
+        try {
+            await apiFetch('/api/admin/applications?__h=email-threads', {
+                method:'POST',
+                body: JSON.stringify({ application_id: appId, thread_id: threadId, link_method:'manual', status:'confirmed', link_confidence:1 })
+            });
+            showToast('Thread vinculada','success');
+            openEmailThreads(appId);
+        } catch(e) { showToast(e.message,'error'); }
+    }
+
 })();

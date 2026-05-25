@@ -1250,6 +1250,86 @@
                     <div id="summaryOutput"></div>
                 </div>
 
+                <!-- Vault de documentos (N4) -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-vault" style="color:var(--cyan);margin-right:6px"></i> Vault de documentos</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openVaultUpload()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Documentos pessoais criptografados. Prontos para anexar em candidaturas.</p>
+                    <div id="vaultUploadForm" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Tipo</label>
+                                <select id="vaultDocType" class="mock-input" style="padding:5px 8px">
+                                    <option value="rg">RG</option>
+                                    <option value="cpf">CPF</option>
+                                    <option value="comprov_endereco">Comprovante endereço</option>
+                                    <option value="diploma">Diploma</option>
+                                    <option value="cert">Certificado</option>
+                                    <option value="cnh">CNH</option>
+                                    <option value="foto">Foto profissional</option>
+                                    <option value="outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Nome de exibição</label>
+                                <input id="vaultDocName" class="mock-input" placeholder="Ex: RG frente e verso" maxlength="100">
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Arquivo</label>
+                                <input id="vaultDocFile" type="file" class="mock-input" style="padding:4px 8px">
+                            </div>
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Validade (opcional)</label>
+                                <input id="vaultDocValidade" type="date" class="mock-input" style="padding:5px 8px">
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end">
+                            <button class="btn btn-sm" onclick="closeVaultUpload()">Cancelar</button>
+                            <button id="vaultUploadBtn" class="btn btn-cyan btn-sm" onclick="uploadVaultDoc()"><i class="fa-solid fa-upload"></i> Enviar</button>
+                        </div>
+                    </div>
+                    <div id="vaultDocsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ─── ABA INBOX ─────────────────────────────────── -->
+        <div id="tab-inbox" class="tab-panel">
+            <div style="padding:16px;max-width:860px;margin:0 auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-inbox" style="color:var(--cyan);margin-right:6px"></i> Inbox</h3>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <select id="inboxFilter" class="mock-input" style="padding:4px 8px;font-size:0.78rem;width:auto" onchange="loadInbox()">
+                            <option value="all">Todos</option>
+                            <option value="critico">Crítico</option>
+                            <option value="alto">Alto</option>
+                            <option value="medio">Médio</option>
+                            <option value="baixo">Baixo</option>
+                        </select>
+                        <button class="btn btn-sm" onclick="loadInbox()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                    </div>
+                </div>
+                <div id="inboxFeed"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+            </div>
+        </div>
+
+        <!-- ─── ABA REDE ──────────────────────────────────── -->
+        <div id="tab-rede" class="tab-panel">
+            <div style="padding:16px;max-width:860px;margin:0 auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-people-group" style="color:var(--cyan);margin-right:6px"></i> Rede de contatos</h3>
+                    <button class="btn btn-cyan btn-sm" onclick="openContactForm()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                </div>
+                <input id="redeSearch" class="mock-input" placeholder="Buscar contato…" style="width:100%;box-sizing:border-box;margin-bottom:12px" oninput="filterContacts(this.value)">
+                <div id="redeList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="contactFormPanel" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                    <!-- preenchido por openContactForm() -->
+                </div>
             </div>
         </div>
 

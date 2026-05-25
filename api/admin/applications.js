@@ -1223,6 +1223,228 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── inbox ─────────────────────────────────────────────────
+    // N7 — Smart Inbox: agrega todos os itens pendentes por prioridade
+    if (req.query.__h === 'inbox') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const now = new Date();
+        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+        const in2h = new Date(now.getTime() + 2 * 3600 * 1000).toISOString();
+
+        const [radarRes, followupRes, msgPendingRes, interviewTodayRes, emailUnreadRes, contactTouchRes] = await Promise.allSettled([
+            // Novos leads com fit alto
+            supabase.from('vaga_radar').select('id,empresa,vaga,fit_score,created_at,status').eq('status','novo').gte('fit_score', 7).order('fit_score', { ascending: false }).limit(5),
+            // Follow-ups pendentes
+            supabase.from('followup_suggestions').select('id,application_id,days_idle,current_stage,suggested_message,detected_at').eq('status','pending').order('days_idle', { ascending: false }).limit(10),
+            // Candidaturas com mensagem não enviada
+            supabase.from('job_applications').select('id,empresa,vaga,application_message_text').eq('result','em_processo').eq('application_message_sent', false).not('application_message_text','is',null).limit(5),
+            // Entrevistas hoje
+            supabase.from('interview_sessions').select('id,application_id,stage_name,interview_at,interviewer_name,job_applications(empresa,vaga)').eq('status','planned').lte('interview_at', todayEnd.toISOString()).gte('interview_at', now.toISOString()).limit(5),
+            // Emails não lidos vinculados
+            supabase.from('email_thread_links').select('id,application_id,subject_snippet,sender_name,last_email_at').gt('unread_count', 0).order('last_email_at', { ascending: false }).limit(5),
+            // Contatos com touch atrasado
+            supabase.from('contacts').select('id,name,empresa,role,next_touch_at,last_contact_at').lte('next_touch_at', now.toISOString()).not('next_touch_at','is',null).order('next_touch_at').limit(5),
+        ]);
+
+        const items = [];
+
+        for (const s of interviewTodayRes.status === 'fulfilled' ? (interviewTodayRes.value.data ?? []) : []) {
+            const dt = new Date(s.interview_at);
+            const minLeft = Math.round((dt - now) / 60000);
+            items.push({ priority: 'critico', category: 'entrevista_hoje', id: s.id, title: `Entrevista${s.stage_name ? ' ' + s.stage_name : ''} com ${s.interviewer_name || 'recrutador'}`, subtitle: `${s.job_applications?.empresa || ''} — em ${minLeft}min`, ts: s.interview_at, entity_type: 'interview', entity_id: s.id, application_id: s.application_id, actions: [{ type:'open_application', id: s.application_id, label:'Abrir candidatura' }, { type:'dismiss', label:'Dispensar' }] });
+        }
+        for (const e of emailUnreadRes.status === 'fulfilled' ? (emailUnreadRes.value.data ?? []) : []) {
+            items.push({ priority: 'alto', category: 'email_nao_lido', id: e.id, title: `E-mail: ${e.subject_snippet || 'nova mensagem'}`, subtitle: `De: ${e.sender_name || '—'}`, ts: e.last_email_at, entity_type: 'email_thread', entity_id: e.id, application_id: e.application_id, actions: [{ type:'open_application', id: e.application_id, label:'Ver candidatura' }, { type:'dismiss', label:'Marcar lido' }] });
+        }
+        for (const r of radarRes.status === 'fulfilled' ? (radarRes.value.data ?? []) : []) {
+            items.push({ priority: 'alto', category: 'lead_alto_fit', id: r.id, title: `Novo lead: ${r.vaga || r.empresa}`, subtitle: `${r.empresa} — fit ${r.fit_score}`, ts: r.created_at, entity_type: 'lead', entity_id: r.id, actions: [{ type:'dismiss', label:'Dispensar' }] });
+        }
+        for (const f of followupRes.status === 'fulfilled' ? (followupRes.value.data ?? []) : []) {
+            items.push({ priority: 'medio', category: 'followup_due', id: f.id, title: `Follow-up: ${f.current_stage || 'candidatura parada'}`, subtitle: `${f.days_idle} dias sem atualização`, ts: f.detected_at, entity_type: 'followup', entity_id: f.id, application_id: f.application_id, suggested_message: f.suggested_message, actions: [{ type:'open_application', id: f.application_id, label:'Ver candidatura' }, { type:'snooze', label:'+1d' }, { type:'dismiss', label:'Dispensar' }] });
+        }
+        for (const m of msgPendingRes.status === 'fulfilled' ? (msgPendingRes.value.data ?? []) : []) {
+            items.push({ priority: 'medio', category: 'mensagem_pendente', id: m.id, title: `Mensagem pronta: ${m.empresa}`, subtitle: m.vaga || 'Candidatura com mensagem não enviada', ts: null, entity_type: 'application', entity_id: m.id, application_id: m.id, actions: [{ type:'open_application', id: m.id, label:'Abrir' }, { type:'dismiss', label:'Dispensar' }] });
+        }
+        for (const c of contactTouchRes.status === 'fulfilled' ? (contactTouchRes.value.data ?? []) : []) {
+            items.push({ priority: 'baixo', category: 'contact_touch', id: c.id, title: `Manter contato: ${c.name}`, subtitle: `${c.role || ''}${c.empresa ? ' @ ' + c.empresa : ''}`, ts: c.next_touch_at, entity_type: 'contact', entity_id: c.id, actions: [{ type:'dismiss', label:'Dispensar' }, { type:'snooze', label:'+1d' }] });
+        }
+
+        const ORDER = { critico: 0, alto: 1, medio: 2, baixo: 3 };
+        items.sort((a, b) => (ORDER[a.priority] ?? 9) - (ORDER[b.priority] ?? 9));
+        return res.status(200).json({ items });
+    }
+
+    // ── vault (N4) ────────────────────────────────────────────
+    if (req.query.__h === 'vault-list') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { data, error } = await supabase.from('personal_documents').select('id,doc_type,display_name,filename,mime_type,size_bytes,validade,tags,notes,use_count,uploaded_at,last_used_at').order('doc_type').order('uploaded_at', { ascending: false });
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ docs: data ?? [] });
+    }
+
+    if (req.query.__h === 'vault-register') {
+        // Recebe base64_content + metadados, faz upload no Storage e registra na tabela
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { doc_type, display_name, filename, mime_type, size_bytes, validade, notes, base64_content } = req.body || {};
+        if (!doc_type || !display_name || !filename || !mime_type || !base64_content) return res.status(400).json({ error: 'Campos obrigatórios: doc_type, display_name, filename, mime_type, base64_content' });
+        const ext = (filename.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const storage_path = `docs/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const fileBuffer = Buffer.from(base64_content, 'base64');
+        const { error: upErr } = await supabase.storage.from('vault').upload(storage_path, fileBuffer, { contentType: mime_type, upsert: false });
+        if (upErr) return res.status(500).json({ error: `Storage: ${upErr.message}` });
+        const { data, error } = await supabase.from('personal_documents').insert({
+            doc_type:     String(doc_type).slice(0, 30),
+            display_name: String(display_name).slice(0, 100),
+            filename:     String(filename).slice(0, 200),
+            storage_path,
+            mime_type:    String(mime_type).slice(0, 80),
+            size_bytes:   size_bytes ? parseInt(size_bytes, 10) : fileBuffer.length,
+            validade:     validade || null,
+            notes:        notes ? String(notes).slice(0, 500) : null,
+        }).select().single();
+        if (error) { await supabase.storage.from('vault').remove([storage_path]); return res.status(500).json({ error: error.message }); }
+        return res.status(201).json(data);
+    }
+
+    if (req.query.__h === 'vault-download-url') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.query;
+        if (!id) return res.status(400).json({ error: 'id obrigatório' });
+        const { data: doc } = await supabase.from('personal_documents').select('storage_path, display_name').eq('id', id).single();
+        if (!doc) return res.status(404).json({ error: 'Documento não encontrado' });
+        const { data: urlData, error } = await supabase.storage.from('vault').createSignedUrl(doc.storage_path, 120);
+        if (error) return res.status(500).json({ error: error.message });
+        await supabase.from('personal_documents').update({ last_used_at: new Date().toISOString() }).eq('id', id);
+        return res.status(200).json({ url: urlData.signedUrl, filename: doc.display_name });
+    }
+
+    if (req.query.__h === 'vault-delete') {
+        if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.query;
+        if (!id) return res.status(400).json({ error: 'id obrigatório' });
+        const { data: doc } = await supabase.from('personal_documents').select('storage_path').eq('id', id).single();
+        if (!doc) return res.status(404).json({ error: 'Documento não encontrado' });
+        await supabase.storage.from('vault').remove([doc.storage_path]);
+        const { error } = await supabase.from('personal_documents').delete().eq('id', id);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(204).end();
+    }
+
+    // ── email-threads (N8) ────────────────────────────────────
+    if (req.query.__h === 'email-threads') {
+        if (req.method === 'GET') {
+            const { application_id } = req.query;
+            if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+            const { data, error } = await supabase.from('email_thread_links').select('*').eq('application_id', application_id).order('last_email_at', { ascending: false });
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ threads: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { thread_id, application_id, subject_snippet, sender_name, sender_email, link_method = 'manual', link_confidence = 1.0 } = req.body || {};
+            if (!thread_id || !application_id) return res.status(400).json({ error: 'thread_id e application_id obrigatórios' });
+            const { data, error } = await supabase.from('email_thread_links').upsert({
+                thread_id, application_id,
+                link_method, link_confidence,
+                subject_snippet: subject_snippet ? String(subject_snippet).slice(0, 200) : null,
+                sender_name:     sender_name ? String(sender_name).slice(0, 100) : null,
+                sender_email:    sender_email ? String(sender_email).slice(0, 120) : null,
+                status: 'confirmed',
+                last_email_at: new Date().toISOString(),
+            }, { onConflict: 'thread_id' }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('email_thread_links').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── contacts (N25) ────────────────────────────────────────
+    if (req.query.__h === 'contacts') {
+        if (req.method === 'GET') {
+            const { id } = req.query;
+            if (id) {
+                const { data, error } = await supabase.from('contacts').select('*, contact_interactions(*)').eq('id', id).single();
+                if (error || !data) return res.status(404).json({ error: 'Contato não encontrado' });
+                return res.status(200).json(data);
+            }
+            const search = req.query.q ? String(req.query.q).trim() : '';
+            let q = supabase.from('contacts').select('*').order('next_touch_at', { ascending: true, nullsFirst: false }).order('name');
+            if (search) q = q.or(`name.ilike.%${search}%,empresa.ilike.%${search}%,role.ilike.%${search}%`);
+            const { data, error } = await q.limit(100);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ contacts: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { name, role, empresa, email, phone, linkedin_url, source, source_ref, relationship_strength = 3, notes, tags, preferred_contact_method, contact_frequency_months = 6 } = req.body || {};
+            if (!name) return res.status(400).json({ error: 'name obrigatório' });
+            const row = {
+                name:                     String(name).slice(0, 100),
+                role:                     role ? String(role).slice(0, 100) : null,
+                empresa:                  empresa ? String(empresa).slice(0, 200) : null,
+                email:                    email ? String(email).slice(0, 120) : null,
+                phone:                    phone ? String(phone).slice(0, 30) : null,
+                linkedin_url:             linkedin_url ? String(linkedin_url).slice(0, 300) : null,
+                source:                   source ? String(source).slice(0, 100) : 'manual',
+                source_ref:               source_ref ? String(source_ref).slice(0, 200) : null,
+                relationship_strength:    Math.min(5, Math.max(1, parseInt(relationship_strength, 10) || 3)),
+                notes:                    notes ? String(notes).slice(0, 2000) : null,
+                tags:                     Array.isArray(tags) ? tags.map(t => String(t).slice(0, 50)) : [],
+                preferred_contact_method: preferred_contact_method ? String(preferred_contact_method).slice(0, 20) : null,
+                contact_frequency_months: Math.min(24, Math.max(1, parseInt(contact_frequency_months, 10) || 6)),
+            };
+            const { data, error } = await supabase.from('contacts').insert(row).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['name','role','empresa','email','phone','linkedin_url','notes','tags','relationship_strength','preferred_contact_method','contact_frequency_months','next_touch_at','last_contact_at','last_contact_via'];
+            const patch = { updated_at: new Date().toISOString() };
+            for (const k of allowed) {
+                if (req.body?.[k] !== undefined) patch[k] = req.body[k];
+            }
+            const { data, error } = await supabase.from('contacts').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('contacts').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── contact-interactions (N25) ────────────────────────────
+    if (req.query.__h === 'contact-interactions') {
+        if (req.method === 'POST') {
+            const { contact_id, channel, direction = 'outbound', summary, topics } = req.body || {};
+            if (!contact_id) return res.status(400).json({ error: 'contact_id obrigatório' });
+            const { data, error } = await supabase.from('contact_interactions').insert({
+                contact_id, channel: channel || null, direction,
+                summary: String(summary).slice(0, 1000),
+                topics: Array.isArray(topics) ? topics : [],
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            // Atualiza last_contact_at e recalcula next_touch_at
+            const { data: contact } = await supabase.from('contacts').select('contact_frequency_months').eq('id', contact_id).single();
+            const freqMonths = contact?.contact_frequency_months || 6;
+            const nextTouch = new Date(); nextTouch.setMonth(nextTouch.getMonth() + freqMonths);
+            await supabase.from('contacts').update({ last_contact_at: new Date().toISOString(), last_contact_via: channel || null, next_touch_at: nextTouch.toISOString(), updated_at: new Date().toISOString() }).eq('id', contact_id);
+            return res.status(201).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // GET — lista candidaturas ou detalhe individual (?id=)
     if (req.method === 'GET') {
         if (req.query.id) {
