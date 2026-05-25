@@ -996,6 +996,7 @@ function renderDrawerBody(app) {
         <div class="drawer-actions">
             <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
             <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
+            <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
@@ -1627,6 +1628,240 @@ async function loadPlatformSettings() {
     } catch { window._platformSettings = []; }
 }
 
+// ─── ABA CONFIGURAR ──────────────────────────────────────────
+
+async function loadConfigTab() {
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable()]);
+}
+
+async function renderPlatformSettingsTable() {
+    const el = document.getElementById('platformSettingsTable');
+    if (!el) return;
+    try {
+        const rows = await api('GET', '/api/admin/applications?__h=platform-settings');
+        if (!rows?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhuma plataforma cadastrada.</div>'; return; }
+        el.innerHTML = `<table class="vagas-table" style="font-size:0.8rem">
+            <thead><tr><th>Plataforma</th><th>Limite chars</th><th>Campo</th><th>Ativo</th><th></th></tr></thead>
+            <tbody>
+            ${rows.map(p => `
+                <tr id="plt-row-${p.fonte}">
+                    <td><strong>${esc(p.display_name)}</strong><br><span style="color:var(--text-dim);font-size:0.7rem">${esc(p.fonte)}</span></td>
+                    <td><input id="plt-char-${p.fonte}" class="mock-input" type="number" min="0" value="${p.char_limit}" style="width:80px;padding:3px 6px" onchange="savePlatformRow('${p.fonte}')"></td>
+                    <td><input id="plt-field-${p.fonte}" class="mock-input" value="${esc(p.field_name || '')}" style="width:160px;padding:3px 6px" onchange="savePlatformRow('${p.fonte}')" placeholder="nome do campo"></td>
+                    <td><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePlatformEnabled('${p.fonte}', this.checked)" style="accent-color:var(--cyan)"></td>
+                    <td><span id="plt-saved-${p.fonte}" style="color:var(--success);font-size:0.72rem;display:none"><i class="fa-solid fa-check"></i></span></td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+async function savePlatformRow(fonte) {
+    const charLimit = parseInt(document.getElementById(`plt-char-${fonte}`)?.value || '0', 10);
+    const fieldName = document.getElementById(`plt-field-${fonte}`)?.value.trim() || null;
+    try {
+        await api('PUT', '/api/admin/applications?__h=platform-settings', { fonte, char_limit: charLimit, field_name: fieldName });
+        const saved = document.getElementById(`plt-saved-${fonte}`);
+        if (saved) { saved.style.display = 'inline'; setTimeout(() => saved.style.display = 'none', 2000); }
+        window._platformSettings = (window._platformSettings || []).map(p => p.fonte === fonte ? { ...p, char_limit: charLimit, field_name: fieldName } : p);
+    } catch (e) { showToast('Erro: ' + e.message); }
+}
+async function togglePlatformEnabled(fonte, enabled) {
+    try {
+        await api('PUT', '/api/admin/applications?__h=platform-settings', { fonte, enabled });
+        window._platformSettings = enabled
+            ? [...(window._platformSettings || []), { fonte, enabled: true }]
+            : (window._platformSettings || []).filter(p => p.fonte !== fonte);
+    } catch (e) { showToast('Erro: ' + e.message); }
+}
+
+// ── Quick Answers ──────────────────────────────────────────
+window._quickAnswers = [];
+async function renderQuickAnswersTable() {
+    const el = document.getElementById('quickAnswersTable');
+    if (!el) return;
+    try {
+        const rows = await api('GET', '/api/admin/applications?__h=quick-answers');
+        window._quickAnswers = rows || [];
+        if (!rows?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhuma resposta cadastrada. Clique em "Adicionar".</div>'; return; }
+        el.innerHTML = `<table class="vagas-table" style="font-size:0.8rem">
+            <thead><tr><th>Slug</th><th>Nome</th><th>Valor</th><th></th></tr></thead>
+            <tbody>
+            ${rows.map(q => `
+                <tr>
+                    <td><code style="font-size:0.75rem">/${esc(q.slug)}</code></td>
+                    <td>${esc(q.display_name)}</td>
+                    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.value)}</td>
+                    <td>
+                        <button class="btn btn-sm" style="padding:2px 7px;font-size:0.72rem" onclick="openEditQuickAnswer('${q.id}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-sm" style="padding:2px 7px;font-size:0.72rem;color:var(--danger)" onclick="deleteQuickAnswer('${q.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    } catch (e) {
+        el.innerHTML = `<div style="color:var(--danger);font-size:0.82rem">${esc(e.message)}</div>`;
+    }
+}
+function openAddQuickAnswer() {
+    document.getElementById('qaEditId').value = '';
+    document.getElementById('qaSlug').value = '';
+    document.getElementById('qaDisplayName').value = '';
+    document.getElementById('qaValue').value = '';
+    document.getElementById('qaSlug').removeAttribute('readonly');
+    document.getElementById('quickAnswerForm').style.display = 'block';
+    document.getElementById('qaSlug').focus();
+}
+function openEditQuickAnswer(id) {
+    const q = window._quickAnswers.find(x => x.id === id);
+    if (!q) return;
+    document.getElementById('qaEditId').value = id;
+    document.getElementById('qaSlug').value = q.slug;
+    document.getElementById('qaDisplayName').value = q.display_name;
+    document.getElementById('qaValue').value = q.value;
+    document.getElementById('qaSlug').setAttribute('readonly', 'readonly');
+    document.getElementById('quickAnswerForm').style.display = 'block';
+    document.getElementById('qaDisplayName').focus();
+}
+function closeQuickAnswerForm() { document.getElementById('quickAnswerForm').style.display = 'none'; }
+async function saveQuickAnswer() {
+    const id = document.getElementById('qaEditId').value;
+    const slug = document.getElementById('qaSlug').value.trim();
+    const display_name = document.getElementById('qaDisplayName').value.trim();
+    const value = document.getElementById('qaValue').value.trim();
+    if (!slug || !display_name || !value) { showToast('Preencha todos os campos.'); return; }
+    try {
+        if (id) {
+            await api('PUT', `/api/admin/applications?__h=quick-answers&id=${id}`, { display_name, value });
+        } else {
+            await api('POST', '/api/admin/applications?__h=quick-answers', { slug, display_name, value });
+        }
+        closeQuickAnswerForm();
+        await renderQuickAnswersTable();
+        showToast('Resposta salva!');
+    } catch (e) { showToast('Erro: ' + e.message); }
+}
+async function deleteQuickAnswer(id) {
+    if (!await showConfirm('Remover resposta?', 'Isso não pode ser desfeito.', { okText: 'Remover', danger: true })) return;
+    try {
+        await api('DELETE', `/api/admin/applications?__h=quick-answers&id=${id}`);
+        await renderQuickAnswersTable();
+        showToast('Removido.');
+    } catch (e) { showToast('Erro: ' + e.message); }
+}
+
+// ── Follow-up Scan ─────────────────────────────────────────
+async function runFollowupScan() {
+    const btn = document.getElementById('followupScanBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Escaneando…'; }
+    try {
+        const res = await api('POST', '/api/admin/applications?__h=followup-scan');
+        showToast(`${res.created} nova${res.created !== 1 ? 's' : ''} sugestão${res.created !== 1 ? 'ões' : ''} gerada${res.created !== 1 ? 's' : ''}.`);
+        await renderFollowupSuggestions();
+    } catch (e) { showToast('Erro: ' + e.message); } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Escanear'; }
+    }
+}
+async function renderFollowupSuggestions() {
+    const el = document.getElementById('followupSuggestionsList');
+    if (!el) return;
+    try {
+        const rows = await api('GET', '/api/admin/applications?__h=followup-suggestions');
+        if (!rows?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum follow-up pendente. Candidaturas em dia!</div>'; return; }
+        el.innerHTML = rows.map(s => {
+            const app = s.job_applications || {};
+            return `<div class="followup-card">
+                <div class="followup-header">
+                    <span class="followup-company">${esc(app.empresa || '—')}</span>
+                    <span class="followup-days">${s.days_idle}d parado</span>
+                </div>
+                <div style="font-size:0.8rem;color:var(--text-soft);margin:2px 0 6px">${esc(app.vaga || '')} · Etapa: ${esc(s.current_stage || '—')}</div>
+                <div class="followup-msg">${esc(s.suggested_message || '')}</div>
+                <div style="display:flex;gap:6px;margin-top:8px">
+                    <button class="btn btn-sm btn-cyan" style="font-size:0.72rem" onclick="copyFollowupMsg('${s.id}','${esc(s.suggested_message || '')}')">
+                        <i class="fa-regular fa-copy"></i> Copiar
+                    </button>
+                    <button class="btn btn-sm" style="font-size:0.72rem" onclick="markFollowupSent('${s.id}')">
+                        <i class="fa-solid fa-check"></i> Enviado
+                    </button>
+                    <button class="btn btn-sm" style="font-size:0.72rem;opacity:0.6" onclick="dismissFollowup('${s.id}')">
+                        Dispensar
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Erro ao carregar.</div>'; }
+}
+async function copyFollowupMsg(id, msg) {
+    await navigator.clipboard?.writeText(msg).catch(() => {});
+    showToast('Mensagem copiada!');
+}
+async function markFollowupSent(id) {
+    await api('PATCH', `/api/admin/applications?__h=followup-suggestions&id=${id}`, { status: 'sent', sent_via: 'manual' });
+    await renderFollowupSuggestions();
+}
+async function dismissFollowup(id) {
+    await api('PATCH', `/api/admin/applications?__h=followup-suggestions&id=${id}`, { status: 'dismissed' });
+    await renderFollowupSuggestions();
+}
+
+// ── Calculadora CLT/PJ/MEI ─────────────────────────────────
+function openCalcModal(prefillClt) {
+    if (prefillClt) document.getElementById('calcCltBruto').value = prefillClt;
+    document.getElementById('calcModal').classList.add('open');
+    calcRun();
+}
+function closeCalcModal() { document.getElementById('calcModal').classList.remove('open'); }
+async function calcRun() {
+    const cltBruto = parseFloat(document.getElementById('calcCltBruto')?.value) || 0;
+    const pjBruto  = parseFloat(document.getElementById('calcPjBruto')?.value) || 0;
+    const meiBruto = parseFloat(document.getElementById('calcMeiBruto')?.value) || 0;
+    const pjAliq   = parseFloat(document.getElementById('calcPjAliq')?.value) || 6;
+    const cltVr    = parseFloat(document.getElementById('calcCltVr')?.value) || 0;
+    const cltSaude = parseFloat(document.getElementById('calcCltSaude')?.value) || 0;
+
+    if (!cltBruto && !pjBruto && !meiBruto) {
+        document.getElementById('calcResults').innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:16px">Preencha ao menos um valor acima.</div>';
+        return;
+    }
+
+    try {
+        const body = {};
+        if (cltBruto) body.clt = { salarioBruto: cltBruto, vr: cltVr, planoSaude: cltSaude };
+        if (pjBruto)  body.pj  = { faturamentoBruto: pjBruto, aliquotaSimplesPct: pjAliq };
+        if (meiBruto) body.mei = { faturamentoBruto: meiBruto };
+
+        const res = await api('POST', '/api/admin/applications?__h=calc-liquido', body);
+        const fmt = v => v != null ? `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
+
+        const blocks = [];
+        if (res.clt) blocks.push(calcBlock('CLT', res.clt, fmt));
+        if (res.pj)  blocks.push(calcBlock('PJ', res.pj, fmt));
+        if (res.mei) blocks.push(calcBlock('MEI', res.mei, fmt));
+
+        document.getElementById('calcResults').innerHTML = `<div style="display:grid;grid-template-columns:repeat(${blocks.length},1fr);gap:10px">${blocks.join('')}</div>`;
+    } catch (e) {
+        document.getElementById('calcResults').innerHTML = `<div style="color:var(--danger);font-size:0.8rem">${esc(e.message)}</div>`;
+    }
+}
+function calcBlock(regime, data, fmt) {
+    const hasIndiretos = data.indiretos;
+    return `<div class="calc-result-col">
+        <div class="calc-result-regime">${esc(regime)}</div>
+        <div class="calc-result-row"><span>Bruto</span><span>${fmt(data.bruto)}</span></div>
+        ${data.inss ? `<div class="calc-result-row deduction"><span>INSS</span><span>-${fmt(data.inss)}</span></div>` : ''}
+        ${data.ir   ? `<div class="calc-result-row deduction"><span>IR</span><span>-${fmt(data.ir)}</span></div>` : ''}
+        ${data.simples ? `<div class="calc-result-row deduction"><span>Simples (${data.simples_pct}%)</span><span>-${fmt(data.simples)}</span></div>` : ''}
+        ${data.das  ? `<div class="calc-result-row deduction"><span>DAS-MEI</span><span>-${fmt(data.das)}</span></div>` : ''}
+        ${data.beneficios_diretos > 0 ? `<div class="calc-result-row benefit"><span>Benef. diretos</span><span>+${fmt(data.beneficios_diretos)}</span></div>` : ''}
+        <div class="calc-result-row total"><span>Líquido efetivo</span><span>${fmt(data.total_efetivo)}</span></div>
+        ${hasIndiretos ? `<div style="margin-top:6px;font-size:0.7rem;color:var(--text-dim)">
+            + FGTS ${fmt(data.indiretos.fgts)} · 13º ${fmt(data.indiretos.decimoTerceiro)} · Férias ${fmt(data.indiretos.ferias)}
+        </div>` : ''}
+    </div>`;
+}
+
 // Atualiza hint de plataforma e limite de chars ao trocar plataforma
 function onVfPlatformChange() {
     const fonte = document.getElementById('vfPlatform')?.value || '';
@@ -1908,6 +2143,7 @@ function switchTab(name) {
     if (name === 'radar') loadRadar();
     if (name === 'metricas') { loadAnalytics(); loadLoginAttempts(); }
     if (name === 'seguranca') { loadSessions(); loadDemoSettings(); }
+    if (name === 'config') loadConfigTab();
     _scheduleRefresh();
 }
 
@@ -4709,6 +4945,7 @@ const ADMIN_TABS = [
     { key: 'vagas',     label: 'Gestão de Vagas', shortLabel: 'Vagas',      icon: 'fa-briefcase',      demoEligible: true,  mobileOverflow: false },
     { key: 'radar',     label: 'Radar',           shortLabel: 'Radar',      icon: 'fa-satellite-dish', demoEligible: true,  mobileOverflow: false },
     { key: 'metricas',  label: 'Métricas',        shortLabel: 'Métricas',   icon: 'fa-chart-line',     demoEligible: true,  mobileOverflow: false },
+    { key: 'config',    label: 'Configurar',      shortLabel: 'Config',     icon: 'fa-sliders',        demoEligible: false, mobileOverflow: true  },
     { key: 'seguranca', label: 'Segurança',       shortLabel: 'Segurança',  icon: 'fa-shield-halved',  demoEligible: true,  mobileOverflow: true  },
 ];
 

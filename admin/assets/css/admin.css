@@ -2843,3 +2843,54 @@
     color:var(--cyan); background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.25);
     border-radius:10px; padding:1px 7px;
 }
+
+/* ── Calculadora CLT/PJ/MEI ─────────────────────────────── */
+.calc-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+@media(max-width:600px) { .calc-grid { grid-template-columns:1fr; } }
+.calc-regime-col { display:flex; flex-direction:column; gap:8px; }
+.calc-regime-label {
+    font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em;
+    color:var(--cyan); margin-bottom:2px;
+}
+#calcResults { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px; }
+@media(max-width:600px) { #calcResults { grid-template-columns:1fr; } }
+.calc-result-col { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.calc-result-regime { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--cyan); margin-bottom:10px; }
+.calc-result-row { display:flex; justify-content:space-between; font-size:0.78rem; padding:3px 0; border-bottom:1px solid var(--border); }
+.calc-result-row:last-child { border-bottom:none; }
+.calc-result-row.deduction .val { color:#f87171; }
+.calc-result-row.benefit  .val { color:#4ade80; }
+.calc-result-row.total    { font-weight:700; font-size:0.88rem; padding-top:8px; margin-top:4px; border-top:2px solid var(--border); border-bottom:none; }
+.calc-result-row.total .val { color:var(--cyan); }
+
+/* ── Follow-up suggestion cards ─────────────────────────── */
+.followup-card {
+    background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--cyan);
+    border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
+}
+.followup-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.followup-company { font-weight:600; font-size:0.88rem; }
+.followup-days { font-size:0.72rem; color:var(--text-dim); white-space:nowrap; }
+.followup-msg {
+    font-size:0.78rem; color:var(--text-soft); background:var(--bg);
+    border:1px solid var(--border); border-radius:6px; padding:8px 10px;
+    max-height:120px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
+}
+.followup-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ── Quick Answers table ─────────────────────────────────── */
+.qa-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+.qa-table th { text-align:left; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--border); }
+.qa-table td { padding:8px; border-bottom:1px solid var(--border); vertical-align:top; }
+.qa-table tr:last-child td { border-bottom:none; }
+.qa-slug { font-family:monospace; font-size:0.75rem; color:var(--cyan); }
+.qa-value { color:var(--text-soft); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Platform Settings table ─────────────────────────────── */
+.ps-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+.ps-table th { text-align:left; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--border); }
+.ps-table td { padding:7px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.ps-table tr:last-child td { border-bottom:none; }
+.ps-fonte { font-weight:600; }
+.ps-limit-input { width:70px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:3px 6px; font-size:0.8rem; }
+.ps-save-btn { font-size:0.72rem; padding:3px 8px; }

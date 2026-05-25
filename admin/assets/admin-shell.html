@@ -1111,6 +1111,63 @@
             </div>
         </div>
 
+        <!-- ─── CONFIGURAR ─────────────────────────────────────── -->
+        <div id="tab-config" class="tab-panel">
+            <div style="padding:16px;max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:28px">
+
+                <!-- Plataformas -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-globe" style="color:var(--cyan);margin-right:6px"></i> Plataformas de candidatura</h3>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Limite de caracteres usado pelo gerador de mensagem para adequar o tamanho ao campo da plataforma.</p>
+                    <div id="platformSettingsTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+                </div>
+
+                <!-- Respostas rápidas -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bolt" style="color:var(--cyan);margin-right:6px"></i> Respostas rápidas</h3>
+                        <button class="btn btn-sm btn-cyan" onclick="openAddQuickAnswer()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Use <code>/slug</code> no editor de mensagem para expandir. Preenchido automaticamente em formulários de candidatura.</p>
+                    <div id="quickAnswersTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
+                    <div id="quickAnswerForm" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Slug (chave)</label>
+                                <input id="qaSlug" class="mock-input" placeholder="pretensao_clt" maxlength="60" autocomplete="off" data-form-type="other">
+                            </div>
+                            <div class="form-group" style="margin:0">
+                                <label style="font-size:0.75rem">Nome de exibição</label>
+                                <input id="qaDisplayName" class="mock-input" placeholder="Pretensão CLT" maxlength="100" autocomplete="off" data-form-type="other">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin:0 0 8px">
+                            <label style="font-size:0.75rem">Valor</label>
+                            <textarea id="qaValue" class="mock-input" rows="2" placeholder="R$ 8.000 a R$ 10.000 + benefícios" maxlength="1000" style="resize:vertical;font-family:inherit;font-size:inherit"></textarea>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end">
+                            <button class="btn btn-sm" onclick="closeQuickAnswerForm()">Cancelar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveQuickAnswer()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        </div>
+                        <input type="hidden" id="qaEditId">
+                    </div>
+                </div>
+
+                <!-- Follow-up sugeridos -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-clock-rotate-left" style="color:var(--cyan);margin-right:6px"></i> Follow-ups pendentes</h3>
+                        <button class="btn btn-sm" onclick="runFollowupScan()" id="followupScanBtn"><i class="fa-solid fa-magnifying-glass"></i> Escanear</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Candidaturas paradas além do prazo sugerido para follow-up.</p>
+                    <div id="followupSuggestionsList"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Escanear" para verificar.</div></div>
+                </div>
+
+            </div>
+        </div>
+
         <!-- ─── DRAWER: DETALHE DA CANDIDATURA ──────────────────────── -->
         <div class="vagas-drawer-overlay" id="vagasOverlay" onclick="closeDrawer()"></div>
         <div class="vagas-drawer" id="vagasDrawer">
@@ -1175,6 +1232,56 @@
 </div>
 
 <!-- ─── CONFIRM MODAL ────────────────────────────── -->
+<div class="modal-overlay" id="calcModal">
+    <div class="modal-box" style="max-width:680px;width:95%">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-calculator"></i> Calculadora CLT / PJ / MEI</div>
+            <button class="modal-close" onclick="closeCalcModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+                <div class="calc-regime-col">
+                    <div class="calc-regime-label">CLT</div>
+                    <div class="form-group" style="margin:0 0 6px">
+                        <label style="font-size:0.72rem">Salário bruto (R$)</label>
+                        <input id="calcCltBruto" class="mock-input" type="number" min="0" placeholder="10000" oninput="calcRun()">
+                    </div>
+                    <div class="form-group" style="margin:0 0 6px">
+                        <label style="font-size:0.72rem">VR/VA (R$/mês)</label>
+                        <input id="calcCltVr" class="mock-input" type="number" min="0" placeholder="0" oninput="calcRun()">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label style="font-size:0.72rem">Plano saúde (R$/mês)</label>
+                        <input id="calcCltSaude" class="mock-input" type="number" min="0" placeholder="0" oninput="calcRun()">
+                    </div>
+                </div>
+                <div class="calc-regime-col">
+                    <div class="calc-regime-label">PJ (Simples)</div>
+                    <div class="form-group" style="margin:0 0 6px">
+                        <label style="font-size:0.72rem">Faturamento bruto (R$)</label>
+                        <input id="calcPjBruto" class="mock-input" type="number" min="0" placeholder="13000" oninput="calcRun()">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label style="font-size:0.72rem">Alíquota Simples (%)</label>
+                        <input id="calcPjAliq" class="mock-input" type="number" min="0" max="100" step="0.1" placeholder="6" value="6" oninput="calcRun()">
+                    </div>
+                </div>
+                <div class="calc-regime-col">
+                    <div class="calc-regime-label">MEI</div>
+                    <div class="form-group" style="margin:0">
+                        <label style="font-size:0.72rem">Faturamento bruto (R$)</label>
+                        <input id="calcMeiBruto" class="mock-input" type="number" min="0" placeholder="13500" oninput="calcRun()">
+                    </div>
+                </div>
+            </div>
+            <div id="calcResults" style="font-size:0.82rem"></div>
+            <p style="font-size:0.7rem;color:var(--text-dim);margin:12px 0 0;line-height:1.5">
+                Estimativa baseada em alíquotas de 2026. Não substitui orientação de contador.
+            </p>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="confirmModal">
     <div class="modal" style="max-width:380px">
         <p class="modal-title" id="confirmTitle"></p>

@@ -3,6 +3,7 @@ import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase, BUCKET } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
 import { buildMessagePrompt, parseMessageResponse } from '../_lib/message-prompt.js';
+import { calcCLT, calcPJ, calcMEI } from '../_lib/tax-calc.js';
 
 const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB (Supabase free)
 const STORAGE_ALERT_THRESHOLD = 0.80;
@@ -369,6 +370,111 @@ export default async function handler(req, res) {
             return res.json({ ok: true, enabled_tabs: cleaned });
         }
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── followup-scan ─────────────────────────────────────────
+    if (req.query.__h === 'followup-scan') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+        const profile = await supabase
+            .from('candidate_profile')
+            .select('stage_drag_thresholds')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const thresholds = profile.data?.stage_drag_thresholds || {
+            'Aplicado': 10, 'Triagem': 14, 'Teste': 7,
+            'Entrevista com RH': 10, 'Entrevista Técnica': 10,
+            'Entrevista com Gestor': 7, 'Proposta': 5,
+        };
+        const defaultThreshold = 14;
+
+        const { data: apps } = await supabase
+            .from('job_applications')
+            .select('id, empresa, vaga, stages, updated_at, result')
+            .eq('result', 'em_processo')
+            .is('archived', false)
+            .order('updated_at', { ascending: true });
+
+        if (!apps?.length) return res.status(200).json({ created: 0, skipped: 0 });
+
+        const now = new Date();
+        let created = 0, skipped = 0;
+
+        for (const app of apps) {
+            const currentStage = (app.stages || []).find(s => s.status === 'running')?.name
+                || (app.stages || []).find(s => !s.done && s.active !== false)?.name
+                || 'Aplicado';
+            const threshold = thresholds[currentStage] ?? defaultThreshold;
+            const daysIdle = Math.floor((now - new Date(app.updated_at)) / 86400000);
+
+            if (daysIdle < threshold) { skipped++; continue; }
+
+            // Verifica se já tem sugestão pendente
+            const { data: existing } = await supabase
+                .from('followup_suggestions')
+                .select('id')
+                .eq('application_id', app.id)
+                .eq('status', 'pending')
+                .maybeSingle();
+
+            if (existing) { skipped++; continue; }
+
+            await supabase.from('followup_suggestions').insert({
+                application_id: app.id,
+                days_idle: daysIdle,
+                current_stage: currentStage,
+                suggested_message: `Olá! Gostaria de saber se há atualizações sobre minha candidatura à vaga de ${app.vaga || 'Analista'} na ${app.empresa}. Continuo muito interessado na oportunidade e fico à disposição para qualquer informação adicional.`,
+                status: 'pending',
+                reason: 'drag',
+            });
+            created++;
+        }
+
+        return res.status(200).json({ created, skipped });
+    }
+
+    // ── followup-suggestions ──────────────────────────────────
+    if (req.query.__h === 'followup-suggestions') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase
+                .from('followup_suggestions')
+                .select('*, job_applications(empresa, vaga, link_vaga)')
+                .in('status', ['pending', 'snoozed'])
+                .order('detected_at', { ascending: false });
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data ?? []);
+        }
+        if (req.method === 'PATCH') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { status, sent_via, snoozed_until, suggested_message } = req.body || {};
+            const VALID = new Set(['pending', 'sent', 'dismissed', 'snoozed']);
+            if (status && !VALID.has(status)) return res.status(400).json({ error: 'status inválido' });
+            const patch = {};
+            if (status) patch.status = status;
+            if (status === 'sent') patch.sent_at = new Date().toISOString();
+            if (sent_via) patch.sent_via = String(sent_via).slice(0, 40);
+            if (snoozed_until) patch.snoozed_until = snoozed_until;
+            if (suggested_message !== undefined) patch.suggested_message = String(suggested_message).slice(0, 2000);
+            const { data, error } = await supabase.from('followup_suggestions').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (!data) return res.status(404).json({ error: 'Sugestão não encontrada' });
+            return res.status(200).json(data);
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── calc-liquido ──────────────────────────────────────────
+    if (req.query.__h === 'calc-liquido') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const b = req.body || {};
+        const results = {};
+        if (b.clt) results.clt = calcCLT(b.clt);
+        if (b.pj)  results.pj  = calcPJ(b.pj);
+        if (b.mei) results.mei = calcMEI(b.mei);
+        return res.status(200).json(results);
     }
 
     // ── platform-settings ──────────────────────────────────────
