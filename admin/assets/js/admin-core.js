@@ -7967,8 +7967,8 @@ function renderKanban(apps) {
                 <div class="kanban-card" onclick="openDrawer('${a.id}')">
                     <div class="kanban-card-empresa">${esc(a.empresa)}</div>
                     <div class="kanban-card-vaga">${esc(a.vaga || '')}</div>
-                    ${a._stageName ? `<span class="radar-chip" style="font-size:0.68rem;opacity:0.8">${esc(a._stageName)}</span>` : ''}
-                    ${a.modalidade ? `<span class="radar-chip" style="font-size:0.68rem">${esc(a.modalidade)}</span>` : ''}
+                    ${a._stageName ? `<span class="kanban-stage-badge">${esc(a._stageName)}</span>` : ''}
+                    ${a.modalidade ? `<span class="radar-chip" style="font-size:0.68rem;margin-top:4px">${esc(a.modalidade)}</span>` : ''}
                 </div>`).join('')}
                 ${items.length === 0 ? '<div style="font-size:0.75rem;color:var(--text-dim);padding:8px;text-align:center">—</div>' : ''}
             </div>
