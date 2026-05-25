@@ -1223,6 +1223,105 @@ Retorne JSON com:
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // ── study-plan (N16) ──────────────────────────────────────
+    if (req.query.__h === 'study-plan') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase.from('study_plan_items').select('*, study_sessions(hours, session_date)').order('priority', { ascending: false, nullsFirst: false }).order('created_at');
+            if (error) return res.status(500).json({ error: error.message });
+            const items = (data || []).map(item => {
+                const totalHours = (item.study_sessions || []).reduce((s, ss) => s + (ss.hours || 0), 0);
+                return { ...item, hours_completed: totalHours, study_sessions: undefined };
+            });
+            return res.status(200).json({ items });
+        }
+        if (req.method === 'POST') {
+            const { skill, hours_planned, course_url, course_title, course_provider, priority, demand_pct, area_id, study_plan_item_id, hours, notes, session_date } = req.body || {};
+            // Se tem study_plan_item_id → registra sessão de estudo
+            if (study_plan_item_id) {
+                if (!hours || hours <= 0) return res.status(400).json({ error: 'hours obrigatório e > 0' });
+                const { data, error } = await supabase.from('study_sessions').insert({ study_plan_item_id, hours: parseFloat(hours), notes: notes||null, session_date: session_date || new Date().toISOString().slice(0,10) }).select().single();
+                if (error) return res.status(500).json({ error: error.message });
+                return res.status(201).json(data);
+            }
+            if (!skill) return res.status(400).json({ error: 'skill obrigatório' });
+            const { data, error } = await supabase.from('study_plan_items').insert({
+                skill: String(skill).slice(0,100), hours_planned: hours_planned ? parseInt(hours_planned,10) : null,
+                course_url: course_url ? String(course_url).slice(0,500) : null,
+                course_title: course_title ? String(course_title).slice(0,200) : null,
+                course_provider: course_provider ? String(course_provider).slice(0,100) : null,
+                priority: priority ? parseFloat(priority) : null,
+                demand_pct: demand_pct ? parseFloat(demand_pct) : null,
+                area_id: area_id || null, status: 'planned',
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['skill','status','hours_planned','course_url','course_title','course_provider','priority','demand_pct','started_at','completed_at'];
+            const patch = {};
+            for (const k of allowed) { if (req.body?.[k] !== undefined) patch[k] = req.body[k]; }
+            if (req.body?.status === 'in_progress' && !patch.started_at) patch.started_at = new Date().toISOString();
+            if (req.body?.status === 'done' && !patch.completed_at) patch.completed_at = new Date().toISOString();
+            const { data, error } = await supabase.from('study_plan_items').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('study_plan_items').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── search-alerts (N17) ────────────────────────────────────
+    if (req.query.__h === 'search-alerts') {
+        if (req.method === 'GET') {
+            const { data, error } = await supabase.from('search_alerts').select('*').order('created_at', { ascending: false });
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ alerts: data ?? [] });
+        }
+        if (req.method === 'POST') {
+            const { name, keywords, excludes, fontes, min_fit_score = 6, modalidade, frequencia_horas = 6, notification_mode = 'daily_digest', area_id } = req.body || {};
+            if (!name || !keywords?.length) return res.status(400).json({ error: 'name e keywords obrigatórios' });
+            const { data, error } = await supabase.from('search_alerts').insert({
+                name: String(name).slice(0,100),
+                keywords: Array.isArray(keywords) ? keywords.map(k => String(k).slice(0,80)) : [],
+                excludes:  Array.isArray(excludes)  ? excludes.map(k => String(k).slice(0,80)) : [],
+                fontes:    Array.isArray(fontes) ? fontes : ['gupy','linkedin','indeed'],
+                min_fit_score: parseFloat(min_fit_score) || 6,
+                modalidade: modalidade || null,
+                frequencia_horas: parseInt(frequencia_horas,10) || 6,
+                notification_mode: notification_mode || 'daily_digest',
+                area_id: area_id || null,
+            }).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(201).json(data);
+        }
+        if (req.method === 'PUT') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const allowed = ['name','keywords','excludes','fontes','min_fit_score','modalidade','frequencia_horas','notification_mode','active'];
+            const patch = {};
+            for (const k of allowed) { if (req.body?.[k] !== undefined) patch[k] = req.body[k]; }
+            const { data, error } = await supabase.from('search_alerts').update(patch).eq('id', id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json(data);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) return res.status(400).json({ error: 'id obrigatório' });
+            const { error } = await supabase.from('search_alerts').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(204).end();
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // ── weekly-goals (N31) ────────────────────────────────────
     if (req.query.__h === 'weekly-goals') {
         if (req.method === 'GET') {

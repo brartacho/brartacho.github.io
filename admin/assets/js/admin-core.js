@@ -1711,7 +1711,158 @@ async function loadPlatformSettings() {
 // ─── ABA CONFIGURAR ──────────────────────────────────────────
 
 async function loadConfigTab() {
-    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals()]);
+    await Promise.all([renderPlatformSettingsTable(), renderQuickAnswersTable(), loadPipelineTemplate(), loadPlatformSessions(), loadLLMProviders(), loadVault(), loadWeeklyGoals(), loadStudyPlan(), loadSearchAlerts()]);
+}
+
+// ─── PLANO DE ESTUDOS (N16) ──────────────────────────────────
+async function loadStudyPlan() {
+    const el = document.getElementById('studyPlanList');
+    if (!el) return;
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=study-plan');
+        const items = r.items || [];
+        if (!items.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhuma skill no plano. Adicione acima.</div>'; return; }
+        const statusLabel = { planned:'Planejado', in_progress:'Em andamento', done:'Concluído', paused:'Pausado' };
+        const statusColor = { planned:'var(--text-dim)', in_progress:'var(--cyan)', done:'#4ade80', paused:'#fb923c' };
+        el.innerHTML = items.map(item => {
+            const done = item.hours_completed || 0;
+            const plan = item.hours_planned || 0;
+            const pct  = plan > 0 ? Math.min(100, Math.round(done / plan * 100)) : 0;
+            const color = pct >= 100 ? '#4ade80' : 'var(--cyan)';
+            return `<div style="padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                    <div>
+                        <span style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(item.skill)}</span>
+                        ${item.demand_pct ? `<span style="font-size:0.7rem;color:var(--text-dim);margin-left:6px">${item.demand_pct}% das vagas</span>` : ''}
+                    </div>
+                    <span style="font-size:0.68rem;color:${statusColor[item.status]||'var(--text-dim)'};font-weight:600">${statusLabel[item.status]||item.status}</span>
+                </div>
+                ${plan > 0 ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+                    </div>
+                    <span style="font-size:0.72rem;color:var(--text-dim);white-space:nowrap">${done}h / ${plan}h</span>
+                </div>` : ''}
+                ${item.course_title ? `<div style="font-size:0.72rem;color:var(--text-dim)"><i class="fa-solid fa-play-circle" style="margin-right:3px"></i>${esc(item.course_title)}</div>` : ''}
+                <div style="display:flex;gap:6px;margin-top:6px">
+                    <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="logStudyHours('${item.id}')">+1h</button>
+                    ${item.status !== 'done' ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="updateStudyStatus('${item.id}','done')"><i class="fa-solid fa-check"></i></button>` : ''}
+                    <button class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="deleteStudyItem('${item.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { el.innerHTML = `<div style="color:#f87171;font-size:0.82rem">${esc(e.message)}</div>`; }
+}
+
+function openStudyItemForm() {
+    const form = document.getElementById('studyItemForm');
+    if (form) { form.style.display = form.style.display === 'none' ? '' : 'none'; }
+}
+function closeStudyItemForm() {
+    const form = document.getElementById('studyItemForm');
+    if (form) form.style.display = 'none';
+}
+async function saveStudyItem() {
+    const skill = document.getElementById('siSkill')?.value.trim();
+    if (!skill) { showToast('Skill é obrigatório','error'); return; }
+    const body = {
+        skill,
+        hours_planned: parseInt(document.getElementById('siHours')?.value)||null,
+        course_url:    document.getElementById('siCourseUrl')?.value.trim()||null,
+        course_title:  document.getElementById('siCourseTitle')?.value.trim()||null,
+    };
+    try {
+        await apiFetch('/api/admin/applications?__h=study-plan', { method:'POST', body: JSON.stringify(body) });
+        closeStudyItemForm();
+        showToast('Skill adicionada ao plano','success');
+        loadStudyPlan();
+    } catch(e) { showToast(e.message,'error'); }
+}
+async function logStudyHours(id) {
+    const h = parseFloat(prompt('Horas estudadas agora:', '1')) || 0;
+    if (!h) return;
+    try {
+        await apiFetch('/api/admin/applications?__h=study-plan', { method:'POST', body: JSON.stringify({ study_plan_item_id: id, hours: h }) });
+        showToast(`+${h}h registrado`,'success');
+        loadStudyPlan();
+    } catch(e) { showToast(e.message,'error'); }
+}
+async function updateStudyStatus(id, status) {
+    try {
+        await apiFetch(`/api/admin/applications?__h=study-plan&id=${id}`, { method:'PUT', body: JSON.stringify({ status }) });
+        loadStudyPlan();
+    } catch(e) { showToast(e.message,'error'); }
+}
+async function deleteStudyItem(id) {
+    if (!confirm('Remover skill do plano?')) return;
+    try {
+        await apiFetch(`/api/admin/applications?__h=study-plan&id=${id}`, { method:'DELETE' });
+        loadStudyPlan();
+    } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── ALERTAS DE BUSCA (N17) ──────────────────────────────────
+async function loadSearchAlerts() {
+    const el = document.getElementById('searchAlertsList');
+    if (!el) return;
+    try {
+        const r = await apiFetch('/api/admin/applications?__h=search-alerts');
+        const alerts = r.alerts || [];
+        if (!alerts.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem">Nenhum alerta configurado.</div>'; return; }
+        el.innerHTML = alerts.map(a => `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)">
+            <div style="flex:1;min-width:0">
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${esc(a.name)}</div>
+                <div style="font-size:0.72rem;color:var(--text-dim)">${(a.keywords||[]).slice(0,4).join(', ')}${(a.keywords||[]).length>4?'…':''} · Fit ≥ ${a.min_fit_score||6}</div>
+                <div style="font-size:0.7rem;color:var(--text-dim)">${(a.fontes||[]).join(', ')} · ${a.frequencia_horas||6}h ${a.last_run_at?'· Último: '+new Date(a.last_run_at).toLocaleString('pt-BR'):''}</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.78rem">
+                <input type="checkbox" ${a.active?'checked':''} onchange="toggleAlert('${a.id}',this.checked)"> Ativo
+            </label>
+            <button class="btn btn-danger btn-sm" style="padding:3px 8px" onclick="deleteAlert('${a.id}')"><i class="fa-solid fa-trash"></i></button>
+        </div>`).join('');
+    } catch(e) { el.innerHTML = `<div style="color:#f87171;font-size:0.82rem">${esc(e.message)}</div>`; }
+}
+
+function openAlertForm() {
+    const form = document.getElementById('alertForm');
+    if (form) { form.style.display = form.style.display === 'none' ? '' : 'none'; }
+}
+function closeAlertForm() {
+    const form = document.getElementById('alertForm');
+    if (form) form.style.display = 'none';
+}
+async function saveAlert() {
+    const name = document.getElementById('alName')?.value.trim();
+    const kwStr = document.getElementById('alKeywords')?.value.trim();
+    if (!name || !kwStr) { showToast('Nome e keywords são obrigatórios','error'); return; }
+    const keywords = kwStr.split(',').map(k => k.trim()).filter(Boolean);
+    const excludes = (document.getElementById('alExcludes')?.value||'').split(',').map(k=>k.trim()).filter(Boolean);
+    const body = {
+        name, keywords, excludes,
+        fontes: ['gupy','linkedin','indeed'],
+        min_fit_score: parseFloat(document.getElementById('alMinScore')?.value)||6,
+        modalidade: document.getElementById('alModalidade')?.value||null,
+        frequencia_horas: parseInt(document.getElementById('alFreq')?.value)||6,
+    };
+    try {
+        await apiFetch('/api/admin/applications?__h=search-alerts', { method:'POST', body: JSON.stringify(body) });
+        closeAlertForm();
+        showToast('Alerta criado','success');
+        loadSearchAlerts();
+    } catch(e) { showToast(e.message,'error'); }
+}
+async function toggleAlert(id, active) {
+    try {
+        await apiFetch(`/api/admin/applications?__h=search-alerts&id=${id}`, { method:'PUT', body: JSON.stringify({ active }) });
+        showToast(active ? 'Alerta ativado' : 'Alerta pausado');
+    } catch(e) { showToast(e.message,'error'); loadSearchAlerts(); }
+}
+async function deleteAlert(id) {
+    if (!confirm('Remover alerta?')) return;
+    try {
+        await apiFetch(`/api/admin/applications?__h=search-alerts&id=${id}`, { method:'DELETE' });
+        loadSearchAlerts();
+    } catch(e) { showToast(e.message,'error'); }
 }
 
 async function loadWeeklyGoals() {
