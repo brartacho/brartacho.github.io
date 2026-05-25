@@ -2291,7 +2291,7 @@ async function loadWatchlist() {
 }
 
 async function addToWatchlistPrompt() {
-    const empresa = prompt('Nome da empresa para monitorar:');
+    const empresa = await showPrompt('Nome da empresa para monitorar:', 'Ex: Google, Nubank…');
     if (!empresa?.trim()) return;
     try {
         await apiFetch('/api/admin/applications?__h=watchlist', {
@@ -2304,7 +2304,8 @@ async function addToWatchlistPrompt() {
 }
 
 async function removeFromWatchlist(empresa) {
-    if (!confirm(`Remover "${empresa}" da watchlist?`)) return;
+    const ok = await showConfirm('Remover da watchlist', `Remover "${empresa}"?`, { okText: 'Remover', danger: true });
+    if (!ok) return;
     try {
         await apiFetch('/api/admin/applications?__h=watchlist', {
             method: 'POST',
@@ -3690,7 +3691,7 @@ async function saveNovaVaga() {
         return Date.now() - ts < 86400000;
     });
     if (recent.length >= 10) {
-        const overloadOk = confirm(`Você já aplicou ${recent.length} vezes nas últimas 24h.\n\nCandidaturas em quantidade podem reduzir a qualidade das mensagens.\n\nDeseja criar mesmo assim?`);
+        const overloadOk = await showConfirm('Muitas candidaturas hoje', `Você já aplicou ${recent.length} vezes nas últimas 24h. Candidaturas em quantidade podem reduzir a qualidade das mensagens.\n\nDeseja criar mesmo assim?`, { okText: 'Criar mesmo assim', danger: false });
         if (!overloadOk) return;
     }
 
@@ -3899,11 +3900,7 @@ async function _checkAutoPause() {
         const key = `_pausePrompted_${lastActivity.slice(0,10)}`;
         if (sessionStorage.getItem(key)) return; // já mostrou nesta sessão
         sessionStorage.setItem(key, '1');
-        const activate = confirm(
-            `Notamos que faz ${Math.floor(daysSince)} dias sem atividade no admin.\n\n` +
-            `Deseja ativar o "Modo Pausa Profissional"?\n\n` +
-            `Isso suspende buscas automáticas, alertas e notificações leves enquanto você está fora.`
-        );
+        const activate = await showConfirm('Modo Pausa Profissional', `Faz ${Math.floor(daysSince)} dias sem atividade. Deseja ativar o Modo Pausa Profissional? Isso suspende buscas automáticas, alertas e notificações leves enquanto você está fora.`, { okText: 'Ativar pausa', danger: false });
         if (activate) {
             await apiFetch('/api/admin/applications?__h=notification-settings', {
                 method: 'PUT',
@@ -8596,9 +8593,9 @@ function startVoiceMemo(appId) {
     }
 
     async function logInteractionModal(contactId, contactName) {
-        const channel = prompt(`Registrar interação com ${contactName}\nCanal (whatsapp/email/linkedin/in_person/call):`, 'linkedin');
+        const channel = await showPrompt(`Registrar interação com ${contactName}`, 'Canal: whatsapp / email / linkedin / in_person / call');
         if (!channel) return;
-        const summary = prompt('Resumo da conversa (opcional):') || null;
+        const summary = await showPrompt('Resumo da conversa (opcional):', 'Ex: combinamos follow-up em 15 dias…') || null;
         try {
             await apiFetch('/api/admin/applications?__h=contact-interactions', {
                 method:'POST',
@@ -8611,7 +8608,7 @@ function startVoiceMemo(appId) {
 
     // ─── N26 — Gerar mensagem de relacionamento ───────────────────────────────
     async function gerarMensagemContato(contactId, contactName) {
-        const reason = prompt(`Gerar mensagem para ${contactName}\nMotivo (ex: "aniversário", "promoção", "touch regular"):`, 'touch regular') || '';
+        const reason = await showPrompt(`Motivo da mensagem para ${contactName}`, 'Ex: aniversário, promoção, touch regular…') || '';
         const msgEl = document.getElementById(`msg-${contactId}`);
         if (msgEl) { msgEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:var(--cyan)"></i>'; msgEl.style.display = ''; }
         try {
@@ -8811,7 +8808,7 @@ function startVoiceMemo(appId) {
     }
 
     async function detectRejectionFromThread(appId) {
-        const snippet = prompt('Cole o assunto ou trecho do e-mail para verificar se é uma recusa:');
+        const snippet = await showPrompt('Detectar rejeição', 'Cole o assunto ou trecho do e-mail aqui…');
         if (!snippet) return;
         try {
             const r = await apiFetch('/api/admin/applications?__h=email-detect-rejection', {
@@ -8827,7 +8824,7 @@ function startVoiceMemo(appId) {
     }
 
     async function linkEmailThread(appId) {
-        const threadId = prompt('Thread ID do Gmail (ex: 18f2a3b4c5d6e7f8):');
+        const threadId = await showPrompt('Vincular thread do Gmail', 'Thread ID (ex: 18f2a3b4c5d6e7f8)…');
         if (!threadId) return;
         try {
             await apiFetch('/api/admin/applications?__h=email-threads', {
