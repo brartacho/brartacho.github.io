@@ -87,7 +87,7 @@ server.registerTool('save_analysis',
     { title: 'Salvar análise', description: 'Grava o resultado da análise em um lead (status → avaliada).',
       inputSchema: {
           id: z.string(),
-          fit_score: z.number().int().min(0).max(10).nullable().optional(),
+          fit_score: z.number().min(0).max(10).nullable().optional(),
           required_keywords: z.array(z.string()).optional(),
           nice_to_have_keywords: z.array(z.string()).optional(),
           gaps: z.array(z.string()).optional(),

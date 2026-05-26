@@ -97,7 +97,7 @@ function fmtDate(iso) {
 }
 
 function scoreColor(n) {
-    const s = String(n ?? '–');
+    const s = n == null ? '–' : Number(n).toFixed(1);
     if (n >= 8) return g(s);
     if (n >= 6) return y(s);
     return r(s);
@@ -181,7 +181,7 @@ async function cmdStatus(config) {
 
 async function cmdLeads(config, args) {
     const scoreIdx = args.indexOf('--min-score');
-    const minScore = scoreIdx !== -1 ? parseInt(args[scoreIdx + 1] || '6', 10) : 6;
+    const minScore = scoreIdx !== -1 ? parseFloat(args[scoreIdx + 1] || '6') : 6;
     header(`Leads — score ≥ ${minScore}`);
 
     // GET /api/admin/radar retorna array ordenado por fit_score desc

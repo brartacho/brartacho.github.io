@@ -118,7 +118,7 @@ export function scoreVaga(vaga = {}, profile = {}) {
     }
 
     const total = skillsPts + nivelPts + setorPts + modPts + contratPts + cnhPts;
-    const score = Math.max(0, Math.min(10, Math.round(total)));
+    const score = Math.max(0, Math.min(10, Math.round(total * 10) / 10));
 
     // ---- Gaps preliminares: requisitos da vaga que são gaps do candidato ----
     const gaps_preliminares = matchTerms(haystack, arr(profile.gaps));
@@ -199,7 +199,7 @@ export function computeReverseFit(vaga = {}, profile = {}) {
 
     // Score ponderado
     const total = Object.entries(weights).reduce((sum, [k, w]) => sum + (breakdown[k] || 0.5) * w, 0);
-    const score = Math.max(0, Math.min(10, Math.round(total * 10)));
+    const score = Math.max(0, Math.min(10, Math.round(total * 100) / 10));
 
     return { score, breakdown, warnings };
 }
@@ -253,7 +253,7 @@ export function computeAlignmentScore(vaga = {}, profile = {}) {
     breakdown.autonomia = autoKws.some(k => desc.includes(k)) ? 0.8 : 0.55;
 
     const total = Object.entries(weights).reduce((sum, [k, w]) => sum + (breakdown[k] || 0.5) * w, 0);
-    const score = Math.max(0, Math.min(10, Math.round(total * 10)));
+    const score = Math.max(0, Math.min(10, Math.round(total * 100) / 10));
 
     return { score, breakdown };
 }
