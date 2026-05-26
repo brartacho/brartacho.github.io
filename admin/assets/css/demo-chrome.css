@@ -3,6 +3,10 @@
    tour overlay. O restante vem de /admin/assets/css/admin.css (compartilhado).
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* ─── SKIP LINK (a11y) ─── */
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 9999; padding: 6px 14px; background: var(--cyan, #22d3ee); color: #0a0f1e; font-weight: 700; border-radius: 4px; font-size: 0.85rem; }
+.skip-link:focus { left: 8px; }
+
 /* Scroll-lock enquanto o heroScreen está visível */
 html.hero-active { overflow: hidden; height: 100%; }
 html.hero-active body { height: 100%; overflow: hidden; }

@@ -6,10 +6,10 @@
         <div class="app-refresh-group">
             <span class="app-refresh-ts" id="refreshTs"></span>
             <button class="app-refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Atualizar dados da aba">
-                <i class="fa-solid fa-rotate" id="refreshIcon"></i> Atualizar
+                <i aria-hidden="true" class="fa-solid fa-rotate" id="refreshIcon"></i> Atualizar
             </button>
         </div>
-        <button class="app-logout" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</button>
+        <button class="app-logout" onclick="logout()"><i aria-hidden="true" class="fa-solid fa-arrow-right-from-bracket"></i> Sair</button>
     </header>
 
     <!-- Botões injetados dinamicamente por renderAdminTabs() a partir de ADMIN_TABS em admin-core.js -->
@@ -19,7 +19,7 @@
 
         <!-- ─── REPLY BANNER (renderizado via JS quando vem dos params do email) ─── -->
         <div id="replyBanner" class="reply-banner" hidden>
-            <div class="reply-banner-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
+            <div class="reply-banner-icon"><i aria-hidden="true" class="fa-solid fa-envelope-open-text"></i></div>
             <div class="reply-banner-info">
                 Responder a <strong id="rbName">—</strong>
                 <span id="rbCompanyWrap"> de <strong id="rbCompany">—</strong></span>
@@ -28,7 +28,7 @@
                 <span class="email" id="rbEmail">—</span>
             </div>
             <div class="reply-banner-actions">
-                <button class="btn btn-cyan btn-sm" onclick="startReply()"><i class="fa-solid fa-paper-plane"></i> Selecionar versão e enviar</button>
+                <button class="btn btn-cyan btn-sm" onclick="startReply()"><i aria-hidden="true" class="fa-solid fa-paper-plane"></i> Selecionar versão e enviar</button>
                 <button class="reply-banner-close" onclick="dismissReply()" title="Dispensar">Dispensar</button>
             </div>
         </div>
@@ -38,8 +38,8 @@
 
             <div class="cvs-upload-section">
                 <button class="cvs-upload-toggle" onclick="toggleCvsUpload()" id="cvsUploadToggleBtn" aria-expanded="false">
-                    <span><i class="fa-solid fa-upload"></i> Fazer upload de currículo</span>
-                    <i class="fa-solid fa-chevron-down cvs-upload-chevron"></i>
+                    <span><i aria-hidden="true" class="fa-solid fa-upload"></i> Fazer upload de currículo</span>
+                    <i aria-hidden="true" class="fa-solid fa-chevron-down cvs-upload-chevron"></i>
                 </button>
                 <div class="cvs-upload-collapsible" id="cvsUploadCollapsible">
 
@@ -47,11 +47,11 @@
             <div class="storage-card" id="storageCard" hidden>
                 <div class="storage-head">
                     <div>
-                        <div class="storage-title"><i class="fa-solid fa-database"></i> Storage Supabase</div>
+                        <div class="storage-title"><i aria-hidden="true" class="fa-solid fa-database"></i> Storage Supabase</div>
                         <div class="storage-sub" id="storageSub">—</div>
                     </div>
                     <a id="storageDashLink" href="#" target="_blank" rel="noopener" class="storage-dash-link" hidden>
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir no Supabase
+                        <i aria-hidden="true" class="fa-solid fa-arrow-up-right-from-square"></i> Abrir no Supabase
                     </a>
                 </div>
                 <div class="storage-bar-track">
@@ -62,13 +62,13 @@
                     <span id="storageFiles">0 arquivos</span>
                 </div>
                 <div class="storage-alert" id="storageAlert" hidden>
-                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <i aria-hidden="true" class="fa-solid fa-triangle-exclamation"></i>
                     <span>Storage acima de 80%. Faça limpeza ou faça upgrade do plano antes que pare de aceitar uploads.</span>
                 </div>
             </div>
 
             <div class="panel">
-                <div class="panel-title"><i class="fa-solid fa-upload"></i> Fazer upload de currículo</div>
+                <div class="panel-title"><i aria-hidden="true" class="fa-solid fa-upload"></i> Fazer upload de currículo</div>
 
                 <div class="form-group">
                     <label>Nome da versão</label>
@@ -85,12 +85,12 @@
                 </div>
 
                 <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-                    <div><i class="fa-solid fa-file-arrow-up"></i></div>
+                    <div><i aria-hidden="true" class="fa-solid fa-file-arrow-up"></i></div>
                     <p><strong>Clique ou arraste</strong> o PDF aqui</p>
                     <p id="uploadFileName" style="color:var(--cyan);margin-top:8px;font-size:0.82rem;"></p>
                     <div class="upload-progress" id="uploadProgress">
                         <div class="upload-phase" id="uploadPhase">
-                            <i class="fa-solid fa-circle-notch fa-spin"></i>
+                            <i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i>
                             <span id="uploadPhaseText">Preparando…</span>
                         </div>
                         <div class="upload-bar-track">
@@ -102,7 +102,7 @@
                 <input type="file" id="fileInput" accept="application/pdf" style="display:none" onchange="onFileSelect(this)">
 
                 <button class="btn btn-cyan" style="margin-top:16px" onclick="uploadCV()">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Enviar currículo
+                    <i aria-hidden="true" class="fa-solid fa-cloud-arrow-up"></i> Enviar currículo
                 </button>
             </div>
 
@@ -111,17 +111,17 @@
 
             <div class="cvs-list-section">
             <div class="panel">
-                <div class="panel-title"><i class="fa-solid fa-list"></i> Versões cadastradas</div>
+                <div class="panel-title"><i aria-hidden="true" class="fa-solid fa-list"></i> Versões cadastradas</div>
                 <div class="filter-bar">
                     <div class="filter-search">
                         <input class="th-filter-input" type="search" id="cvSearch" placeholder="Buscar nome, arquivo…" oninput="renderCVs()">
                         <span class="th-filter-count" id="cvCount"></span>
-                        <button class="th-filter-clear" onclick="clearCvFilters()" title="Limpar"><i class="fa-solid fa-xmark"></i></button>
+                        <button class="th-filter-clear" onclick="clearCvFilters()" title="Limpar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="custom-select" id="cvStatusFilter" data-value="" data-onchange="renderCVs" style="width:148px">
                         <button class="custom-select-btn" onclick="toggleCustomSelect(this)" type="button" aria-haspopup="listbox" aria-expanded="false">
                             <span class="custom-select-label">Todos os status</span>
-                            <i class="fa-solid fa-chevron-down custom-select-chevron"></i>
+                            <i aria-hidden="true" class="fa-solid fa-chevron-down custom-select-chevron"></i>
                         </button>
                         <div class="custom-select-menu" role="listbox">
                             <div class="custom-select-option active" data-value="" role="option" onclick="selectCustomOption(this)">Todos os status</div>
@@ -178,21 +178,21 @@
             <!-- ─── Bulk bar de tokens (seleção múltipla) ─── -->
             <div id="token-bulk-bar" role="toolbar" aria-label="Ações em lote para tokens selecionados">
                 <span class="bulk-count" id="tokenBulkCount">0 selecionados</span>
-                <button class="btn btn-sm" onclick="extendTokensBulk()" aria-label="Estender validade dos selecionados"><i class="fa-solid fa-clock-rotate-left"></i> Estender +24h</button>
-                <button class="btn btn-sm" onclick="revokeTokensBulk()" aria-label="Revogar selecionados"><i class="fa-solid fa-ban"></i> Revogar</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteTokensBulk()" aria-label="Excluir selecionados"><i class="fa-solid fa-trash"></i> Excluir</button>
+                <button class="btn btn-sm" onclick="extendTokensBulk()" aria-label="Estender validade dos selecionados"><i aria-hidden="true" class="fa-solid fa-clock-rotate-left"></i> Estender +24h</button>
+                <button class="btn btn-sm" onclick="revokeTokensBulk()" aria-label="Revogar selecionados"><i aria-hidden="true" class="fa-solid fa-ban"></i> Revogar</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteTokensBulk()" aria-label="Excluir selecionados"><i aria-hidden="true" class="fa-solid fa-trash"></i> Excluir</button>
                 <button class="btn btn-sm" style="margin-left:auto" onclick="clearTokenSelection()" aria-label="Cancelar seleção">Cancelar</button>
             </div>
 
             <!-- Formulário accordion (mobile: colapsável, desktop: sempre visível) -->
             <div class="token-form-section">
                 <button class="token-form-toggle" onclick="toggleTokenForm()" id="tokenFormToggleBtn" aria-expanded="false">
-                    <span><i class="fa-solid fa-key"></i> Gerar novo token</span>
-                    <i class="fa-solid fa-chevron-down token-form-chevron"></i>
+                    <span><i aria-hidden="true" class="fa-solid fa-key"></i> Gerar novo token</span>
+                    <i aria-hidden="true" class="fa-solid fa-chevron-down token-form-chevron"></i>
                 </button>
                 <div class="token-form-collapsible" id="tokenFormCollapsible">
                     <div class="panel">
-                        <div class="panel-title token-form-panel-title"><i class="fa-solid fa-key"></i> Criar token de acesso</div>
+                        <div class="panel-title token-form-panel-title"><i aria-hidden="true" class="fa-solid fa-key"></i> Criar token de acesso</div>
 
                         <div class="token-form-grid">
                             <div class="form-group tfg-cv">
@@ -227,7 +227,7 @@
                             </div>
                             <div class="tfg-submit">
                                 <button class="btn btn-cyan" onclick="createToken()">
-                                    <i class="fa-solid fa-plus"></i> Gerar token
+                                    <i aria-hidden="true" class="fa-solid fa-plus"></i> Gerar token
                                 </button>
                             </div>
                         </div>
@@ -239,12 +239,12 @@
             <div class="token-list-section">
                 <div class="panel">
                     <div class="panel-title">
-                        <i class="fa-solid fa-list-check"></i> Tokens ativos e histórico
+                        <i aria-hidden="true" class="fa-solid fa-list-check"></i> Tokens ativos e histórico
                         <button class="btn btn-sm" id="tokenSelectBtn" onclick="toggleTokenSelectMode()" title="Ativar modo de seleção em lote" aria-label="Selecionar tokens" style="margin-left:auto;font-size:0.75rem">
-                            <i class="fa-solid fa-check-square"></i> Selecionar
+                            <i aria-hidden="true" class="fa-solid fa-check-square"></i> Selecionar
                         </button>
                         <button class="btn btn-sm" style="font-size:0.75rem" onclick="clearExpiredTokens()" aria-label="Excluir todos os tokens expirados">
-                            <i class="fa-solid fa-broom"></i> Limpar expirados
+                            <i aria-hidden="true" class="fa-solid fa-broom"></i> Limpar expirados
                         </button>
                     </div>
                     <!-- Preset chips -->
@@ -259,12 +259,12 @@
                         <div class="filter-search">
                             <input class="th-filter-input" type="search" id="tokenSearch" placeholder="Buscar label, currículo…" oninput="renderTokens()">
                             <span class="th-filter-count" id="tokenCount"></span>
-                            <button class="th-filter-clear" onclick="clearTokenFilters()" title="Limpar"><i class="fa-solid fa-xmark"></i></button>
+                            <button class="th-filter-clear" onclick="clearTokenFilters()" title="Limpar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div class="custom-select" id="tokenStatusFilter" data-value="" data-onchange="renderTokens" style="width:152px">
                             <button class="custom-select-btn" onclick="toggleCustomSelect(this)" type="button" aria-haspopup="listbox" aria-expanded="false">
                                 <span class="custom-select-label">Todos os status</span>
-                                <i class="fa-solid fa-chevron-down custom-select-chevron"></i>
+                                <i aria-hidden="true" class="fa-solid fa-chevron-down custom-select-chevron"></i>
                             </button>
                             <div class="custom-select-menu" role="listbox">
                                 <div class="custom-select-option active" data-value="" role="option" onclick="selectCustomOption(this)">Todos os status</div>
@@ -301,9 +301,9 @@
         <div class="tab-panel" id="tab-logs">
             <div class="panel">
                 <div class="panel-title">
-                    <i class="fa-solid fa-chart-bar"></i> Downloads realizados
+                    <i aria-hidden="true" class="fa-solid fa-chart-bar"></i> Downloads realizados
                     <button class="btn btn-sm" style="margin-left:auto;font-size:0.75rem" onclick="exportLogsCsv()" aria-label="Exportar logs como CSV">
-                        <i class="fa-solid fa-download"></i> Exportar CSV
+                        <i aria-hidden="true" class="fa-solid fa-download"></i> Exportar CSV
                     </button>
                 </div>
 
@@ -331,12 +331,12 @@
                     <div class="filter-search">
                         <input class="th-filter-input" type="search" id="logSearch" placeholder="Buscar label, destinatário, currículo, IP…" oninput="_debouncedLogLoad()">
                         <span class="th-filter-count" id="logCount"></span>
-                        <button class="th-filter-clear" onclick="clearLogFilters()" title="Limpar filtros" aria-label="Limpar filtros"><i class="fa-solid fa-xmark"></i></button>
+                        <button class="th-filter-clear" onclick="clearLogFilters()" title="Limpar filtros" aria-label="Limpar filtros"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="custom-select" id="logTipoFilter" data-value="" data-onchange="_resetAndLoadLogs" style="width:210px">
                         <button class="custom-select-btn" onclick="toggleCustomSelect(this)" type="button" aria-haspopup="listbox" aria-expanded="false">
                             <span class="custom-select-label">Todos os eventos</span>
-                            <i class="fa-solid fa-chevron-down custom-select-chevron"></i>
+                            <i aria-hidden="true" class="fa-solid fa-chevron-down custom-select-chevron"></i>
                         </button>
                         <div class="custom-select-menu" role="listbox">
                             <div class="custom-select-option active" data-value="" role="option" onclick="selectCustomOption(this)">Todos os eventos</div>
@@ -357,7 +357,7 @@
                 <div class="tbl-wrap" id="logTblWrap">
                     <div class="tbl-overlay" id="logOverlay">
                         <span class="tbl-overlay-spinner">
-                            <i class="fa-solid fa-circle-notch fa-spin"></i> Carregando…
+                            <i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i> Carregando…
                         </span>
                     </div>
                     <table>
@@ -401,8 +401,8 @@
                             <button class="vagas-filter-chip" data-filter="em-processo" onclick="setVagasFilter('em-processo',this)">Em processo</button>
                             <button class="vagas-filter-chip" data-filter="aprovado" onclick="setVagasFilter('aprovado',this)">Aprovado</button>
                             <button class="vagas-filter-chip" data-filter="recusado" onclick="setVagasFilter('recusado',this)">Recusado</button>
-                            <button class="vagas-filter-chip" data-filter="arquivadas" onclick="setVagasFilter('arquivadas',this)" style="opacity:0.7"><i class="fa-solid fa-box-archive" style="font-size:0.7em"></i> Arquivadas</button>
-                            <button class="vagas-filter-chip" data-filter="privadas" onclick="setVagasFilter('privadas',this)" style="opacity:0.7"><i class="fa-solid fa-eye-slash" style="font-size:0.7em"></i> Privadas</button>
+                            <button class="vagas-filter-chip" data-filter="arquivadas" onclick="setVagasFilter('arquivadas',this)" style="opacity:0.7"><i aria-hidden="true" class="fa-solid fa-box-archive" style="font-size:0.7em"></i> Arquivadas</button>
+                            <button class="vagas-filter-chip" data-filter="privadas" onclick="setVagasFilter('privadas',this)" style="opacity:0.7"><i aria-hidden="true" class="fa-solid fa-eye-slash" style="font-size:0.7em"></i> Privadas</button>
                         </div>
                         <div class="vagas-filters" id="vagasFiltersModalidade">
                             <button class="vagas-filter-chip active" data-filter="all" onclick="setVagasModalidadeFilter('all',this)">Modalidade</button>
@@ -420,13 +420,13 @@
                 </div>
                 <div style="display:flex;gap:8px">
                     <button class="btn btn-sm" id="vagasFiltersToggleBtn" onclick="toggleVagasFilters()" title="Mostrar/ocultar filtros" style="display:inline-flex;align-items:center;gap:5px">
-                        <i class="fa-solid fa-sliders"></i> Filtros
+                        <i aria-hidden="true" class="fa-solid fa-sliders"></i> Filtros
                         <span id="vagasFiltersBadge" class="vagas-filters-badge" style="display:none"></span>
-                        <i class="fa-solid fa-chevron-up" id="vagasFiltersChevron" style="font-size:0.7em;transition:transform 0.2s;transform:rotate(180deg)"></i>
+                        <i aria-hidden="true" class="fa-solid fa-chevron-up" id="vagasFiltersChevron" style="font-size:0.7em;transition:transform 0.2s;transform:rotate(180deg)"></i>
                     </button>
-                    <button class="btn btn-sm" id="vagasSelectBtn" onclick="toggleVagasSelectMode()" title="Selecionar candidaturas para ações em lote"><i class="fa-solid fa-check-square"></i> Selecionar</button>
-                    <button class="btn btn-sm" onclick="exportCSV()" title="Exportar lista atual como CSV"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
-                    <button class="btn btn-sm btn-cyan" onclick="openNovaVaga()"><i class="fa-solid fa-plus"></i> Nova vaga</button>
+                    <button class="btn btn-sm" id="vagasSelectBtn" onclick="toggleVagasSelectMode()" title="Selecionar candidaturas para ações em lote"><i aria-hidden="true" class="fa-solid fa-check-square"></i> Selecionar</button>
+                    <button class="btn btn-sm" onclick="exportCSV()" title="Exportar lista atual como CSV"><i aria-hidden="true" class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                    <button class="btn btn-sm btn-cyan" onclick="openNovaVaga()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Nova vaga</button>
                 </div>
             </div>
 
@@ -434,18 +434,18 @@
                 <div class="filter-search">
                     <input class="th-filter-input" type="search" id="vagasSearch" placeholder="Buscar empresa, vaga, gestor…" oninput="renderApplicationsTable()">
                     <span class="th-filter-count" id="vagasCount"></span>
-                    <button class="th-filter-clear" onclick="clearVagasSearch()" title="Limpar"><i class="fa-solid fa-xmark"></i></button>
+                    <button class="th-filter-clear" onclick="clearVagasSearch()" title="Limpar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="filter-date-group">
                     <span class="th-filter-label">De</span>
                     <input class="th-filter-input" type="date" id="vagasDateFrom" title="Data de envio inicial" onchange="renderApplicationsTable()">
                     <span class="th-filter-label">Até</span>
                     <input class="th-filter-input" type="date" id="vagasDateTo" title="Data de envio final" onchange="renderApplicationsTable()">
-                    <button class="th-filter-clear" id="vagasDateClear" onclick="clearVagasDate()" title="Limpar datas" style="display:none"><i class="fa-solid fa-xmark"></i></button>
+                    <button class="th-filter-clear" id="vagasDateClear" onclick="clearVagasDate()" title="Limpar datas" style="display:none"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
             <div class="vagas-sort-bar">
-                <button class="vagas-sort-chip" id="sort-chip-updated_at" onclick="sortVagasChip('updated_at',this)"><i class="fa-solid fa-clock" style="font-size:0.65rem"></i> Última mod.</button>
+                <button class="vagas-sort-chip" id="sort-chip-updated_at" onclick="sortVagasChip('updated_at',this)"><i aria-hidden="true" class="fa-solid fa-clock" style="font-size:0.65rem"></i> Última mod.</button>
             </div>
 
             <div id="vagasTableWrap" style="overflow-x:auto">
@@ -491,7 +491,7 @@
                                 <input type="checkbox" id="vagasIncludeArchived" onchange="setVagasIncludeArchived(this.checked)">
                                 <span class="period-toggle-track"></span>
                             </span>
-                            <i class="fa-solid fa-box-archive" style="font-size:0.7em"></i> Incluir arquivadas
+                            <i aria-hidden="true" class="fa-solid fa-box-archive" style="font-size:0.7em"></i> Incluir arquivadas
                         </label>
                     </div>
                 </div>
@@ -557,28 +557,28 @@
 
             <div class="radar-head">
                 <div>
-                    <h2 class="radar-title"><i class="fa-solid fa-satellite-dish"></i> Radar de Vagas</h2>
+                    <h2 class="radar-title"><i aria-hidden="true" class="fa-solid fa-satellite-dish"></i> Radar de Vagas</h2>
                     <p class="radar-sub">Capte vagas, pontue a aderência ao seu perfil e promova as melhores para a Gestão de Vagas.</p>
                 </div>
                 <div class="radar-head-actions">
                     <span class="radar-provider" id="radarProvider" title="Modo de análise por IA"></span>
-                    <button class="btn btn-sm" onclick="toggleRadarProfile()"><i class="fa-solid fa-user-gear"></i> Perfil</button>
+                    <button class="btn btn-sm" onclick="toggleRadarProfile()"><i aria-hidden="true" class="fa-solid fa-user-gear"></i> Perfil</button>
                 </div>
             </div>
 
             <!-- Action bar -->
             <div class="radar-action-bar">
                 <button class="btn btn-cyan btn-sm" onclick="openBuscarModal()">
-                    <i class="fa-solid fa-satellite-dish"></i> Buscar vagas
+                    <i aria-hidden="true" class="fa-solid fa-satellite-dish"></i> Buscar vagas
                 </button>
                 <button class="btn btn-sm" onclick="openAdicionarModal()">
-                    <i class="fa-solid fa-plus"></i> Adicionar manualmente
+                    <i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar manualmente
                 </button>
             </div>
 
             <!-- Buscas rápidas (atalhos do método de busca) -->
             <details class="radar-card radar-searches">
-                <summary><i class="fa-solid fa-magnifying-glass"></i> Buscas rápidas no LinkedIn</summary>
+                <summary><i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i> Buscas rápidas no LinkedIn</summary>
                 <div class="radar-search-grid" id="radarSearchGrid"></div>
                 <p class="radar-hint">Abrem o LinkedIn em nova aba com filtro de tempo, busca em publicações/gestores (mercado oculto) e strings booleanas do seu perfil.</p>
             </details>
@@ -671,14 +671,14 @@
                 <section class="rp-section">
                     <div class="rp-section-title" style="display:flex;justify-content:space-between;align-items:center">
                         <span>Buscas rápidas</span>
-                        <button class="btn btn-sm" type="button" onclick="openQuickSearchesEditor()"><i class="fa-solid fa-pen"></i> Editar</button>
+                        <button class="btn btn-sm" type="button" onclick="openQuickSearchesEditor()"><i aria-hidden="true" class="fa-solid fa-pen"></i> Editar</button>
                     </div>
                     <p class="radar-hint" style="margin:0">Os atalhos aparecem em "Buscas rápidas no LinkedIn" acima da lista de leads. Use <code>{kw}</code> no template do URL para interpolar a 1ª keyword do perfil.</p>
                 </section>
 
                 <div class="rp-save-row">
-                    <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
-                    <span class="rp-saved-hint" id="rpSavedHint"><i class="fa-solid fa-check"></i> <span id="rpSavedHintText">Salvo</span></span>
+                    <button class="btn btn-cyan btn-sm" onclick="saveRadarProfile(this)"><i aria-hidden="true" class="fa-solid fa-floppy-disk"></i> Salvar perfil</button>
+                    <span class="rp-saved-hint" id="rpSavedHint"><i aria-hidden="true" class="fa-solid fa-check"></i> <span id="rpSavedHintText">Salvo</span></span>
                 </div>
             </div>
 
@@ -689,16 +689,16 @@
                     <div class="radar-stats-row" id="radarStats"></div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                    <button class="btn btn-sm" onclick="openLimparModal()" title="Limpar leads antigos/obsoletos"><i class="fa-solid fa-broom"></i> Limpar</button>
-                    <button class="btn btn-cyan btn-sm" onclick="openTriagemSwipe()" title="Triagem rápida: revisar leads um a um (A/D/→)"><i class="fa-solid fa-bolt"></i> Triagem rápida</button>
-                    <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i class="fa-solid fa-check-square"></i> Selecionar</button>
+                    <button class="btn btn-sm" onclick="openLimparModal()" title="Limpar leads antigos/obsoletos"><i aria-hidden="true" class="fa-solid fa-broom"></i> Limpar</button>
+                    <button class="btn btn-cyan btn-sm" onclick="openTriagemSwipe()" title="Triagem rápida: revisar leads um a um (A/D/→)"><i aria-hidden="true" class="fa-solid fa-bolt"></i> Triagem rápida</button>
+                    <button class="btn btn-sm" id="radarSelectBtn" onclick="toggleRadarSelectMode()"><i aria-hidden="true" class="fa-solid fa-check-square"></i> Selecionar</button>
                     <button class="btn btn-sm" id="radarShowDescartadasBtn" onclick="toggleRadarShowDescartadas()" title="Mostrar/ocultar vagas descartadas">
-                        <i class="fa-solid fa-eye-slash"></i> Descartadas
+                        <i aria-hidden="true" class="fa-solid fa-eye-slash"></i> Descartadas
                     </button>
                     <button class="btn btn-sm" id="radarFiltersToggleBtn" onclick="toggleRadarFilters()" title="Mostrar/ocultar filtros" style="display:inline-flex;align-items:center;gap:5px">
-                        <i class="fa-solid fa-sliders"></i> Filtros
+                        <i aria-hidden="true" class="fa-solid fa-sliders"></i> Filtros
                         <span id="radarFiltersBadge" class="radar-filters-badge" style="display:none"></span>
-                        <i class="fa-solid fa-chevron-down" id="radarFiltersChevron" style="font-size:0.7em;transition:transform 0.2s;"></i>
+                        <i aria-hidden="true" class="fa-solid fa-chevron-down" id="radarFiltersChevron" style="font-size:0.7em;transition:transform 0.2s;"></i>
                     </button>
                 </div>
             </div>
@@ -712,11 +712,11 @@
                     <button type="button" class="radar-search-btn"
                         onclick="setRadarSearch(document.getElementById('radarSearchInput').value)"
                         title="Buscar">
-                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i>
                     </button>
                     <button type="button" class="radar-search-clear" id="radarSearchClearBtn"
                         onclick="clearRadarSearch()" title="Limpar" style="display:none">
-                        <i class="fa-solid fa-xmark"></i>
+                        <i aria-hidden="true" class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
             </div>
@@ -761,11 +761,11 @@
             <div id="radarList" class="radar-list"></div>
 
             <!-- Modal: Buscar vagas -->
-            <div class="modal-overlay" id="radarBuscarModal">
+            <div class="modal-overlay" role="dialog" aria-modal="true" id="radarBuscarModal">
                 <div class="modal rsq-modal" style="max-width:560px">
                     <div class="modal-header">
-                        <div class="modal-title"><i class="fa-solid fa-satellite-dish"></i> Buscar vagas</div>
-                        <button class="modal-close" onclick="closeBuscarModal()"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-satellite-dish"></i> Buscar vagas</div>
+                        <button class="modal-close" aria-label="Fechar" onclick="closeBuscarModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
 
@@ -795,13 +795,13 @@
 
                         <div class="rsq-cta">
                             <button class="btn btn-cyan" onclick="requestRadarSearch(this)">
-                                <i class="fa-solid fa-satellite-dish"></i> Solicitar busca
+                                <i aria-hidden="true" class="fa-solid fa-satellite-dish"></i> Solicitar busca
                             </button>
                             <button class="btn btn-sm" onclick="copyRadarSearchCmd()">
-                                <i class="fa-solid fa-copy"></i> Copiar comando MCP
+                                <i aria-hidden="true" class="fa-solid fa-copy"></i> Copiar comando MCP
                             </button>
                         </div>
-                        <p class="rsq-hint"><i class="fa-solid fa-circle-info"></i> Requer MCP server local em execução</p>
+                        <p class="rsq-hint"><i aria-hidden="true" class="fa-solid fa-circle-info"></i> Requer MCP server local em execução</p>
 
                         <div id="rsqStatus" class="rsq-status-area" style="display:none"></div>
 
@@ -814,30 +814,30 @@
             </div>
 
             <!-- Modal: Editor de buscas rápidas -->
-            <div class="modal-overlay" id="quickSearchesModal">
+            <div class="modal-overlay" role="dialog" aria-modal="true" id="quickSearchesModal">
                 <div class="modal" style="max-width:640px">
                     <div class="modal-header">
-                        <div class="modal-title"><i class="fa-solid fa-magnifying-glass"></i> Buscas rápidas</div>
-                        <button class="modal-close" onclick="closeQuickSearchesEditor()"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i> Buscas rápidas</div>
+                        <button class="modal-close" aria-label="Fechar" onclick="closeQuickSearchesEditor()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
                         <p class="radar-hint" style="margin-top:0">Atalhos visíveis acima da lista de leads. Use <code>{kw}</code> no URL para interpolar a 1ª keyword do perfil.</p>
                         <div id="quickSearchesList" style="display:flex;flex-direction:column;gap:10px"></div>
                         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-                            <button class="btn btn-sm" onclick="addQuickSearch()"><i class="fa-solid fa-plus"></i> Adicionar busca</button>
-                            <button class="btn btn-sm" onclick="resetQuickSearchesToDefault()" style="margin-left:auto"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
-                            <button class="btn btn-cyan btn-sm" onclick="saveQuickSearches(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+                            <button class="btn btn-sm" onclick="addQuickSearch()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar busca</button>
+                            <button class="btn btn-sm" onclick="resetQuickSearchesToDefault()" style="margin-left:auto"><i aria-hidden="true" class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveQuickSearches(this)"><i aria-hidden="true" class="fa-solid fa-floppy-disk"></i> Salvar</button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Modal: Limpar radar -->
-            <div class="modal-overlay" id="radarLimparModal">
+            <div class="modal-overlay" role="dialog" aria-modal="true" id="radarLimparModal">
                 <div class="modal" style="max-width:520px">
                     <div class="modal-header">
-                        <div class="modal-title"><i class="fa-solid fa-broom"></i> Limpar radar</div>
-                        <button class="modal-close" onclick="closeLimparModal()"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-broom"></i> Limpar radar</div>
+                        <button class="modal-close" aria-label="Fechar" onclick="closeLimparModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
                         <p class="radar-hint" style="margin-top:0">Selecione o que limpar. Leads com candidatura registrada nunca são removidos (preservados para evitar duplicatas em buscas futuras).</p>
@@ -845,18 +845,18 @@
                         <div class="cleanup-preview" id="cleanupPreview" hidden></div>
                         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
                             <button class="btn btn-sm" onclick="closeLimparModal()">Cancelar</button>
-                            <button class="btn btn-danger btn-sm" id="cleanupExecuteBtn" onclick="executeCleanup(this)" disabled><i class="fa-solid fa-trash-can"></i> Limpar</button>
+                            <button class="btn btn-danger btn-sm" id="cleanupExecuteBtn" onclick="executeCleanup(this)" disabled><i aria-hidden="true" class="fa-solid fa-trash-can"></i> Limpar</button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Modal: Adicionar vaga -->
-            <div class="modal-overlay" id="radarAdicionarModal">
+            <div class="modal-overlay" role="dialog" aria-modal="true" id="radarAdicionarModal">
                 <div class="modal" style="max-width:520px">
                     <div class="modal-header">
-                        <div class="modal-title"><i class="fa-solid fa-plus"></i> Adicionar vaga ao Radar</div>
-                        <button class="modal-close" onclick="closeAdicionarModal()"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar vaga ao Radar</div>
+                        <button class="modal-close" aria-label="Fechar" onclick="closeAdicionarModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
                         <div class="radar-add-grid">
@@ -876,18 +876,18 @@
                             <textarea id="raDescricao" class="radar-col-full" rows="5" placeholder="Cole a descrição da vaga aqui (usada na pontuação)…"></textarea>
                         </div>
                         <div style="margin-top:14px">
-                            <button class="btn btn-cyan btn-sm" onclick="addRadarVaga(this)"><i class="fa-solid fa-plus"></i> Adicionar ao Radar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="addRadarVaga(this)"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar ao Radar</button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Adaptar CV modal -->
-            <div class="modal-overlay" id="radarAdaptarCvModal" style="display:none">
+            <div class="modal-overlay" role="dialog" aria-modal="true" id="radarAdaptarCvModal" style="display:none">
                 <div class="modal" style="max-width:480px">
                     <div class="modal-header">
-                        <div class="modal-title"><i class="fa-solid fa-wand-sparkles"></i> Adaptar CV para esta vaga</div>
-                        <button class="modal-close" onclick="closeRadarAdaptarCv()"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-wand-sparkles"></i> Adaptar CV para esta vaga</div>
+                        <button class="modal-close" aria-label="Fechar" onclick="closeRadarAdaptarCv()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-body" id="radarAdaptarCvBody"></div>
                 </div>
@@ -1094,7 +1094,7 @@
             <!-- ── Tentativas de acesso ─────────────────────────── -->
             <div class="login-attempts-section" id="loginAttemptsSection">
                 <div class="login-attempts-header">
-                    <h4><i class="fa-solid fa-shield-halved"></i> Tentativas de acesso ao painel</h4>
+                    <h4><i aria-hidden="true" class="fa-solid fa-shield-halved"></i> Tentativas de acesso ao painel</h4>
                 </div>
                 <div id="loginAlertsBox"></div>
                 <div id="loginAttemptsTable"><div class="metrics-empty">Carregando…</div></div>
@@ -1112,14 +1112,14 @@
                     <div id="sessionsList"><div class="metrics-empty">Carregando…</div></div>
                     <div style="margin-top:16px">
                         <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="revokeAllSessions()">
-                            <i class="fa-solid fa-right-from-bracket"></i> Forçar logout em todos os devices
+                            <i aria-hidden="true" class="fa-solid fa-right-from-bracket"></i> Forçar logout em todos os devices
                         </button>
                     </div>
                 </div>
 
                 <!-- N40: LGPD Export seletivo -->
                 <div>
-                    <h3 style="margin:0 0 12px;font-size:1rem;color:var(--text)"><i class="fa-solid fa-shield-halved" style="color:var(--cyan);margin-right:6px"></i> Exportar dados (LGPD)</h3>
+                    <h3 style="margin:0 0 12px;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-shield-halved" style="color:var(--cyan);margin-right:6px"></i> Exportar dados (LGPD)</h3>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.5">Exporte seus dados em formato JSON. O modo anônimo remove PII para compartilhar com terceiros.</p>
                     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
                         <div class="form-group" style="margin:0;flex:1;min-width:140px">
@@ -1140,13 +1140,13 @@
                             <input type="checkbox" id="lgpdAnon" style="accent-color:var(--cyan)">
                             <label for="lgpdAnon" style="font-size:0.8rem;cursor:pointer">Modo anônimo</label>
                         </div>
-                        <button class="btn btn-sm" onclick="runLgpdExport()"><i class="fa-solid fa-download"></i> Exportar</button>
+                        <button class="btn btn-sm" onclick="runLgpdExport()"><i aria-hidden="true" class="fa-solid fa-download"></i> Exportar</button>
                     </div>
                 </div>
 
                 <!-- Configurar Demo -->
                 <div class="panel" id="demoSettingsPanel">
-                    <div class="panel-title"><i class="fa-solid fa-flask"></i> Configurar Demo</div>
+                    <div class="panel-title"><i aria-hidden="true" class="fa-solid fa-flask"></i> Configurar Demo</div>
                     <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:16px;line-height:1.6">
                         Define quais abas ficam visíveis para visitantes na demonstração pública.<br>
                         Mudanças tomam efeito na próxima vez que o visitante carregar o demo.
@@ -1160,10 +1160,10 @@
                     </div>
                     <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
                         <button class="btn btn-cyan btn-sm" onclick="saveDemoSettings()">
-                            <i class="fa-solid fa-floppy-disk"></i> Salvar configuração
+                            <i aria-hidden="true" class="fa-solid fa-floppy-disk"></i> Salvar configuração
                         </button>
                         <span id="demoSettingsSaved" style="font-size:0.78rem;color:var(--success);display:none">
-                            <i class="fa-solid fa-check"></i> Salvo
+                            <i aria-hidden="true" class="fa-solid fa-check"></i> Salvo
                         </span>
                     </div>
                 </div>
@@ -1178,7 +1178,7 @@
                 <!-- Plataformas -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-globe" style="color:var(--cyan);margin-right:6px"></i> Plataformas de candidatura</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-globe" style="color:var(--cyan);margin-right:6px"></i> Plataformas de candidatura</h3>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Limite de caracteres usado pelo gerador de mensagem para adequar o tamanho ao campo da plataforma.</p>
                     <div id="platformSettingsTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1187,8 +1187,8 @@
                 <!-- Auto-sync de status -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-rotate" style="color:var(--cyan);margin-right:6px"></i> Auto-sync de status</h3>
-                        <button class="btn btn-sm" onclick="runSyncAll()" id="syncAllBtn"><i class="fa-solid fa-rotate"></i> Sincronizar tudo</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-rotate" style="color:var(--cyan);margin-right:6px"></i> Auto-sync de status</h3>
+                        <button class="btn btn-sm" onclick="runSyncAll()" id="syncAllBtn"><i aria-hidden="true" class="fa-solid fa-rotate"></i> Sincronizar tudo</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Verifica o status atual de cada candidatura "em processo" nas plataformas e registra mudanças automaticamente.</p>
                     <div id="platformSessionsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1198,8 +1198,8 @@
                 <!-- LLM Providers -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Providers de IA</h3>
-                        <button class="btn btn-sm" onclick="loadLLMProviders()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Providers de IA</h3>
+                        <button class="btn btn-sm" onclick="loadLLMProviders()"><i aria-hidden="true" class="fa-solid fa-rotate"></i> Atualizar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Roteamento automático: a geração de mensagens usa o provider de menor custo disponível. Configure as chaves como env vars no Vercel.</p>
                     <div id="llmProvidersTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1208,8 +1208,8 @@
                 <!-- Respostas rápidas -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bolt" style="color:var(--cyan);margin-right:6px"></i> Respostas rápidas</h3>
-                        <button class="btn btn-sm btn-cyan" onclick="openAddQuickAnswer()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-bolt" style="color:var(--cyan);margin-right:6px"></i> Respostas rápidas</h3>
+                        <button class="btn btn-sm btn-cyan" onclick="openAddQuickAnswer()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Use <code>/slug</code> no editor de mensagem para expandir. Preenchido automaticamente em formulários de candidatura.</p>
                     <div id="quickAnswersTable"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1230,7 +1230,7 @@
                         </div>
                         <div style="display:flex;gap:8px;justify-content:flex-end">
                             <button class="btn btn-sm" onclick="closeQuickAnswerForm()">Cancelar</button>
-                            <button class="btn btn-cyan btn-sm" onclick="saveQuickAnswer()"><i class="fa-solid fa-check"></i> Salvar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveQuickAnswer()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                         </div>
                         <input type="hidden" id="qaEditId">
                     </div>
@@ -1239,8 +1239,8 @@
                 <!-- Follow-up sugeridos -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-clock-rotate-left" style="color:var(--cyan);margin-right:6px"></i> Follow-ups pendentes</h3>
-                        <button class="btn btn-sm" onclick="runFollowupScan()" id="followupScanBtn"><i class="fa-solid fa-magnifying-glass"></i> Escanear</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-clock-rotate-left" style="color:var(--cyan);margin-right:6px"></i> Follow-ups pendentes</h3>
+                        <button class="btn btn-sm" onclick="runFollowupScan()" id="followupScanBtn"><i aria-hidden="true" class="fa-solid fa-magnifying-glass"></i> Escanear</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Candidaturas paradas além do prazo sugerido para follow-up.</p>
                     <div id="followupSuggestionsList"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Escanear" para verificar.</div></div>
@@ -1249,8 +1249,8 @@
                 <!-- Q&A bank (item K) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-comments" style="color:var(--cyan);margin-right:6px"></i> Banco de perguntas & respostas</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="openQAModal()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir banco</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-comments" style="color:var(--cyan);margin-right:6px"></i> Banco de perguntas & respostas</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openQAModal()"><i aria-hidden="true" class="fa-solid fa-arrow-up-right-from-square"></i> Abrir banco</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Perguntas de RH, técnicas e comportamentais com respostas preparadas. Usadas no briefing pré-entrevista.</p>
                 </div>
@@ -1258,8 +1258,8 @@
                 <!-- Gaps dashboard (item L) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-chart-bar" style="color:var(--cyan);margin-right:6px"></i> Gaps recorrentes</h3>
-                        <button class="btn btn-sm" onclick="loadGapsDashboard()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-chart-bar" style="color:var(--cyan);margin-right:6px"></i> Gaps recorrentes</h3>
+                        <button class="btn btn-sm" onclick="loadGapsDashboard()"><i aria-hidden="true" class="fa-solid fa-rotate"></i> Atualizar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 10px;line-height:1.6">Skills mais pedidas nas vagas que você não possui — direciona estudos.</p>
                     <div id="gapsDashboard"><div style="color:var(--text-dim);font-size:0.82rem">Clique em "Atualizar" para carregar.</div></div>
@@ -1268,8 +1268,8 @@
                 <!-- Pipeline padrão (item B) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-list-check" style="color:var(--cyan);margin-right:6px"></i> Pipeline padrão de etapas</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="savePipelineTemplate()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-list-check" style="color:var(--cyan);margin-right:6px"></i> Pipeline padrão de etapas</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="savePipelineTemplate()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Etapas criadas automaticamente em toda nova candidatura. Uma por linha.</p>
                     <textarea id="pipelineTemplateInput" class="mock-input" rows="7" style="resize:vertical;font-family:inherit;font-size:0.82rem;width:100%;box-sizing:border-box" placeholder="Aplicado&#10;Triagem&#10;Entrevista com RH&#10;Entrevista Técnica&#10;Proposta"></textarea>
@@ -1278,10 +1278,10 @@
                 <!-- Manutenção automática (item O + M) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-broom" style="color:var(--cyan);margin-right:6px"></i> Manutenção automática</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-broom" style="color:var(--cyan);margin-right:6px"></i> Manutenção automática</h3>
                         <div style="display:flex;gap:8px">
-                            <button class="btn btn-sm" onclick="runLinkChecker()" title="Verifica links das candidaturas em processo — arquiva 404/removidas"><i class="fa-solid fa-link-slash"></i> Verificar links</button>
-                            <button class="btn btn-sm" onclick="runAutoArchiveScan()"><i class="fa-solid fa-box-archive"></i> Arquivar agora</button>
+                            <button class="btn btn-sm" onclick="runLinkChecker()" title="Verifica links das candidaturas em processo — arquiva 404/removidas"><i aria-hidden="true" class="fa-solid fa-link-slash"></i> Verificar links</button>
+                            <button class="btn btn-sm" onclick="runAutoArchiveScan()"><i aria-hidden="true" class="fa-solid fa-box-archive"></i> Arquivar agora</button>
                         </div>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0;line-height:1.6">Arquiva candidaturas "em processo" sem atualização há mais de 60 dias, recusadas automaticamente, e vagas com link removido (404).</p>
@@ -1290,12 +1290,12 @@
                 <!-- Resumo mensal (Onda 8) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Resumo mensal de carreira</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-brain" style="color:var(--cyan);margin-right:6px"></i> Resumo mensal de carreira</h3>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">IA consolida candidaturas, notas e entrevistas do mês em um resumo de aprendizado.</p>
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
                         <input id="summaryMonthInput" type="month" class="mock-input" style="width:160px;padding:5px 8px">
-                        <button id="generateSummaryBtn" class="btn btn-cyan btn-sm" onclick="generateMonthlySummary()"><i class="fa-solid fa-brain"></i> Gerar resumo</button>
+                        <button id="generateSummaryBtn" class="btn btn-cyan btn-sm" onclick="generateMonthlySummary()"><i aria-hidden="true" class="fa-solid fa-brain"></i> Gerar resumo</button>
                     </div>
                     <div id="summaryOutput"></div>
                 </div>
@@ -1303,8 +1303,8 @@
                 <!-- Notificações / DND (N29/N30) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bell-slash" style="color:var(--cyan);margin-right:6px"></i> Notificações e DND</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="saveNotificationSettings()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-bell-slash" style="color:var(--cyan);margin-right:6px"></i> Notificações e DND</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveNotificationSettings()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Configure horários de silêncio e modo pausa profissional.</p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1339,8 +1339,8 @@
                 <!-- Meta semanal (N31) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bullseye" style="color:var(--cyan);margin-right:6px"></i> Meta semanal</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="saveWeeklyGoals()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-bullseye" style="color:var(--cyan);margin-right:6px"></i> Meta semanal</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveWeeklyGoals()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Progresso sem pressão — só para manter cadência.</p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1359,10 +1359,10 @@
                 <!-- Plano de estudos (N16) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-graduation-cap" style="color:var(--cyan);margin-right:6px"></i> Plano de estudos</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-graduation-cap" style="color:var(--cyan);margin-right:6px"></i> Plano de estudos</h3>
                         <div style="display:flex;gap:6px">
-                            <button class="btn btn-sm" onclick="autoSuggestStudyPlan(this)" title="Popula gaps das vagas recentes automaticamente"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-sugerir</button>
-                            <button class="btn btn-cyan btn-sm" onclick="openStudyItemForm()"><i class="fa-solid fa-plus"></i> Adicionar skill</button>
+                            <button class="btn btn-sm" onclick="autoSuggestStudyPlan(this)" title="Popula gaps das vagas recentes automaticamente"><i aria-hidden="true" class="fa-solid fa-wand-magic-sparkles"></i> Auto-sugerir</button>
+                            <button class="btn btn-cyan btn-sm" onclick="openStudyItemForm()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar skill</button>
                         </div>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Acompanhe horas estudadas por skill e close os gaps das vagas.</p>
@@ -1378,7 +1378,7 @@
                         </div>
                         <div style="display:flex;gap:8px;justify-content:flex-end">
                             <button class="btn btn-sm" onclick="closeStudyItemForm()">Cancelar</button>
-                            <button class="btn btn-cyan btn-sm" onclick="saveStudyItem()"><i class="fa-solid fa-check"></i> Salvar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveStudyItem()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -1386,8 +1386,8 @@
                 <!-- Alertas de busca (N17) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-bell" style="color:var(--cyan);margin-right:6px"></i> Alertas de busca</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="openAlertForm()"><i class="fa-solid fa-plus"></i> Criar alerta</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-bell" style="color:var(--cyan);margin-right:6px"></i> Alertas de busca</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openAlertForm()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Criar alerta</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Configure palavras-chave e plataformas — leads novos entram automaticamente no Radar.</p>
                     <div id="searchAlertsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1411,7 +1411,7 @@
                         </div>
                         <div style="display:flex;gap:8px;justify-content:flex-end">
                             <button class="btn btn-sm" onclick="closeAlertForm()">Cancelar</button>
-                            <button class="btn btn-cyan btn-sm" onclick="saveAlert()"><i class="fa-solid fa-check"></i> Salvar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveAlert()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -1419,8 +1419,8 @@
                 <!-- Histórias STAR (N6) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-star" style="color:var(--cyan);margin-right:6px"></i> Histórias STAR</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="openStarForm()"><i class="fa-solid fa-plus"></i> Nova história</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-star" style="color:var(--cyan);margin-right:6px"></i> Histórias STAR</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openStarForm()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Nova história</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Situação · Tarefa · Ação · Resultado — usadas pelo briefing e na geração de mensagens.</p>
                     <div style="margin-bottom:10px">
@@ -1444,7 +1444,7 @@
                         </div>
                         <div style="display:flex;gap:8px;justify-content:flex-end">
                             <button class="btn btn-sm" onclick="closeStarForm()">Cancelar</button>
-                            <button class="btn btn-cyan btn-sm" onclick="saveStarStory()"><i class="fa-solid fa-check"></i> Salvar</button>
+                            <button class="btn btn-cyan btn-sm" onclick="saveStarStory()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -1452,8 +1452,8 @@
                 <!-- Vault de documentos (N4) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-vault" style="color:var(--cyan);margin-right:6px"></i> Vault de documentos</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="openVaultUpload()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-vault" style="color:var(--cyan);margin-right:6px"></i> Vault de documentos</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="openVaultUpload()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 12px;line-height:1.6">Documentos pessoais criptografados. Prontos para anexar em candidaturas.</p>
                     <div id="vaultUploadForm" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)">
@@ -1488,7 +1488,7 @@
                         </div>
                         <div style="display:flex;gap:8px;justify-content:flex-end">
                             <button class="btn btn-sm" onclick="closeVaultUpload()">Cancelar</button>
-                            <button id="vaultUploadBtn" class="btn btn-cyan btn-sm" onclick="uploadVaultDoc()"><i class="fa-solid fa-upload"></i> Enviar</button>
+                            <button id="vaultUploadBtn" class="btn btn-cyan btn-sm" onclick="uploadVaultDoc()"><i aria-hidden="true" class="fa-solid fa-upload"></i> Enviar</button>
                         </div>
                     </div>
                     <div id="vaultDocsList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
@@ -1497,8 +1497,8 @@
                 <!-- Compass de valores (N42) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-compass" style="color:var(--cyan);margin-right:6px"></i> Compass de valores</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="saveValuesWeights()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-compass" style="color:var(--cyan);margin-right:6px"></i> Compass de valores</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="saveValuesWeights()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 14px;line-height:1.6">Defina o peso de cada valor na pontuação de alinhamento das vagas. Total deve somar 100%.</p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -1543,8 +1543,8 @@
                 <!-- Importar CV (N21) -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-file-import" style="color:var(--cyan);margin-right:6px"></i> Importar CV via IA</h3>
-                        <button class="btn btn-cyan btn-sm" onclick="runImportCV()"><i class="fa-solid fa-wand-magic-sparkles"></i> Estruturar</button>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-file-import" style="color:var(--cyan);margin-right:6px"></i> Importar CV via IA</h3>
+                        <button class="btn btn-cyan btn-sm" onclick="runImportCV()"><i aria-hidden="true" class="fa-solid fa-wand-magic-sparkles"></i> Estruturar</button>
                     </div>
                     <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 10px;line-height:1.6">Cole o texto do seu currículo abaixo. A IA extrai skills, experiências, formação e idiomas e pré-preenche seu perfil para revisão.</p>
                     <textarea id="cvImportText" class="mock-input" rows="8" placeholder="Cole aqui o texto do seu CV (copie do PDF ou Word)…" style="width:100%;resize:vertical;font-size:0.8rem;line-height:1.5"></textarea>
@@ -1558,19 +1558,19 @@
         <div id="tab-tendencias" class="tab-panel">
             <div style="padding:16px;max-width:860px;margin:0 auto">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-arrow-trend-up" style="color:var(--cyan);margin-right:6px"></i> Tendências de mercado pessoal</h3>
-                    <button class="btn btn-sm" onclick="loadTrends()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-arrow-trend-up" style="color:var(--cyan);margin-right:6px"></i> Tendências de mercado pessoal</h3>
+                    <button class="btn btn-sm" onclick="loadTrends()"><i aria-hidden="true" class="fa-solid fa-rotate"></i> Atualizar</button>
                 </div>
                 <p style="font-size:0.8rem;color:var(--text-soft);margin:0 0 16px;line-height:1.5">Análise sobre os últimos 6 meses do seu Radar e candidaturas.</p>
-                <div id="trendsContent"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="trendsContent"><div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div></div>
 
                 <!-- N41: Map de carreira -->
                 <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h4 style="margin:0;font-size:0.9rem;color:var(--text)"><i class="fa-solid fa-map-signs" style="color:var(--cyan);margin-right:6px"></i> Mapa de carreira — caminhos possíveis</h4>
+                        <h4 style="margin:0;font-size:0.9rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-map-signs" style="color:var(--cyan);margin-right:6px"></i> Mapa de carreira — caminhos possíveis</h4>
                         <div style="display:flex;gap:6px">
-                            <button class="btn btn-sm" onclick="generateCareerPaths(this)" title="Gera caminhos de carreira com IA baseado no seu perfil"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-                            <button class="btn btn-sm" onclick="loadCareerPaths()"><i class="fa-solid fa-rotate"></i></button>
+                            <button class="btn btn-sm" onclick="generateCareerPaths(this)" title="Gera caminhos de carreira com IA baseado no seu perfil"><i aria-hidden="true" class="fa-solid fa-wand-magic-sparkles"></i></button>
+                            <button class="btn btn-sm" onclick="loadCareerPaths()"><i aria-hidden="true" class="fa-solid fa-rotate"></i></button>
                         </div>
                     </div>
                     <div id="careerPathsContent"><div style="text-align:center;color:var(--text-dim);padding:24px;font-size:0.82rem">Carregando caminhos…</div></div>
@@ -1579,10 +1579,10 @@
                 <!-- N19: Watchlist de empresas -->
                 <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                        <h4 style="margin:0;font-size:0.9rem;color:var(--text)"><i class="fa-solid fa-bell" style="color:var(--cyan);margin-right:6px"></i> Empresas na Watchlist</h4>
+                        <h4 style="margin:0;font-size:0.9rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-bell" style="color:var(--cyan);margin-right:6px"></i> Empresas na Watchlist</h4>
                         <div style="display:flex;gap:6px">
-                            <button class="btn btn-sm" onclick="loadWatchlist()"><i class="fa-solid fa-rotate"></i></button>
-                            <button class="btn btn-cyan btn-sm" onclick="addToWatchlistPrompt()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                            <button class="btn btn-sm" onclick="loadWatchlist()"><i aria-hidden="true" class="fa-solid fa-rotate"></i></button>
+                            <button class="btn btn-cyan btn-sm" onclick="addToWatchlistPrompt()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar</button>
                         </div>
                     </div>
                     <div id="watchlistContent"><div style="text-align:center;color:var(--text-dim);padding:16px;font-size:0.82rem">Carregando…</div></div>
@@ -1594,20 +1594,20 @@
         <div id="tab-diario" class="tab-panel">
             <div style="padding:16px;max-width:860px;margin:0 auto">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-book-open" style="color:var(--cyan);margin-right:6px"></i> Diário de carreira</h3>
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-book-open" style="color:var(--cyan);margin-right:6px"></i> Diário de carreira</h3>
                     <div style="display:flex;gap:8px">
-                        <button class="btn btn-sm" onclick="generateMonthJournal()"><i class="fa-solid fa-magic-wand-sparkles"></i> Gerar este mês</button>
-                        <button class="btn btn-cyan btn-sm" onclick="openJournalEditor()"><i class="fa-solid fa-plus"></i> Nova entrada</button>
+                        <button class="btn btn-sm" onclick="generateMonthJournal()"><i aria-hidden="true" class="fa-solid fa-magic-wand-sparkles"></i> Gerar este mês</button>
+                        <button class="btn btn-cyan btn-sm" onclick="openJournalEditor()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Nova entrada</button>
                     </div>
                 </div>
-                <div id="journalList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="journalList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div></div>
                 <div id="journalEditor" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
                     <input type="hidden" id="journalId">
                     <div class="form-group" style="margin:0 0 10px"><label style="font-size:0.75rem">Título</label><input id="journalTitle" class="mock-input" placeholder="Ex: Reflexões de Maio" maxlength="200"></div>
                     <div class="form-group" style="margin:0 0 10px"><label style="font-size:0.75rem">Conteúdo (Markdown)</label><textarea id="journalContent" class="mock-input" rows="10" placeholder="# Resumo do período…" style="resize:vertical;font-family:monospace;font-size:0.82rem"></textarea></div>
                     <div style="display:flex;gap:8px;justify-content:flex-end">
                         <button class="btn btn-sm" onclick="closeJournalEditor()">Cancelar</button>
-                        <button class="btn btn-cyan btn-sm" onclick="saveJournalEntry()"><i class="fa-solid fa-check"></i> Salvar</button>
+                        <button class="btn btn-cyan btn-sm" onclick="saveJournalEntry()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                     </div>
                 </div>
             </div>
@@ -1617,7 +1617,7 @@
         <div id="tab-inbox" class="tab-panel">
             <div style="padding:16px;max-width:860px;margin:0 auto">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-inbox" style="color:var(--cyan);margin-right:6px"></i> Inbox</h3>
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-inbox" style="color:var(--cyan);margin-right:6px"></i> Inbox</h3>
                     <div style="display:flex;gap:8px;align-items:center">
                         <select id="inboxFilter" class="mock-input" style="padding:4px 8px;font-size:0.78rem;width:auto" onchange="loadInbox()">
                             <option value="all">Todos</option>
@@ -1626,10 +1626,10 @@
                             <option value="medio">Médio</option>
                             <option value="baixo">Baixo</option>
                         </select>
-                        <button class="btn btn-sm" onclick="loadInbox()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                        <button class="btn btn-sm" onclick="loadInbox()"><i aria-hidden="true" class="fa-solid fa-rotate"></i> Atualizar</button>
                     </div>
                 </div>
-                <div id="inboxFeed"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="inboxFeed"><div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div></div>
             </div>
         </div>
 
@@ -1637,11 +1637,11 @@
         <div id="tab-rede" class="tab-panel">
             <div style="padding:16px;max-width:860px;margin:0 auto">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-people-group" style="color:var(--cyan);margin-right:6px"></i> Rede de contatos</h3>
-                    <button class="btn btn-cyan btn-sm" onclick="openContactForm()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                    <h3 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-people-group" style="color:var(--cyan);margin-right:6px"></i> Rede de contatos</h3>
+                    <button class="btn btn-cyan btn-sm" onclick="openContactForm()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar</button>
                 </div>
                 <input id="redeSearch" class="mock-input" placeholder="Buscar contato…" style="width:100%;box-sizing:border-box;margin-bottom:12px" oninput="filterContacts(this.value)">
-                <div id="redeList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div>
+                <div id="redeList"><div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div></div>
                 <div id="contactFormPanel" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
                     <!-- preenchido por openContactForm() -->
                 </div>
@@ -1658,7 +1658,7 @@
                     <div id="drawerVaga" style="font-size:0.78rem;color:var(--text-soft);margin-top:2px">—</div>
                     <div id="drawerMeta" style="font-size:0.68rem;color:var(--text-dim);margin-top:6px">—</div>
                 </div>
-                <button class="drawer-close" onclick="closeDrawer()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="drawer-close" aria-label="Fechar" onclick="closeDrawer()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="drawer-body" id="drawerBody">
                 <!-- Preenchido por renderDrawer() -->
@@ -1673,10 +1673,10 @@
 <div id="tokenDrawer" role="dialog" aria-modal="true" aria-labelledby="tokDrawerTitle">
     <div class="tok-drawer-header">
         <span class="tok-drawer-title" id="tokDrawerTitle">Detalhes do token</span>
-        <button class="tok-drawer-close" onclick="closeTokenDrawer()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <button class="tok-drawer-close" onclick="closeTokenDrawer()" aria-label="Fechar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="tok-drawer-body" id="tokDrawerBody">
-        <div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+        <div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div>
     </div>
     <div class="tok-drawer-actions" id="tokDrawerActions"></div>
 </div>
@@ -1684,7 +1684,7 @@
 <!-- ─── KEYBOARD SHORTCUTS OVERLAY ────────────────── -->
 <div class="shortcuts-overlay" id="shortcutsOverlay" hidden onclick="if(event.target===this)closeShortcuts()">
     <div class="shortcuts-card" role="dialog" aria-modal="true" aria-label="Atalhos de teclado">
-        <h3><i class="fa-solid fa-keyboard" style="color:var(--cyan);margin-right:8px"></i> Atalhos de teclado</h3>
+        <h3><i aria-hidden="true" class="fa-solid fa-keyboard" style="color:var(--cyan);margin-right:8px"></i> Atalhos de teclado</h3>
         <div class="shortcuts-grid">
             <span class="sc-key">g t</span><span class="sc-desc">Ir para Tokens</span>
             <span class="sc-key">g l</span><span class="sc-desc">Ir para Logs</span>
@@ -1705,28 +1705,28 @@
 <div class="log-drawer" id="logDrawer">
     <div class="log-drawer-header">
         <span id="ldTitle">Detalhes do evento</span>
-        <button class="th-filter-clear" onclick="closeLogDetail()" style="font-size:0.85rem"><i class="fa-solid fa-xmark"></i></button>
+        <button class="th-filter-clear" onclick="closeLogDetail()" style="font-size:0.85rem"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="log-drawer-body" id="ldBody">
-        <div style="text-align:center;color:var(--text-dim);padding:48px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+        <div style="text-align:center;color:var(--text-dim);padding:48px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin"></i></div>
     </div>
 </div>
 
 <!-- ─── CONFIRM MODAL ────────────────────────────── -->
 <!-- ─── TRIAGEM SWIPE MODAL ──────────────────────────────── -->
-<div class="modal-overlay" id="triagemModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="triagemModal">
     <div class="modal-box" style="max-width:640px;width:95%">
         <div class="modal-header">
-            <div class="modal-title"><i class="fa-solid fa-bolt"></i> Triagem rápida</div>
+            <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-bolt"></i> Triagem rápida</div>
             <div style="font-size:0.75rem;color:var(--text-dim);margin-left:auto;margin-right:12px"><span id="triagemCounter"></span></div>
-            <button class="modal-close" onclick="closeTriagemSwipe()"><i class="fa-solid fa-xmark"></i></button>
+            <button class="modal-close" aria-label="Fechar" onclick="closeTriagemSwipe()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" style="padding:0">
             <div id="triagemCard" style="padding:16px 20px"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-soft)">
-                <button class="btn btn-danger btn-sm" onclick="triagemAction('discard')" title="Descartar (D)"><i class="fa-solid fa-ban"></i> Descartar (D)</button>
-                <button class="btn btn-sm" onclick="triagemAction('skip')" title="Próximo (→)"><i class="fa-solid fa-arrow-right"></i> Pular (→)</button>
-                <button class="btn btn-cyan btn-sm" onclick="triagemAction('promote')" title="Promover (A)"><i class="fa-solid fa-rocket"></i> Promover (A)</button>
+                <button class="btn btn-danger btn-sm" onclick="triagemAction('discard')" title="Descartar (D)"><i aria-hidden="true" class="fa-solid fa-ban"></i> Descartar (D)</button>
+                <button class="btn btn-sm" onclick="triagemAction('skip')" title="Próximo (→)"><i aria-hidden="true" class="fa-solid fa-arrow-right"></i> Pular (→)</button>
+                <button class="btn btn-cyan btn-sm" onclick="triagemAction('promote')" title="Promover (A)"><i aria-hidden="true" class="fa-solid fa-rocket"></i> Promover (A)</button>
             </div>
         </div>
         <div style="padding:8px 20px 12px;text-align:center;font-size:0.72rem;color:var(--text-dim)">A = Promover · D = Descartar · → = Pular · L = Deixar para depois</div>
@@ -1734,11 +1734,11 @@
 </div>
 
 <!-- ─── Q&A BANK MODAL ───────────────────────────────────── -->
-<div class="modal-overlay" id="qaModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="qaModal">
     <div class="modal-box" style="max-width:700px;width:95%">
         <div class="modal-header">
-            <div class="modal-title"><i class="fa-solid fa-comments"></i> Banco de Perguntas & Respostas</div>
-            <button class="modal-close" onclick="closeQAModal()"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-comments"></i> Banco de Perguntas & Respostas</div>
+            <button class="modal-close" aria-label="Fechar" onclick="closeQAModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -1748,7 +1748,7 @@
                     <option value="tecnica">Técnica</option>
                     <option value="comportamental">Comportamental</option>
                 </select>
-                <button class="btn btn-cyan btn-sm" onclick="openAddQA()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+                <button class="btn btn-cyan btn-sm" onclick="openAddQA()"><i aria-hidden="true" class="fa-solid fa-plus"></i> Adicionar</button>
             </div>
             <div id="qaBankList"><div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div></div>
             <div id="qaForm" style="display:none;margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
@@ -1777,7 +1777,7 @@
                 </div>
                 <div style="display:flex;gap:8px;justify-content:flex-end">
                     <button class="btn btn-sm" onclick="closeQAForm()">Cancelar</button>
-                    <button class="btn btn-cyan btn-sm" onclick="saveQA()"><i class="fa-solid fa-check"></i> Salvar</button>
+                    <button class="btn btn-cyan btn-sm" onclick="saveQA()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar</button>
                 </div>
                 <input type="hidden" id="qaFormId">
             </div>
@@ -1785,11 +1785,11 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="calcModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="calcModal">
     <div class="modal-box" style="max-width:680px;width:95%">
         <div class="modal-header">
-            <div class="modal-title"><i class="fa-solid fa-calculator"></i> Calculadora CLT / PJ / MEI</div>
-            <button class="modal-close" onclick="closeCalcModal()"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-title"><i aria-hidden="true" class="fa-solid fa-calculator"></i> Calculadora CLT / PJ / MEI</div>
+            <button class="modal-close" aria-label="Fechar" onclick="closeCalcModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
@@ -1835,7 +1835,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="confirmModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="confirmModal">
     <div class="modal" style="max-width:380px">
         <p class="modal-title" id="confirmTitle"></p>
         <p id="confirmMessage" style="color:var(--text-dim);font-size:0.9rem;line-height:1.5;white-space:pre-line;margin:0 0 24px"></p>
@@ -1847,7 +1847,7 @@
 </div>
 
 <!-- ─── PROMPT MODAL ─────────────────────────────── -->
-<div class="modal-overlay" id="promptModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="promptModal">
     <div class="modal" style="max-width:380px">
         <p class="modal-title" id="promptTitle"></p>
         <input id="promptInput" type="text" autocomplete="off" maxlength="120"
@@ -1866,36 +1866,36 @@
 </div>
 
 <!-- ─── RADAR — ANÁLISE (modo manual / Claude Code) ── -->
-<div class="modal-overlay" id="radarAnalysisModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="radarAnalysisModal">
     <div class="modal" style="max-width:680px;max-height:86vh;overflow-y:auto">
-        <button class="modal-close" onclick="closeRadarAnalysis()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <button class="modal-close" aria-label="Fechar" onclick="closeRadarAnalysis()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         <p class="modal-title">Análise via Claude Code</p>
         <p class="modal-label">1. Copie o prompt e rode no Claude Code (ou peça "analise os leads novos do Radar" via MCP). 2. Cole o JSON de retorno abaixo e salve.</p>
         <div class="radar-prompt-box">
-            <button class="btn btn-sm" onclick="copyRadarPrompt(this)"><i class="fa-solid fa-copy"></i> Copiar prompt</button>
+            <button class="btn btn-sm" onclick="copyRadarPrompt(this)"><i aria-hidden="true" class="fa-solid fa-copy"></i> Copiar prompt</button>
             <pre id="radarPromptText" class="radar-pre"></pre>
         </div>
         <textarea id="radarAnalysisJson" rows="6" class="radar-json-input" placeholder="Cole aqui o JSON de análise…"></textarea>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
             <button class="btn" onclick="closeRadarAnalysis()">Cancelar</button>
-            <button class="btn btn-cyan" onclick="saveRadarAnalysis(this)"><i class="fa-solid fa-floppy-disk"></i> Salvar análise</button>
+            <button class="btn btn-cyan" onclick="saveRadarAnalysis(this)"><i aria-hidden="true" class="fa-solid fa-floppy-disk"></i> Salvar análise</button>
         </div>
     </div>
 </div>
 
 <!-- ─── KPI DETAIL MODAL ──────────────────────────── -->
-<div class="modal-overlay" id="kpiDetailModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="kpiDetailModal">
     <div class="modal" style="max-width:680px;max-height:82vh;overflow-y:auto">
-        <button class="modal-close" onclick="closeKpiDetail()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <button class="modal-close" aria-label="Fechar" onclick="closeKpiDetail()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         <p class="modal-title" id="kpiDetailTitle">—</p>
-        <div id="kpiDetailBody"><div style="text-align:center;color:var(--text-dim);padding:40px"><i class="fa-solid fa-circle-notch fa-spin fa-lg"></i></div></div>
+        <div id="kpiDetailBody"><div style="text-align:center;color:var(--text-dim);padding:40px"><i aria-hidden="true" class="fa-solid fa-circle-notch fa-spin fa-lg"></i></div></div>
     </div>
 </div>
 
 <!-- ─── SHARE MODAL ──────────────────────────────── -->
-<div class="modal-overlay" id="shareModal">
+<div class="modal-overlay" role="dialog" aria-modal="true" id="shareModal">
     <div class="modal">
-        <button class="modal-close" onclick="closeShareModal()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="modal-close" aria-label="Fechar" onclick="closeShareModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         <p class="modal-title">Token criado com sucesso!</p>
         <p class="modal-label" id="shareModalMeta"></p>
 
@@ -1903,32 +1903,32 @@
 
         <div class="share-actions">
             <button class="share-btn share-btn-copy" id="copyBtn" onclick="copyShareUrl()">
-                <i class="fa-solid fa-copy"></i> Copiar link
+                <i aria-hidden="true" class="fa-solid fa-copy"></i> Copiar link
             </button>
             <a class="share-btn share-btn-whatsapp" id="whatsappBtn" href="#" target="_blank" rel="noreferrer">
-                <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                <i aria-hidden="true" class="fa-brands fa-whatsapp"></i> WhatsApp
             </a>
             <button class="share-btn share-btn-email" id="emailBtn" onclick="showShareEmailForm()">
-                <i class="fa-solid fa-envelope"></i> E-mail
+                <i aria-hidden="true" class="fa-solid fa-envelope"></i> E-mail
             </button>
             <button class="share-btn" onclick="closeShareModal()">
-                <i class="fa-solid fa-xmark"></i> Fechar
+                <i aria-hidden="true" class="fa-solid fa-xmark"></i> Fechar
             </button>
         </div>
 
         <div id="shareEmailForm" style="display:none;margin-top:4px">
-            <p style="font-size:0.8rem;color:var(--text-dim);margin:0 0 8px"><i class="fa-solid fa-envelope" style="margin-right:6px"></i>Enviar link por e-mail</p>
+            <p style="font-size:0.8rem;color:var(--text-dim);margin:0 0 8px"><i aria-hidden="true" class="fa-solid fa-envelope" style="margin-right:6px"></i>Enviar link por e-mail</p>
             <div style="display:flex;gap:8px;align-items:center">
                 <input type="email" id="shareEmailInput" placeholder="destinatario@email.com"
                     style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.85rem;color:var(--text);outline:none"
                     onkeydown="if(event.key==='Enter')sendShareEmail();if(event.key==='Escape')cancelShareEmail()">
                 <button id="shareEmailSendBtn" onclick="sendShareEmail()"
                     style="background:var(--cyan);color:#0f172a;border:none;border-radius:8px;padding:9px 14px;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap">
-                    <i class="fa-solid fa-paper-plane"></i>
+                    <i aria-hidden="true" class="fa-solid fa-paper-plane"></i>
                 </button>
                 <button onclick="cancelShareEmail()"
                     style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.85rem;color:var(--text-dim);cursor:pointer">
-                    <i class="fa-solid fa-xmark"></i>
+                    <i aria-hidden="true" class="fa-solid fa-xmark"></i>
                 </button>
             </div>
         </div>
@@ -1938,7 +1938,7 @@
 <!-- ─── SEND CV MODAL ─────────────────────────────── -->
 <div id="sendCvModal" class="forgot-modal" hidden>
     <div class="forgot-card" style="max-width:500px">
-        <button class="forgot-close" onclick="closeSendCV()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <button class="forgot-close" onclick="closeSendCV()" aria-label="Fechar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         <h3 class="forgot-title">Enviar Currículo</h3>
         <p class="forgot-desc" id="sendCvSubtitle">Versão: —</p>
 
@@ -1946,10 +1946,10 @@
             <label>Como enviar?</label>
             <div style="display:flex;gap:8px;margin-top:6px">
                 <button type="button" id="sendModeEmail" class="btn btn-sm" style="flex:1" onclick="setSendMode('email')">
-                    <i class="fa-solid fa-envelope"></i> Email (com PDF anexo)
+                    <i aria-hidden="true" class="fa-solid fa-envelope"></i> Email (com PDF anexo)
                 </button>
                 <button type="button" id="sendModeWhatsapp" class="btn btn-sm" style="flex:1" onclick="setSendMode('whatsapp')">
-                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                    <i aria-hidden="true" class="fa-brands fa-whatsapp"></i> WhatsApp
                 </button>
             </div>
         </div>
@@ -1960,12 +1960,12 @@
                 <button type="button" id="waSubLink" class="btn btn-sm" style="flex:1"
                     onclick="setWaSubmode('link')"
                     title="Link rastreado: você define validade e nº de usos. Histórico de abertura no painel Logs.">
-                    <i class="fa-solid fa-link"></i> Link rastreado
+                    <i aria-hidden="true" class="fa-solid fa-link"></i> Link rastreado
                 </button>
                 <button type="button" id="waSubAttach" class="btn btn-sm" style="flex:1"
                     onclick="setWaSubmode('attach')"
                     title="Você baixa o PDF e anexa manualmente. Útil pra recrutadores que evitam clicar em links.">
-                    <i class="fa-solid fa-paperclip"></i> Anexo manual
+                    <i aria-hidden="true" class="fa-solid fa-paperclip"></i> Anexo manual
                 </button>
             </div>
             <small id="waSubmodeHint" style="color:var(--text-dim);font-size:0.78rem;display:block;margin-top:6px"></small>
@@ -2068,7 +2068,7 @@
         </div>
 
         <button class="btn btn-cyan" id="sendBtn" style="width:100%" onclick="sendCV()">
-            <i class="fa-solid fa-paper-plane" id="sendBtnIcon"></i> <span id="sendBtnLabel">Enviar</span>
+            <i aria-hidden="true" class="fa-solid fa-paper-plane" id="sendBtnIcon"></i> <span id="sendBtnLabel">Enviar</span>
         </button>
         <p id="sendMsg" class="forgot-msg" hidden></p>
 
@@ -2083,10 +2083,10 @@
                 <a id="waOpenLink" class="btn btn-cyan" href="#" target="_blank" rel="noopener"
                     style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;text-decoration:none"
                     onclick="afterWhatsAppOpened()">
-                    <i class="fa-brands fa-whatsapp"></i>&nbsp;Abrir WhatsApp →
+                    <i aria-hidden="true" class="fa-brands fa-whatsapp"></i>&nbsp;Abrir WhatsApp →
                 </a>
                 <button type="button" class="btn btn-sm" style="flex:1" onclick="copyWaMessage()" title="Copiar mensagem para colar manualmente">
-                    <i class="fa-regular fa-copy"></i> Copiar mensagem
+                    <i aria-hidden="true" class="fa-regular fa-copy"></i> Copiar mensagem
                 </button>
             </div>
         </div>
@@ -2096,7 +2096,7 @@
 <!-- ─── EDIT CV MODAL ─────────────────────────────── -->
 <div id="editCvModal" class="forgot-modal" hidden>
     <div class="forgot-card">
-        <button class="forgot-close" onclick="closeEditCV()" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        <button class="forgot-close" onclick="closeEditCV()" aria-label="Fechar"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         <h3 class="forgot-title">Editar versão de currículo</h3>
         <p class="forgot-desc">O arquivo PDF em si não muda — renomear o arquivo altera apenas o nome exibido no download.</p>
 
@@ -2119,13 +2119,13 @@
         </div>
 
         <button class="btn btn-cyan" id="editCvSaveBtn" style="width:100%;margin-top:12px" onclick="saveEditCV()">
-            <i class="fa-solid fa-floppy-disk"></i> Salvar alterações
+            <i aria-hidden="true" class="fa-solid fa-floppy-disk"></i> Salvar alterações
         </button>
     </div>
 </div>
 
 <!-- ─── TOAST ────────────────────────────────────── -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="false"></div>
 
 <!-- ─── PDF PREVIEW MODAL ────────────────────────── -->
 <div id="pdfPreviewOverlay" onclick="closePdfPreview()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1100;align-items:center;justify-content:center;padding:16px">
@@ -2133,8 +2133,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-soft);flex-shrink:0">
             <span id="pdfPreviewTitle" style="font-size:0.85rem;font-weight:500;color:var(--text)"></span>
             <div style="display:flex;gap:8px">
-                <button class="btn btn-sm" id="pdfDownloadBtn" onclick="downloadCV(_previewCvId)"><i class="fa-solid fa-download"></i> Baixar</button>
-                <button class="btn btn-sm" onclick="closePdfPreview()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-sm" id="pdfDownloadBtn" onclick="downloadCV(_previewCvId)"><i aria-hidden="true" class="fa-solid fa-download"></i> Baixar</button>
+                <button class="btn btn-sm" onclick="closePdfPreview()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
         <div style="flex:1;overflow:hidden;position:relative">
@@ -2146,18 +2146,18 @@
 
 <!-- ─── VOICE COMMAND (N37) ─────────────────────────────── -->
 <div id="voiceBtn" title="Comando de voz (N37)" onclick="toggleVoiceCommand()" style="display:none;position:fixed;bottom:80px;right:16px;z-index:8000;width:44px;height:44px;border-radius:50%;background:var(--bg-soft);border:1px solid var(--border);cursor:pointer;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:background 0.2s">
-    <i class="fa-solid fa-microphone" style="color:var(--text-dim);font-size:1rem" id="voiceBtnIcon"></i>
+    <i aria-hidden="true" class="fa-solid fa-microphone" style="color:var(--text-dim);font-size:1rem" id="voiceBtnIcon"></i>
 </div>
 <div id="voiceOverlay" style="display:none;position:fixed;bottom:140px;right:16px;z-index:8001;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:240px;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
-    <div style="font-size:0.72rem;color:var(--cyan);font-weight:700;margin-bottom:4px"><i class="fa-solid fa-circle fa-fade" style="margin-right:4px"></i>Ouvindo…</div>
+    <div style="font-size:0.72rem;color:var(--cyan);font-weight:700;margin-bottom:4px"><i aria-hidden="true" class="fa-solid fa-circle fa-fade" style="margin-right:4px"></i>Ouvindo…</div>
     <div id="voiceTranscript" style="font-size:0.85rem;color:var(--text);min-height:20px"></div>
     <div style="font-size:0.68rem;color:var(--text-dim);margin-top:6px">Ex: "ir para radar" · "buscar vagas QA" · "nova candidatura"</div>
 </div>
 
 <!-- ─── MODAL LINKEDIN UPDATE (N14) ──────────────────────── -->
-<div id="linkedinUpdateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
+<div id="linkedinUpdateModal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
     <div style="max-width:500px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px">
-        <h4 style="margin:0 0 12px;font-size:1rem;color:var(--text)"><i class="fa-brands fa-linkedin" style="color:#0a66c2;margin-right:6px"></i>Atualizar LinkedIn</h4>
+        <h4 style="margin:0 0 12px;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-brands fa-linkedin" style="color:#0a66c2;margin-right:6px"></i>Atualizar LinkedIn</h4>
         <p style="font-size:0.82rem;color:var(--text-soft);margin:0 0 16px;line-height:1.5">Você marcou esta candidatura como aprovada. Deseja atualizar seu perfil LinkedIn?</p>
         <div id="linkedinUpdateBody">
             <div class="form-group" style="margin:0 0 10px">
@@ -2175,17 +2175,17 @@
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
             <button class="btn btn-sm" onclick="dismissLinkedinUpdate()">Depois</button>
-            <button class="btn btn-cyan btn-sm" onclick="applyLinkedinUpdate()"><i class="fa-solid fa-check"></i> Salvar e aplicar</button>
+            <button class="btn btn-cyan btn-sm" onclick="applyLinkedinUpdate()"><i aria-hidden="true" class="fa-solid fa-check"></i> Salvar e aplicar</button>
         </div>
     </div>
 </div>
 
 <!-- ─── MODAL ONBOARDING (N33) ───────────────────────────── -->
-<div id="onboardingModal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
+<div id="onboardingModal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px">
     <div style="max-width:560px;width:100%;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:20px;max-height:90vh;overflow-y:auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <h4 style="margin:0;font-size:1rem;color:var(--text)"><i class="fa-solid fa-rocket" style="color:var(--cyan);margin-right:6px"></i>Checklist de onboarding</h4>
-            <button class="btn btn-sm" style="padding:2px 8px" onclick="closeOnboardingModal()"><i class="fa-solid fa-xmark"></i></button>
+            <h4 style="margin:0;font-size:1rem;color:var(--text)"><i aria-hidden="true" class="fa-solid fa-rocket" style="color:var(--cyan);margin-right:6px"></i>Checklist de onboarding</h4>
+            <button class="btn btn-sm" style="padding:2px 8px" onclick="closeOnboardingModal()"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
         </div>
         <div id="onboardingContent">
             <div style="color:var(--text-dim);font-size:0.82rem">Carregando…</div>
