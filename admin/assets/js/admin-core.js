@@ -560,6 +560,7 @@ let _vagasModalidadeFilter = 'all';
 let _vagasTipoFilter       = 'all';
 let _vagasFiltersOpen      = false;
 let _openAppId             = null;
+let _openAppTitle          = '';
 let _filteredApplications  = [];
 let _vagasSort             = { col: 'data_envio', dir: 'desc' };
 let _vagasSelecting        = false;
@@ -974,9 +975,10 @@ function exportCSV() {
 }
 
 function openDrawer(id) {
-    _openAppId = id;
+    _openAppId    = id;
     const app = _applications.find(a => a.id === id);
     if (!app) return;
+    _openAppTitle = `${app.empresa || ''}${app.vaga ? ' — ' + app.vaga : ''}`;
 
     document.getElementById('drawerEmpresa').textContent = app.empresa || '—';
     document.getElementById('drawerVaga').textContent    = app.vaga || '';
@@ -1124,6 +1126,36 @@ function renderDrawerBody(app) {
     `;
 }
 
+function buildGCalLink(title, scheduledAt) {
+    const dt = new Date(scheduledAt);
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const end = new Date(dt.getTime() + 60 * 60 * 1000);
+    const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: title,
+        dates: `${fmt(dt)}/${fmt(end)}`,
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+async function scheduleStage(appId, stageName, scheduledAt) {
+    const app = _applications.find(a => a.id === appId);
+    if (!app) return;
+    const stages = (app.stages || []).map(s =>
+        s.name === stageName ? { ...s, scheduled_at: scheduledAt || null } : s
+    );
+    try {
+        const updated = await api('PUT', `/api/admin/applications?id=${appId}`, { stages });
+        const idx = _applications.findIndex(a => a.id === appId);
+        if (idx !== -1) _applications[idx] = updated;
+        renderDrawerBody(updated);
+        showToast(scheduledAt ? 'Etapa agendada.' : 'Agendamento removido.', 'success');
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
 function renderTimeline(stages) {
     const visible = stages.filter(s => s.active !== false);
 
@@ -1158,12 +1190,41 @@ function renderTimeline(stages) {
             circleClass = 'pending'; lineClass = 'other'; labelClass = 'pending';
         }
 
+        const scheduledAt = s.scheduled_at || '';
+        const fmtScheduled = scheduledAt
+            ? new Date(scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '';
+        const gcalBtn = scheduledAt
+            ? `<a href="${buildGCalLink(`${normalizeStageName(s.name)} — ${_openAppTitle || ''}`, scheduledAt)}"
+                  target="_blank" rel="noopener"
+                  class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;margin-left:4px"
+                  title="Adicionar ao Google Agenda">
+                   <i class="fa-brands fa-google" aria-hidden="true"></i>
+               </a>`
+            : '';
+
         return `<div class="stage-row">
             <div class="stage-icon-col">
                 <div class="stage-circle ${circleClass}">${content}</div>
                 ${!isLast ? `<div class="stage-line ${lineClass}"></div>` : ''}
             </div>
-            <div class="stage-label ${labelClass}">${esc(normalizeStageName(s.name))}</div>
+            <div style="flex:1">
+                <div class="stage-label ${labelClass}" style="display:flex;align-items:center;gap:6px">
+                    ${esc(normalizeStageName(s.name))}
+                    ${fmtScheduled ? `<span style="font-size:0.68rem;color:var(--cyan);font-weight:400">📅 ${fmtScheduled}</span>` : ''}
+                    ${gcalBtn}
+                </div>
+                <div style="margin-top:4px;display:flex;align-items:center;gap:4px">
+                    <input type="datetime-local"
+                           value="${esc(scheduledAt ? scheduledAt.slice(0, 16) : '')}"
+                           style="font-size:0.7rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);max-width:170px"
+                           onchange="scheduleStage('${_openAppId}', '${esc(s.name)}', this.value || null)"
+                           title="Agendar esta etapa (opcional)">
+                    ${scheduledAt ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;opacity:0.6"
+                        onclick="scheduleStage('${_openAppId}', '${esc(s.name)}', null)"
+                        title="Remover agendamento"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                </div>
+            </div>
         </div>`;
     }).join('');
 }
