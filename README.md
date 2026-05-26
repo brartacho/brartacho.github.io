@@ -97,7 +97,7 @@ MCP tools: search_all / search_linkedin / search_gupy / search_maringa / search_
 
 ### Scoring e tiers de expansão
 
-- Score 0–10 calculado por regras + palavras-chave do perfil
+- Score 0–10 com 1 casa decimal, calculado por regras + palavras-chave do perfil (`api/_lib/scoring.js`)
 - `search_min_score: 3` (configurável no perfil do candidato)
 - **Expansão automática**: se uma plataforma retorna poucos leads novos, ativa `expansion_keywords` mais amplos e registra o run separado no `search_log`
 
@@ -107,6 +107,87 @@ MCP tools: search_all / search_linkedin / search_gupy / search_maringa / search_
 | 🩵 Ciano — `OK` | 5–6 | Compatível, vale analisar |
 | 🟡 Amarelo — `REVISAR` | 3–4 | Relevância baixa, decidir |
 | 🔴 Vermelho — `FRACO` | 0–2 | Irrelevante (filtrado por padrão) |
+
+### Motor de pontuação — `scoreVaga` (0–10 pts)
+
+Função pura sem I/O. Roda no MCP server (recálculo em lote) e pode ser espelhada no front para feedback instantâneo. Score final: `Math.round(soma × 10) / 10` → 1 casa decimal.
+
+#### Matriz de parâmetros
+
+| Dimensão | Peso máx | Lógica |
+|---|---|---|
+| **Skills** | 4 pts | Match de `skills_core` + bônus de `skills_evolucao` |
+| **Nível** | 2 pts | Inferência de senioridade no texto vs. `nivel_alvo` do perfil |
+| **Setor** | 2 pts | Match de `setores` na descrição (1 pt por setor, teto 2) |
+| **Modalidade** | 1 pt | Preferência de modalidade do perfil vs. campo `modalidade` da vaga |
+| **Contratação** | 1 pt | `contratacao_prefs[]` do perfil vs. `tipo_contratacao` da vaga |
+| **CNH** | −0,5 pt | Penalidade se vaga exige CNH e candidato não tem |
+
+#### Skills (até 4 pts)
+
+```
+coreRatio  = hits_core / total_skills_core    → contribui até 3 pts
+evolBonus  = min(0,25 × hits_evolucao, 1,0)  → bônus por diferenciais (nunca penaliza)
+skillsPts  = min(4, coreRatio × 3 + evolBonus)
+```
+
+- **`skills_core`** (base de match): Testes manuais, Testes funcionais, Testes de regressão, Testes exploratórios, Testes de integração, Elaboração de casos de teste, Análise de requisitos, Validação de regras de negócio, SQL, PostgreSQL, Testes de API, Postman, Thunder Client, Git, GitHub, Metodologias ágeis, Scrum, Homologação, Documentação de bugs
+- **`skills_evolucao`** (diferenciais, contam como bônus): Playwright, Playwright MCP, Automação de testes web, IA aplicada a QA, Agentes de IA, MCPs, CI/CD, Java, Spring Boot, APIs REST, Cenários E2E
+- **`gaps`** (detectados, não penalizam o score — exibidos como alerta): Automação mobile, Appium, Cypress, Selenium, Robot Framework, k6, JMeter, Docker, Observabilidade, Kibana, Testes de carga
+
+#### Nível (até 2 pts)
+
+Inferência a partir do título + descrição da vaga. `nivel_alvo` atual: **Pleno**.
+
+| Inferência na vaga | Pontuação |
+|---|---|
+| Exato (`pleno = pleno`) | 2,0 pts |
+| Nível vago / não informado | 1,4 pts |
+| Junior (aceitável, subvaloriza) | 1,5 pts |
+| Sênior fechado (superqualifica) | 0,5 pts |
+| Estágio / Trainee | 0,3 pts |
+
+Palavras reconhecidas: `senior/sr/especialista/staff/lead` → sênior · `junior/jr` → junior · `pleno/pl/mid` → pleno · `estagi/trainee` → intern.
+
+#### Setor (até 2 pts)
+
+Setores valorizados no perfil (1 pt por citação, teto 2): **HealthTech, LIS, ERP, WMS, PDV, SaaS**.
+
+#### Modalidade (até 1 pt)
+
+| Modalidade da vaga | Pts |
+|---|---|
+| Remota | 1,0 |
+| Híbrida | 0,7 |
+| Não informada | 0,7 |
+| Presencial (fora da preferência) | 0,3 |
+
+Preferência atual do perfil: **Remota**.
+
+#### Contratação (até 1 pt)
+
+| Regime da vaga | Pts |
+|---|---|
+| Match com `contratacao_prefs` (CLT) | 1,0 |
+| Regime diferente | 0,5 |
+| Não informado | 0,6 |
+
+#### CNH (penalidade)
+
+| Situação | Pts |
+|---|---|
+| Vaga exige CNH, candidato não tem | −0,5 |
+| Candidato tem CNH mas categoria errada | −0,3 |
+| Compatível ou não exige | 0 |
+
+Perfil atual: `cnh.has = false`.
+
+#### Scores auxiliares (não compõem o `fit_score` principal)
+
+| Score | Função | Dimensões avaliadas |
+|---|---|---|
+| **Fit reverso** | `computeReverseFit` | Modalidade, salário (overlap de faixas), contratação, nível |
+| **Alinhamento de valores** | `computeAlignmentScore` | WLB, propósito, crescimento, segurança, autonomia, salário |
 
 ### Sessão LinkedIn
 
