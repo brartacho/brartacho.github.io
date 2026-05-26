@@ -941,9 +941,14 @@ async function processSearchRequest(reqId) {
         const summary = { total_found: 0, total_new: 0, by_platform: {} };
         const donePlatforms = [];
 
+        let _cancelledByUser = false;
         try {
             for (const platId of data.platforms) {
                 if (_shuttingDown) break;
+
+                const { data: cur } = await supabase.from('search_requests')
+                    .select('status').eq('id', data.id).maybeSingle();
+                if (cur?.status === 'cancelled') { _cancelledByUser = true; break; }
 
                 await supabase.from('search_requests')
                     .update({ progress: { current: platId, done: [...donePlatforms], total: data.platforms.length, platforms: data.platforms } })
@@ -976,17 +981,28 @@ async function processSearchRequest(reqId) {
                 donePlatforms.push(platId);
             }
 
-            const finalStatus = _shuttingDown ? 'error' : 'done';
-            const errorMessage = _shuttingDown ? 'Interrompido por shutdown do servidor' : null;
-            await supabase.from('search_requests')
-                .update({
-                    status: finalStatus,
-                    result: summary,
-                    error_message: errorMessage,
-                    finished_at: new Date().toISOString(),
-                    progress: { current: null, done: donePlatforms, total: data.platforms.length, platforms: data.platforms },
-                })
-                .eq('id', data.id);
+            let finalStatus, errorMessage;
+            if (_cancelledByUser) {
+                finalStatus  = 'cancelled';
+                errorMessage = 'Cancelado pelo usuário';
+            } else if (_shuttingDown) {
+                finalStatus  = 'error';
+                errorMessage = 'Interrompido por shutdown do servidor';
+            } else {
+                finalStatus  = 'done';
+                errorMessage = null;
+            }
+            if (!_cancelledByUser) {
+                await supabase.from('search_requests')
+                    .update({
+                        status: finalStatus,
+                        result: summary,
+                        error_message: errorMessage,
+                        finished_at: new Date().toISOString(),
+                        progress: { current: null, done: donePlatforms, total: data.platforms.length, platforms: data.platforms },
+                    })
+                    .eq('id', data.id);
+            }
             console.error(`[radar-mcp] search_request ${data.id} ${finalStatus}: ${summary.total_new} novas vagas`);
         } catch (e) {
             await supabase.from('search_requests')

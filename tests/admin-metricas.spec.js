@@ -18,6 +18,8 @@ const HAS_CREDS   = Boolean(ADMIN_EMAIL && ADMIN_PASS);
 
 async function loginAdmin(page) {
     await page.goto('/admin', { waitUntil: 'networkidle' });
+    await page.locator('#loginUsername').focus();
+    await page.waitForTimeout(1100);
     await page.locator('#loginUsername').fill(ADMIN_EMAIL);
     await page.locator('#loginPassword').fill(ADMIN_PASS);
     await page.locator('#loginBtn').click();

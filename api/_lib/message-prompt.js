@@ -1,6 +1,6 @@
 // Constrói o prompt para geração de mensagem de candidatura personalizada
 
-export function buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile, quickAnswers }) {
+export function buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile, quickAnswers, extraInstruction }) {
     const platformInstr = charLimit > 0
         ? `A mensagem deve ter NO MÁXIMO ${charLimit} caracteres (contando espaços). Seja conciso.`
         : 'Escreva uma mensagem completa sem limite de caracteres.';
@@ -31,6 +31,10 @@ export function buildMessagePrompt({ empresa, vaga, descricao, positioning, keyw
         ? `\nDescrição da vaga (primeiros 1500 chars):\n${descricao.slice(0, 1500)}`
         : '';
 
+    const extraBlock = extraInstruction
+        ? `\nINSTRUÇÃO EXTRA DO USUÁRIO (prioridade máxima): ${String(extraInstruction).slice(0, 300)}`
+        : '';
+
     return `Você é um assistente especializado em carreira tech. Gere uma mensagem de candidatura personalizada.
 
 VAGA:
@@ -48,6 +52,7 @@ Skills principais: ${skillsCore}
 ${diferenciais ? `Diferenciais: ${diferenciais}` : ''}
 Modalidade preferida: ${modalidade}
 ${answersBlock}
+${extraBlock}
 
 INSTRUÇÕES DE ESCRITA:
 - ${platformInstr}

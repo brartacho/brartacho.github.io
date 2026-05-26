@@ -1732,6 +1732,7 @@ function vagaFormHTML(app) {
         : '';
     const msgText = app?.application_message_text || '';
     const msgSent = app?.application_message_sent ? 'checked' : '';
+    const msgHasOriginal = Boolean(app?.application_message_original);
     const currentPlatform = app?.platform || '';
     const charLimit = platforms.find(p => p.fonte === currentPlatform)?.char_limit ?? 0;
     const charCountClass = charLimit > 0 && msgText.length > charLimit ? 'vf-char-over' : '';
@@ -1824,14 +1825,23 @@ function vagaFormHTML(app) {
             <div class="vf-message-section" id="vfMessageSection">
                 <div class="vf-message-header">
                     <label style="font-size:0.75rem;font-weight:600">Mensagem de candidatura</label>
-                    <div style="display:flex;gap:6px;align-items:center">
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                         <button class="btn btn-sm" id="vfGenerateBtn" onclick="generateApplicationMessage()" title="Gerar mensagem com IA">
-                            <i class="fa-solid fa-wand-sparkles"></i> Gerar com IA
+                            <i class="fa-solid fa-wand-sparkles"></i> Gerar
                         </button>
-                        <button class="btn btn-sm" id="vfCopyMsgBtn" onclick="copyApplicationMessage()" title="Copiar mensagem" style="display:none">
+                        <button class="btn btn-sm" id="vfCustomizeBtn" onclick="toggleVfCustomize()" title="Instrução extra para regenerar">
+                            <i class="fa-solid fa-sliders"></i>
+                        </button>
+                        <button class="btn btn-sm" id="vfResetMsgBtn" onclick="resetApplicationMessage()" title="Restaurar mensagem original gerada pela IA" style="${msgHasOriginal ? '' : 'display:none'}">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                        <button class="btn btn-sm" id="vfCopyMsgBtn" onclick="copyApplicationMessage()" title="Copiar mensagem" style="${msgText ? '' : 'display:none'}">
                             <i class="fa-regular fa-copy"></i>
                         </button>
                     </div>
+                </div>
+                <div id="vfCustomizeArea" style="display:none;margin-bottom:6px">
+                    <input id="vfExtraInstruction" class="mock-input" placeholder="Instrução extra (ex.: tom mais técnico, mencione Playwright…)" maxlength="300" autocomplete="off" data-form-type="other" style="font-size:0.82rem">
                 </div>
                 <div class="vf-message-wrap">
                     <textarea id="vfMessageText" class="mock-input vf-message-textarea" rows="5"
@@ -3625,18 +3635,40 @@ function updateVfCharCount() {
     if (copyBtn) copyBtn.style.display = ta.value.trim() ? 'inline-flex' : 'none';
 }
 
+function toggleVfCustomize() {
+    const area = document.getElementById('vfCustomizeArea');
+    if (!area) return;
+    const isHidden = area.style.display === 'none';
+    area.style.display = isHidden ? '' : 'none';
+    if (isHidden) document.getElementById('vfExtraInstruction')?.focus();
+}
+
 function copyApplicationMessage() {
     const text = document.getElementById('vfMessageText')?.value || '';
     if (!text) return;
     navigator.clipboard?.writeText(text).then(() => showToast('Mensagem copiada!')).catch(() => {});
 }
 
-async function generateApplicationMessage() {
+async function resetApplicationMessage() {
+    const section = document.getElementById('editVagaSection');
+    const appId = section?.dataset?.appId || null;
+    if (!appId) { showToast('Salve a candidatura primeiro para poder resetar.'); return; }
+    if (!await showConfirm('Restaurar original?', 'Substitui o texto atual pela mensagem original gerada pela IA.', { okText: 'Restaurar' })) return;
+    try {
+        const result = await api('POST', '/api/admin/applications?__h=reset-message', { application_id: appId });
+        const ta = document.getElementById('vfMessageText');
+        if (ta && result.message_text) { ta.value = result.message_text; updateVfCharCount(); }
+        showToast('Mensagem restaurada.');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function generateApplicationMessage(forceRegenerate) {
     const btn = document.getElementById('vfGenerateBtn');
     if (!btn) return;
     const empresa = document.getElementById('vfEmpresa')?.value.trim();
     const vaga    = document.getElementById('vfVaga')?.value.trim() || null;
     const fonte   = document.getElementById('vfPlatform')?.value || null;
+    const extraInstruction = document.getElementById('vfExtraInstruction')?.value.trim() || null;
     if (!empresa) { showToast('Preencha a empresa primeiro.'); return; }
 
     const origHtml = btn.innerHTML;
@@ -3644,18 +3676,26 @@ async function generateApplicationMessage() {
     btn.disabled = true;
 
     try {
-        // Busca lead do Radar se houver origin_radar_id no app sendo editado
         const section = document.getElementById('editVagaSection') || document.getElementById('novaVagaForm');
         const leadId = section?.dataset?.radarLeadId || null;
+        const appId  = section?.dataset?.appId || null;
 
-        const result = await api('POST', '/api/admin/applications?__h=generate-message', { empresa, vaga, fonte, lead_id: leadId || undefined });
+        const body = { empresa, vaga, fonte };
+        if (leadId) body.lead_id = leadId;
+        if (appId)  body.application_id = appId;
+        if (extraInstruction) body.extra_instruction = extraInstruction;
+        if (forceRegenerate || (appId && document.getElementById('vfMessageText')?.value)) body.force_regenerate = true;
+
+        const result = await api('POST', '/api/admin/applications?__h=generate-message', body);
 
         if (result.message_text) {
             const ta = document.getElementById('vfMessageText');
             if (ta) { ta.value = result.message_text; updateVfCharCount(); }
-            showToast('Mensagem gerada!');
+            // Mostra botão Resetar agora que existe um original (1ª geração)
+            const resetBtn = document.getElementById('vfResetMsgBtn');
+            if (resetBtn) resetBtn.style.display = '';
+            showToast(extraInstruction ? 'Mensagem regenerada!' : 'Mensagem gerada!');
         } else if (result.prompt) {
-            // Sem LLM configurado: copia o prompt para usar manualmente no Claude/ChatGPT
             navigator.clipboard?.writeText(result.prompt).then(() =>
                 showToast('LLM não configurado. Prompt copiado — cole no Claude ou ChatGPT.')
             ).catch(() => showToast('LLM não configurado. Configure LLM_API_KEY no .env'));
@@ -3755,6 +3795,7 @@ function openEditVaga(appId) {
     }
     section.innerHTML = vagaFormHTML(app);
     section.dataset.radarLeadId = app?.origin_radar_id || '';
+    section.dataset.appId = appId;
     section.hidden = false;
     section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     _populateCvSelect(app);
@@ -7169,7 +7210,8 @@ async function _rsqPoll(id) {
     }
 }
 
-function cancelRadarSearch() {
+async function cancelRadarSearch() {
+    const reqId = _rsqActiveId;
     clearTimeout(_rsqPollTimer);
     clearInterval(_rsqElapsedTimer);
     _rsqPollTimer = null;
@@ -7178,7 +7220,17 @@ function cancelRadarSearch() {
     _rsqRequestPlats = [];
     _rsqActiveId = null;
     const el = document.getElementById('rsqStatus');
-    if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Monitoramento interrompido — busca continua em segundo plano</span>`;
+    if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-spinner fa-spin"></i> Cancelando…</span>`;
+    if (reqId) {
+        try {
+            await api('POST', '/api/admin/radar?action=cancel-search', { request_id: reqId });
+            if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Busca cancelada</span>`;
+        } catch (_) {
+            if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Monitoramento interrompido</span>`;
+        }
+    } else {
+        if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Busca cancelada</span>`;
+    }
 }
 
 async function loadRsqHistory() {

@@ -205,6 +205,20 @@ export default async function handler(req, res) {
         return res.json(data || []);
     }
 
+    if (req.method === 'POST' && req.query.action === 'cancel-search') {
+        const { request_id } = req.body || {};
+        if (!request_id) return res.status(400).json({ error: 'request_id obrigatório' });
+        const { data, error } = await supabase.from('search_requests')
+            .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+            .eq('id', request_id)
+            .in('status', ['pending', 'running'])
+            .select('id, status')
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: 'Request não encontrado ou já finalizado' });
+        return res.json({ ok: true, id: data.id });
+    }
+
     // ---------------------------------------------------------
     // MCP-STATUS — frontend usa pra mostrar se o MCP server está rodando
     // ---------------------------------------------------------

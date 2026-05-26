@@ -28,23 +28,26 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASS  = process.env.ADMIN_PASSWORD;
 const HAS_CREDS   = Boolean(ADMIN_EMAIL && ADMIN_PASS);
 
-// ─── JWT compartilhado por TODOS os describes autenticados ────────────────────
-// Capturado uma única vez pelo beforeAll de arquivo (1 login por projeto).
-let _sharedJwt = null;
+// ─── Cookies compartilhados por TODOS os describes autenticados ───────────────
+// Capturados uma única vez pelo beforeAll de arquivo (1 login por projeto).
+let _sharedCookies = null;
 
 test.beforeAll(async ({ browser }) => {
-  if (!HAS_CREDS || _sharedJwt) return; // não re-executa login em retries seriais
+  if (!HAS_CREDS || _sharedCookies) return; // não re-executa login em retries seriais
   const ctx = await browser.newContext();
   const pg  = await ctx.newPage();
   try {
     await pg.goto('/admin', { waitUntil: 'networkidle' });
+    await pg.locator('#loginUsername').focus();
+    await pg.waitForTimeout(1100);
     await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
     await pg.locator('#loginPassword').fill(ADMIN_PASS);
     await pg.locator('#loginBtn').click();
     await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 15000 });
-    _sharedJwt = await pg.evaluate(() => sessionStorage.getItem('admin_jwt'));
+    const state = await ctx.storageState();
+    _sharedCookies = state.cookies;
   } catch (e) {
-    console.warn('\n⚠️  JWT capture failed — testes autenticados serão pulados:', e.message);
+    console.warn('\n⚠️  Login falhou — testes autenticados serão pulados:', e.message);
   } finally {
     await ctx.close();
   }
@@ -52,11 +55,11 @@ test.beforeAll(async ({ browser }) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function injectAndGoto(page) {
-  if (_sharedJwt) {
-    await page.addInitScript((t) => sessionStorage.setItem('admin_jwt', t), _sharedJwt);
+  if (_sharedCookies?.length) {
+    await page.context().addCookies(_sharedCookies);
   }
   await page.goto('/admin', { waitUntil: 'networkidle' });
-  if (_sharedJwt) {
+  if (_sharedCookies?.length) {
     await page.waitForSelector('.app-logout', { state: 'visible', timeout: 12000 });
   }
 }
