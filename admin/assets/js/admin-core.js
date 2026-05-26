@@ -1208,7 +1208,7 @@ function renderTimeline(stages) {
                 <div class="stage-circle ${circleClass}">${content}</div>
                 ${!isLast ? `<div class="stage-line ${lineClass}"></div>` : ''}
             </div>
-            <div style="flex:1">
+            <div style="flex:1;padding-bottom:${isLast ? '0' : '10px'}">
                 <div class="stage-label ${labelClass}" style="display:flex;align-items:center;gap:6px">
                     ${esc(normalizeStageName(s.name))}
                     ${fmtScheduled ? `<span style="font-size:0.68rem;color:var(--cyan);font-weight:400">📅 ${fmtScheduled}</span>` : ''}
