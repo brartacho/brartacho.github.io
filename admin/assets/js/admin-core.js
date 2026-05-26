@@ -692,6 +692,11 @@ function renderApplicationsTable() {
             case 'created_at': return sortDir * (a.created_at || '').localeCompare(b.created_at || '');
             case 'updated_at': return sortDir * (a.updated_at || '').localeCompare(b.updated_at || '');
             case 'stage':     return sortDir * getAppCurrentStageName(a).localeCompare(getAppCurrentStageName(b), 'pt-BR');
+            case 'fit_score': {
+                const sa = a.fit_score != null ? parseFloat(a.fit_score) : -1;
+                const sb = b.fit_score != null ? parseFloat(b.fit_score) : -1;
+                return sortDir * (sa - sb);
+            }
             default:          return 0;
         }
     });
@@ -708,7 +713,7 @@ function renderApplicationsTable() {
     _filteredApplications = filtered;
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:32px">Nenhuma candidatura encontrada.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:32px">Nenhuma candidatura encontrada.</td></tr>';
         _updateVagasSelectAll();
         return;
     }
@@ -731,6 +736,10 @@ function renderApplicationsTable() {
         const rowAction = _vagasSelecting
             ? `onclick="toggleVagasSelect('${app.id}')"`
             : `onclick="openDrawer('${app.id}')"`;
+        const scoreVal   = app.fit_score != null ? parseFloat(app.fit_score) : null;
+        const scoreBadge = scoreVal != null
+            ? `<span class="fit-score-badge score-${scoreVal >= 7 ? 'high' : scoreVal >= 5 ? 'mid' : 'low'}">${scoreVal.toFixed(1)}</span>`
+            : `<span style="color:var(--text-dim);font-size:0.72rem">—</span>`;
         return `<tr class="${rowClass}" ${rowAction}>
             ${_vagasSelecting ? `<td onclick="event.stopPropagation()" style="width:36px;padding-right:4px">
                 <input type="checkbox" class="vagas-row-check" ${isSelected ? 'checked' : ''} onchange="toggleVagasSelect('${app.id}')" aria-label="Selecionar ${esc(app.empresa||'vaga')}">
@@ -747,6 +756,7 @@ function renderApplicationsTable() {
             <td class="col-date" style="font-size:0.72rem;color:var(--text-dim)">${dt}</td>
             <td class="col-cadastrado" style="font-size:0.72rem;color:var(--text-dim)">${dtCadastro}</td>
             <td><span class="stage-badge status-${status}">${stage}</span></td>
+            <td class="col-score">${scoreBadge}</td>
         </tr>`;
     }).join('');
     _updateVagasSelectAll();
@@ -1006,11 +1016,13 @@ function renderDrawerBody(app) {
         recruiterRows.push(`<div class="dinfo-row"><i class="fa-brands fa-whatsapp dinfo-icon" style="color:#25d366"></i><a href="https://wa.me/${esc(phone)}" target="_blank" rel="noopener" class="dinfo-link">${esc(app.gestor_phone)}</a></div>`);
     }
 
+    const drawerScoreVal = app.fit_score != null ? parseFloat(app.fit_score) : null;
     const chips = [
         app.linkedin_empresa ? `<a href="${esc(app.linkedin_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>` : '',
         app.link_vaga        ? `<a href="${esc(app.link_vaga)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-link"></i> Vaga</a>` : '',
         app.modalidade       ? `<span class="dinfo-chip"><i class="fa-solid fa-map-pin"></i> ${esc(app.modalidade)}</span>` : '',
         app.tipo_contratacao ? `<span class="dinfo-chip"><i class="fa-solid fa-file-contract"></i> ${esc(app.tipo_contratacao)}</span>` : '',
+        drawerScoreVal != null ? `<span class="dinfo-chip fit-score-badge score-${drawerScoreVal >= 7 ? 'high' : drawerScoreVal >= 5 ? 'mid' : 'low'}"><i class="fa-solid fa-star" aria-hidden="true"></i> ${drawerScoreVal.toFixed(1)}</span>` : '',
     ].filter(Boolean);
 
     const hasRecruiter = recruiterRows.length > 0;
