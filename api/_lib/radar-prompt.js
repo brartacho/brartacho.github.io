@@ -35,7 +35,7 @@ Retorne SOMENTE um objeto JSON válido (sem markdown, sem comentários) com EXAT
 {
   "summary": "resumo curto da vaga",
   "seniority_inferred": "junior|pleno|senior|especialista|indefinido",
-  "fit_score": 0,                       // inteiro 0–10 de aderência ao perfil
+  "fit_score": 0.0,                     // decimal 0.0–10.0 (uma casa) de aderência ao perfil
   "fit_analysis": "parágrafo 2–4 frases: pontos fortes do fit, principais gaps e avaliação honesta",
   "required_keywords": ["..."],         // requisitos obrigatórios
   "nice_to_have_keywords": ["..."],     // diferenciais
@@ -72,7 +72,7 @@ export function parseAnalysisJson(input) {
     const strArr = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string').map((x) => x.trim()).filter(Boolean) : []);
     let fit = Number(obj.fit_score);
     if (!Number.isFinite(fit)) fit = null;
-    else fit = Math.max(0, Math.min(10, Math.round(fit)));
+    else fit = Math.max(0, Math.min(10, Math.round(fit * 10) / 10));
 
     return {
         summary: typeof obj.summary === 'string' ? obj.summary.trim() : '',

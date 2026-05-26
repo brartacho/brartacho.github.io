@@ -99,7 +99,7 @@ test.describe('ADMIN — Radar de Vagas', () => {
 
     const card = lead(page, empresa);
     await expect(card.locator('.radar-status-tag.s-avaliada')).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('.radar-score')).toHaveText('9');
+    await expect(card.locator('.radar-score .rs-num')).toHaveText('9.0');
 
     await removeLead(page, empresa);
   });
@@ -127,6 +127,31 @@ test.describe('ADMIN — Radar de Vagas', () => {
     // Cleanup: deleta o lead do Radar
     await page.locator('.tab-btn[data-tab="radar"]').click();
     await page.locator('#radarShowAll').check();
+    await removeLead(page, empresa);
+  });
+
+  test('score exibido com 1 casa decimal e filtro mín inteiro funciona', async ({ page }) => {
+    const empresa = `RadarDec_${Date.now()}`;
+    // Vaga com Postman + SQL (skills_core) + Remota + CLT → score esperado > 5
+    await addLead(page, empresa, { descricao: 'Vaga de QA com Postman, SQL e testes manuais.', modalidade: 'Remota', tipo: 'CLT' });
+
+    const card = lead(page, empresa);
+    const scoreText = await card.locator('.radar-score .rs-num').innerText();
+    // Deve estar no formato X.X (uma casa decimal)
+    expect(scoreText).toMatch(/^\d+\.\d$/);
+    const scoreVal = parseFloat(scoreText);
+    expect(scoreVal).toBeGreaterThanOrEqual(0);
+    expect(scoreVal).toBeLessThanOrEqual(10);
+
+    // Filtro com slider ≥ 7 inteiro deve incluir leads com score >= 7.0
+    const sliderVal = scoreVal >= 7 ? 7 : 0;
+    if (sliderVal > 0) {
+      await page.locator('.radar-score-range').fill(String(sliderVal));
+      await page.locator('.radar-score-range').dispatchEvent('input');
+      const visible = await lead(page, empresa).count();
+      expect(visible).toBe(1); // lead com score >= 7.0 permanece visível
+    }
+
     await removeLead(page, empresa);
   });
 

@@ -6880,10 +6880,11 @@ const _arrToLines = a => (Array.isArray(a) ? a : []).join('\n');
 
 function radarBadge(score) {
     if (score == null) return { cls: 'na',     num: '—',    tier: ''       };
-    if (score >= 7)    return { cls: 'green',  num: score,  tier: 'forte'  };
-    if (score >= 5)    return { cls: 'yellow', num: score,  tier: 'ok'     };
-    if (score >= 3)    return { cls: 'orange', num: score,  tier: 'revisar'};
-    return                    { cls: 'red',    num: score,  tier: 'fraco'  };
+    const n = Number(score).toFixed(1);
+    if (score >= 7)    return { cls: 'green',  num: n,      tier: 'forte'  };
+    if (score >= 5)    return { cls: 'yellow', num: n,      tier: 'ok'     };
+    if (score >= 3)    return { cls: 'orange', num: n,      tier: 'revisar'};
+    return                    { cls: 'red',    num: n,      tier: 'fraco'  };
 }
 
 async function loadRadar(forceAll = false) {
@@ -7420,8 +7421,8 @@ function renderRadarList(leads) {
         };
         const fm = FONTE_META[l.fonte] || { icon:'fa-solid fa-globe', label: l.fonte || '' };
         const fonteBadge = l.fonte ? `<span class="radar-fonte-badge fonte-${esc(l.fonte)}" title="Plataforma: ${fm.label}"><i class="${fm.icon} fa-fw"></i>${fm.label}</span>` : '';
-        const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${l.reverse_fit_score}</span>` : '';
-        const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${l.alignment_score}</span>` : '';
+        const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${Number(l.reverse_fit_score).toFixed(1)}</span>` : '';
+        const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${Number(l.alignment_score).toFixed(1)}</span>` : '';
         const confPct = l.advance_confidence != null ? `<span title="Estimativa de avançar para entrevista" style="font-size:0.62rem;color:${l.advance_confidence>=50?'#4ade80':l.advance_confidence>=25?'#fb923c':'#f87171'};margin-top:1px;display:block;text-align:center">${l.advance_confidence}%</span>` : '';
         const isSelected = _radarSelected.has(l.id);
         const cardAction = _radarSelecting ? `onclick="toggleRadarSelect('${l.id}')" style="cursor:pointer"` : '';
@@ -8449,7 +8450,7 @@ function startVoiceMemo(appId) {
             <div style="margin-bottom:8px">
                 <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.07em;margin-bottom:4px">Vaga</div>
                 <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px">
-                    ${radar.fit_score ? `<div style="font-size:0.82rem;color:var(--text)">Fit: <span style="color:${radar.fit_score>=7?'#4ade80':radar.fit_score>=5?'#fb923c':'#f87171'};font-weight:700">${radar.fit_score}</span></div>` : ''}
+                    ${radar.fit_score ? `<div style="font-size:0.82rem;color:var(--text)">Fit: <span style="color:${radar.fit_score>=7?'#4ade80':radar.fit_score>=5?'#fb923c':'#f87171'};font-weight:700">${Number(radar.fit_score).toFixed(1)}</span></div>` : ''}
                     ${radar.advance_confidence != null ? `<div style="font-size:0.82rem;color:var(--text)">Conf: <span style="color:${radar.advance_confidence>=50?'#4ade80':radar.advance_confidence>=25?'#fb923c':'#f87171'};font-weight:700">${radar.advance_confidence}%</span></div>` : ''}
                     ${radar.faixa_salarial ? `<div style="font-size:0.76rem;color:var(--text-soft)">Faixa: ${esc(radar.faixa_salarial)}</div>` : ''}
                 </div>
@@ -8585,7 +8586,7 @@ function startVoiceMemo(appId) {
             <h4 style="margin:0 0 12px;font-size:0.95rem;color:var(--text)"><i class="fa-solid fa-chart-line" style="color:var(--cyan);margin-right:6px"></i>Pré-análise da candidatura</h4>
             <div style="display:flex;gap:16px;margin-bottom:14px">
                 <div style="text-align:center">
-                    <div style="font-size:1.4rem;font-weight:700;color:${radar_score_color(fit_score||0)}">${fit_score||'—'}</div>
+                    <div style="font-size:1.4rem;font-weight:700;color:${radar_score_color(fit_score||0)}">${fit_score != null ? Number(fit_score).toFixed(1) : '—'}</div>
                     <div style="font-size:0.68rem;color:var(--text-dim)">Fit score</div>
                 </div>
                 <div style="text-align:center">
