@@ -1206,10 +1206,10 @@ function renderTimeline(stages) {
                     <button onclick="scheduleStage('${_openAppId}','${esc(s.name)}',null)" title="Remover agendamento" style="background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;line-height:1"><i class="fa-solid fa-xmark" style="font-size:0.58rem"></i></button>
                 </span>`;
             } else {
-                scheduleUI = `<label title="Agendar esta etapa" style="display:inline-flex;align-items:center;cursor:pointer;margin-left:6px;opacity:0.3;line-height:1">
+                scheduleUI = `<button onclick="this.nextElementSibling.showPicker()" title="Agendar esta etapa" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:0;margin-left:6px;line-height:1;color:inherit">
                     <i class="fa-regular fa-clock" aria-hidden="true" style="font-size:0.62rem"></i>
-                    <input type="datetime-local" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">
-                </label>`;
+                </button>
+                <input type="datetime-local" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">`;
             }
         }
 
