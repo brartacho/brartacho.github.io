@@ -1126,6 +1126,13 @@ function renderDrawerBody(app) {
     `;
 }
 
+function toggleStageScheduler(btn) {
+    const input = btn.nextElementSibling;
+    const hidden = !input.style.display || input.style.display === 'none';
+    input.style.display = hidden ? 'inline-block' : 'none';
+    if (hidden) input.focus();
+}
+
 function buildGCalLink(title, scheduledAt) {
     const dt = new Date(scheduledAt);
     const pad = n => String(n).padStart(2, '0');
@@ -1206,11 +1213,11 @@ function renderTimeline(stages) {
                     <button onclick="scheduleStage('${_openAppId}','${esc(s.name)}',null)" title="Remover agendamento" style="background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;line-height:1"><i class="fa-solid fa-xmark" style="font-size:0.58rem"></i></button>
                 </span>`;
             } else {
-                scheduleUI = `<span style="position:relative;display:inline-flex;align-items:center;margin-left:6px">
-                    <button onclick="this.nextElementSibling.showPicker()" title="Agendar esta etapa" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:0;line-height:1;color:inherit">
+                scheduleUI = `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:6px">
+                    <button onclick="toggleStageScheduler(this)" title="Agendar esta etapa" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:0;line-height:1;color:inherit">
                         <i class="fa-regular fa-clock" aria-hidden="true" style="font-size:0.62rem"></i>
                     </button>
-                    <input type="datetime-local" style="position:absolute;bottom:0;left:0;width:0;height:0;opacity:0;overflow:hidden;pointer-events:none" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">
+                    <input type="datetime-local" style="display:none;font-size:0.68rem;padding:1px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);max-width:155px" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">
                 </span>`;
             }
         }
