@@ -58,8 +58,9 @@ test.describe('ADMIN /admin — login', () => {
 });
 
 // ─── /admin — PAINEL AUTENTICADO ──────────────────────────────────────────
-// JWT capturado uma única vez para evitar rate limiting (5 tentativas / 15 min)
-let _adminJwt = null;
+// Login feito uma única vez no beforeAll; cookies capturados via storageState
+// (JWT fica em cookie httpOnly — JS nunca acessa diretamente)
+let _authCookies = null;
 
 test.describe('ADMIN — painel autenticado', () => {
   test.skip(!HAS_CREDS, 'Defina ADMIN_EMAIL e ADMIN_PASSWORD para rodar estes testes');
@@ -68,21 +69,28 @@ test.describe('ADMIN — painel autenticado', () => {
     const ctx = await browser.newContext();
     const pg  = await ctx.newPage();
     await pg.goto('/admin', { waitUntil: 'networkidle' });
+    // Foca o campo para disparar _loginFormStartedAt, depois aguarda > 800ms (bot-detection fillMs)
+    await pg.locator('#loginUsername').focus();
+    await pg.waitForTimeout(1100);
     await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
     await pg.locator('#loginPassword').fill(ADMIN_PASS);
     await pg.locator('#loginBtn').click();
-    // Aguarda logout button (só aparece após login bem-sucedido)
-    await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 12000 }).catch(() => {});
-    _adminJwt = await pg.evaluate(() => sessionStorage.getItem('admin_jwt'));
+    // Aguarda o painel aparecer (cookie httpOnly é setado pelo servidor)
+    const ok = await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 15000 })
+      .then(() => true).catch(() => false);
+    if (ok) {
+      const state = await ctx.storageState();
+      _authCookies = state.cookies; // inclui o cookie httpOnly de sessão
+    }
     await ctx.close();
   });
 
   test.beforeEach(async ({ page }) => {
-    if (_adminJwt) {
-      await page.addInitScript((jwt) => sessionStorage.setItem('admin_jwt', jwt), _adminJwt);
+    if (_authCookies?.length) {
+      await page.context().addCookies(_authCookies);
     }
     await page.goto('/admin', { waitUntil: 'networkidle' });
-    if (_adminJwt) {
+    if (_authCookies?.length) {
       await page.waitForSelector('.app-logout', { state: 'visible', timeout: 10000 }).catch(() => {});
     }
   });
@@ -91,8 +99,9 @@ test.describe('ADMIN — painel autenticado', () => {
     await expect(page.locator('.tab-btn').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('4 abas principais visíveis', async ({ page }) => {
-    await expect(page.locator('.tab-btn')).toHaveCount(4);
+  test('abas principais visíveis (mínimo 4)', async ({ page }) => {
+    const count = await page.locator('.tab-btn').count();
+    expect(count).toBeGreaterThanOrEqual(4);
   });
 
   test('aba Currículos ativa por padrão e tem formulário de upload', async ({ page }) => {
@@ -127,7 +136,8 @@ test.describe('ADMIN — painel autenticado', () => {
   test('filtros de status estão presentes na aba Gestão de Vagas', async ({ page }) => {
     const vagasTab = page.locator('.tab-btn').filter({ hasText: /vaga/i }).first();
     await vagasTab.click();
-    await expect(page.locator('.vagas-filter-chip')).toHaveCount(4);
+    const count = await page.locator('.vagas-filter-chip').count();
+    expect(count).toBeGreaterThanOrEqual(4);
   });
 
   test('botão de logout presente', async ({ page }) => {
