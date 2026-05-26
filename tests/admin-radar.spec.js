@@ -7,7 +7,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASS  = process.env.ADMIN_PASSWORD;
 const HAS_CREDS   = Boolean(ADMIN_EMAIL && ADMIN_PASS);
 
-let _adminJwt = null;
+let _adminCookies = null;
 
 test.describe('ADMIN — Radar de Vagas', () => {
   test.skip(!HAS_CREDS, 'Defina ADMIN_EMAIL e ADMIN_PASSWORD para rodar');
@@ -15,17 +15,25 @@ test.describe('ADMIN — Radar de Vagas', () => {
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
     const pg  = await ctx.newPage();
-    await pg.goto('/admin', { waitUntil: 'networkidle' });
-    await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
-    await pg.locator('#loginPassword').fill(ADMIN_PASS);
-    await pg.locator('#loginBtn').click();
-    await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 12000 }).catch(() => {});
-    _adminJwt = await pg.evaluate(() => sessionStorage.getItem('admin_jwt'));
-    await ctx.close();
+    try {
+      await pg.goto('/admin', { waitUntil: 'networkidle' });
+      await pg.locator('#loginUsername').focus();
+      await pg.waitForTimeout(1100);
+      await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
+      await pg.locator('#loginPassword').fill(ADMIN_PASS);
+      await pg.locator('#loginBtn').click();
+      await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 15000 });
+      const state = await ctx.storageState();
+      _adminCookies = state.cookies;
+    } catch (e) {
+      console.warn('\n⚠️  Login falhou — testes autenticados serão pulados:', e.message);
+    } finally {
+      await ctx.close();
+    }
   });
 
   test.beforeEach(async ({ page }) => {
-    if (_adminJwt) await page.addInitScript((jwt) => sessionStorage.setItem('admin_jwt', jwt), _adminJwt);
+    if (_adminCookies?.length) await page.context().addCookies(_adminCookies);
     await page.goto('/admin', { waitUntil: 'networkidle' });
     await page.waitForSelector('.app-logout', { state: 'visible', timeout: 10000 }).catch(() => {});
     await page.locator('.tab-btn[data-tab="radar"]').click();

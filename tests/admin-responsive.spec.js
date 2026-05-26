@@ -14,9 +14,10 @@ test.beforeAll(async ({ browser }) => {
   const pg  = await ctx.newPage();
   try {
     await pg.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await pg.locator('#loginUsername').focus();
+    await pg.waitForTimeout(1100);
     await pg.locator('#loginUsername').fill(ADMIN_EMAIL);
     await pg.locator('#loginPassword').fill(ADMIN_PASS);
-    await pg.waitForTimeout(1000); // fillMs >= 800ms (bot-detection guard)
     await pg.locator('#loginBtn').click();
     await pg.waitForSelector('.app-logout', { state: 'visible', timeout: 15000 });
     _savedCookies = await ctx.cookies();
