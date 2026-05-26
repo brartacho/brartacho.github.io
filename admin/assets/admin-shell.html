@@ -446,6 +446,7 @@
             </div>
             <div class="vagas-sort-bar">
                 <button class="vagas-sort-chip" id="sort-chip-updated_at" onclick="sortVagasChip('updated_at',this)"><i aria-hidden="true" class="fa-solid fa-clock" style="font-size:0.65rem"></i> Última mod.</button>
+                <button class="vagas-sort-chip" id="sort-chip-fit_score" onclick="sortVagasChip('fit_score',this)" title="Ordenar por score do Radar"><i aria-hidden="true" class="fa-solid fa-star" style="font-size:0.65rem"></i> Score</button>
             </div>
 
             <div id="vagasTableWrap" style="overflow-x:auto">
@@ -458,10 +459,11 @@
                             <th onclick="sortVagas('data_envio')">Enviado em <span id="sort-data_envio" class="sort-icon">↓</span></th>
                             <th class="col-cadastrado" onclick="sortVagas('created_at')">Cadastrado <span id="sort-created_at" class="sort-icon"></span></th>
                             <th onclick="sortVagas('stage')">Etapa atual <span id="sort-stage" class="sort-icon"></span></th>
+                            <th class="col-score" onclick="sortVagas('fit_score')" title="Score do Radar de Vagas">Score <span id="sort-fit_score" class="sort-icon"></span></th>
                         </tr>
                     </thead>
                     <tbody id="vagasTableBody">
-                        <tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:32px">Carregando…</td></tr>
+                        <tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:32px">Carregando…</td></tr>
                     </tbody>
                 </table>
             </div>

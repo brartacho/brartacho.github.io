@@ -560,6 +560,7 @@ let _vagasModalidadeFilter = 'all';
 let _vagasTipoFilter       = 'all';
 let _vagasFiltersOpen      = false;
 let _openAppId             = null;
+let _openAppTitle          = '';
 let _filteredApplications  = [];
 let _vagasSort             = { col: 'data_envio', dir: 'desc' };
 let _vagasSelecting        = false;
@@ -692,6 +693,11 @@ function renderApplicationsTable() {
             case 'created_at': return sortDir * (a.created_at || '').localeCompare(b.created_at || '');
             case 'updated_at': return sortDir * (a.updated_at || '').localeCompare(b.updated_at || '');
             case 'stage':     return sortDir * getAppCurrentStageName(a).localeCompare(getAppCurrentStageName(b), 'pt-BR');
+            case 'fit_score': {
+                const sa = a.fit_score != null ? parseFloat(a.fit_score) : -1;
+                const sb = b.fit_score != null ? parseFloat(b.fit_score) : -1;
+                return sortDir * (sa - sb);
+            }
             default:          return 0;
         }
     });
@@ -708,7 +714,7 @@ function renderApplicationsTable() {
     _filteredApplications = filtered;
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:32px">Nenhuma candidatura encontrada.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:32px">Nenhuma candidatura encontrada.</td></tr>';
         _updateVagasSelectAll();
         return;
     }
@@ -731,6 +737,10 @@ function renderApplicationsTable() {
         const rowAction = _vagasSelecting
             ? `onclick="toggleVagasSelect('${app.id}')"`
             : `onclick="openDrawer('${app.id}')"`;
+        const scoreVal   = app.fit_score != null ? parseFloat(app.fit_score) : null;
+        const scoreBadge = scoreVal != null
+            ? `<span class="fit-score-badge score-${scoreVal >= 7 ? 'high' : scoreVal >= 5 ? 'mid' : 'low'}">${scoreVal.toFixed(1)}</span>`
+            : `<span style="color:var(--text-dim);font-size:0.72rem">—</span>`;
         return `<tr class="${rowClass}" ${rowAction}>
             ${_vagasSelecting ? `<td onclick="event.stopPropagation()" style="width:36px;padding-right:4px">
                 <input type="checkbox" class="vagas-row-check" ${isSelected ? 'checked' : ''} onchange="toggleVagasSelect('${app.id}')" aria-label="Selecionar ${esc(app.empresa||'vaga')}">
@@ -747,6 +757,7 @@ function renderApplicationsTable() {
             <td class="col-date" style="font-size:0.72rem;color:var(--text-dim)">${dt}</td>
             <td class="col-cadastrado" style="font-size:0.72rem;color:var(--text-dim)">${dtCadastro}</td>
             <td><span class="stage-badge status-${status}">${stage}</span></td>
+            <td class="col-score">${scoreBadge}</td>
         </tr>`;
     }).join('');
     _updateVagasSelectAll();
@@ -964,9 +975,10 @@ function exportCSV() {
 }
 
 function openDrawer(id) {
-    _openAppId = id;
+    _openAppId    = id;
     const app = _applications.find(a => a.id === id);
     if (!app) return;
+    _openAppTitle = `${app.empresa || ''}${app.vaga ? ' — ' + app.vaga : ''}`;
 
     document.getElementById('drawerEmpresa').textContent = app.empresa || '—';
     document.getElementById('drawerVaga').textContent    = app.vaga || '';
@@ -1006,11 +1018,13 @@ function renderDrawerBody(app) {
         recruiterRows.push(`<div class="dinfo-row"><i class="fa-brands fa-whatsapp dinfo-icon" style="color:#25d366"></i><a href="https://wa.me/${esc(phone)}" target="_blank" rel="noopener" class="dinfo-link">${esc(app.gestor_phone)}</a></div>`);
     }
 
+    const drawerScoreVal = app.fit_score != null ? parseFloat(app.fit_score) : null;
     const chips = [
         app.linkedin_empresa ? `<a href="${esc(app.linkedin_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>` : '',
         app.link_vaga        ? `<a href="${esc(app.link_vaga)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-link"></i> Vaga</a>` : '',
         app.modalidade       ? `<span class="dinfo-chip"><i class="fa-solid fa-map-pin"></i> ${esc(app.modalidade)}</span>` : '',
         app.tipo_contratacao ? `<span class="dinfo-chip"><i class="fa-solid fa-file-contract"></i> ${esc(app.tipo_contratacao)}</span>` : '',
+        drawerScoreVal != null ? `<span class="dinfo-chip fit-score-badge score-${drawerScoreVal >= 7 ? 'high' : drawerScoreVal >= 5 ? 'mid' : 'low'}"><i class="fa-solid fa-star" aria-hidden="true"></i> ${drawerScoreVal.toFixed(1)}</span>` : '',
     ].filter(Boolean);
 
     const hasRecruiter = recruiterRows.length > 0;
@@ -1112,6 +1126,36 @@ function renderDrawerBody(app) {
     `;
 }
 
+function buildGCalLink(title, scheduledAt) {
+    const dt = new Date(scheduledAt);
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const end = new Date(dt.getTime() + 60 * 60 * 1000);
+    const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: title,
+        dates: `${fmt(dt)}/${fmt(end)}`,
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+async function scheduleStage(appId, stageName, scheduledAt) {
+    const app = _applications.find(a => a.id === appId);
+    if (!app) return;
+    const stages = (app.stages || []).map(s =>
+        s.name === stageName ? { ...s, scheduled_at: scheduledAt || null } : s
+    );
+    try {
+        const updated = await api('PUT', `/api/admin/applications?id=${appId}`, { stages });
+        const idx = _applications.findIndex(a => a.id === appId);
+        if (idx !== -1) _applications[idx] = updated;
+        renderDrawerBody(updated);
+        showToast(scheduledAt ? 'Etapa agendada.' : 'Agendamento removido.', 'success');
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
 function renderTimeline(stages) {
     const visible = stages.filter(s => s.active !== false);
 
@@ -1146,12 +1190,41 @@ function renderTimeline(stages) {
             circleClass = 'pending'; lineClass = 'other'; labelClass = 'pending';
         }
 
+        const scheduledAt = s.scheduled_at || '';
+        const fmtScheduled = scheduledAt
+            ? new Date(scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '';
+        const gcalBtn = scheduledAt
+            ? `<a href="${buildGCalLink(`${normalizeStageName(s.name)} — ${_openAppTitle || ''}`, scheduledAt)}"
+                  target="_blank" rel="noopener"
+                  class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;margin-left:4px"
+                  title="Adicionar ao Google Agenda">
+                   <i class="fa-brands fa-google" aria-hidden="true"></i>
+               </a>`
+            : '';
+
         return `<div class="stage-row">
             <div class="stage-icon-col">
                 <div class="stage-circle ${circleClass}">${content}</div>
                 ${!isLast ? `<div class="stage-line ${lineClass}"></div>` : ''}
             </div>
-            <div class="stage-label ${labelClass}">${esc(normalizeStageName(s.name))}</div>
+            <div style="flex:1">
+                <div class="stage-label ${labelClass}" style="display:flex;align-items:center;gap:6px">
+                    ${esc(normalizeStageName(s.name))}
+                    ${fmtScheduled ? `<span style="font-size:0.68rem;color:var(--cyan);font-weight:400">📅 ${fmtScheduled}</span>` : ''}
+                    ${gcalBtn}
+                </div>
+                <div style="margin-top:4px;display:flex;align-items:center;gap:4px">
+                    <input type="datetime-local"
+                           value="${esc(scheduledAt ? scheduledAt.slice(0, 16) : '')}"
+                           style="font-size:0.7rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);max-width:170px"
+                           onchange="scheduleStage('${_openAppId}', '${esc(s.name)}', this.value || null)"
+                           title="Agendar esta etapa (opcional)">
+                    ${scheduledAt ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;opacity:0.6"
+                        onclick="scheduleStage('${_openAppId}', '${esc(s.name)}', null)"
+                        title="Remover agendamento"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                </div>
+            </div>
         </div>`;
     }).join('');
 }
