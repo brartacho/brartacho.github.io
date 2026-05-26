@@ -613,18 +613,43 @@ export default async function handler(req, res) {
     if (req.query.__h === 'generate-message') {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-        const { empresa, vaga, descricao, fonte, lead_id } = req.body || {};
-        if (!empresa) return res.status(400).json({ error: 'empresa obrigatório' });
+        const { application_id, empresa: bodyEmpresa, vaga: bodyVaga, descricao: bodyDescricao, fonte: bodyFonte, lead_id, extra_instruction, force_regenerate } = req.body || {};
 
+        // Modo application_id: carrega dados da candidatura + lead vinculado
+        let empresa = bodyEmpresa, vaga = bodyVaga, descricao = bodyDescricao, fonte = bodyFonte;
         let positioning = null, keywords_match = [], gaps = [];
-        if (lead_id) {
+        let existingApp = null;
+
+        if (application_id) {
+            const { data: app } = await supabase.from('job_applications')
+                .select('empresa,vaga,platform,origin_radar_id,application_message_text,application_message_original,application_message_history')
+                .eq('id', application_id).single();
+            if (app) {
+                existingApp = app;
+                empresa = empresa || app.empresa;
+                vaga    = vaga    || app.vaga;
+                fonte   = fonte   || app.platform;
+                if (app.origin_radar_id) {
+                    const { data: lead } = await supabase.from('vaga_radar')
+                        .select('positioning,keywords_match,gaps,descricao').eq('id', app.origin_radar_id).single();
+                    if (lead) {
+                        positioning    = lead.positioning;
+                        keywords_match = lead.keywords_match || [];
+                        gaps           = lead.gaps           || [];
+                        descricao      = descricao || lead.descricao;
+                    }
+                }
+            }
+        } else if (lead_id) {
             const { data: lead } = await supabase.from('vaga_radar').select('positioning,keywords_match,gaps,descricao,vaga,empresa').eq('id', lead_id).single();
             if (lead) {
-                positioning = lead.positioning;
+                positioning    = lead.positioning;
                 keywords_match = lead.keywords_match || [];
-                gaps = lead.gaps || [];
+                gaps           = lead.gaps           || [];
             }
         }
+
+        if (!empresa) return res.status(400).json({ error: 'empresa obrigatório' });
 
         const [{ data: profile }, { data: platformRow }, { data: answers }] = await Promise.all([
             supabase.from('candidate_profile').select('*').order('updated_at', { ascending: false }).limit(1).single(),
@@ -632,10 +657,11 @@ export default async function handler(req, res) {
             supabase.from('quick_answers').select('slug,display_name,value').is('area_id', null).order('slug'),
         ]);
 
-        const charLimit = platformRow?.char_limit ?? 0;
+        const charLimit      = platformRow?.char_limit ?? 0;
         const platformDisplay = platformRow?.display_name ?? fonte ?? null;
+        const extraInstruction = extra_instruction ? String(extra_instruction).slice(0, 300) : null;
 
-        const prompt = buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [] });
+        const prompt = buildMessagePrompt({ empresa, vaga, descricao, positioning, keywords_match, gaps, fonte, charLimit, platformDisplay, profile: profile || {}, quickAnswers: answers || [], extraInstruction });
 
         // Tenta roteamento multi-provider; fallback para prompt-only (MCP)
         try {
@@ -645,10 +671,34 @@ export default async function handler(req, res) {
                 messages: [{ role: 'user', content: prompt }],
                 maxTokens: 800,
                 temperature: 0.4,
-                refId: lead_id || null,
+                refId: application_id || lead_id || null,
             });
             const message_text = parseMessageResponse(result.content);
-            return res.status(200).json({ message_text, char_count: message_text?.length ?? 0, char_limit: charLimit, provider: result.provider, model: result.model, prompt });
+
+            // Persiste na candidatura se tiver application_id
+            if (application_id && message_text) {
+                const history = Array.isArray(existingApp?.application_message_history) ? existingApp.application_message_history : [];
+                const historyEntry = { ts: new Date().toISOString(), text: message_text, length: message_text.length, source: 'ia', ...(extraInstruction ? { extra_instruction: extraInstruction } : {}) };
+                const isFirst = !existingApp?.application_message_original;
+                const shouldOverwrite = isFirst || force_regenerate || !existingApp?.application_message_text;
+                const patch = {
+                    application_message_history: [...history, historyEntry].slice(-10),
+                    updated_at: new Date().toISOString(),
+                };
+                if (shouldOverwrite) patch.application_message_text = message_text;
+                if (isFirst)        patch.application_message_original = message_text;
+                await supabase.from('job_applications').update(patch).eq('id', application_id);
+            }
+
+            return res.status(200).json({
+                message_text,
+                char_count: message_text?.length ?? 0,
+                char_limit: charLimit,
+                provider: result.provider,
+                model: result.model,
+                prompt,
+                history_count: ((existingApp?.application_message_history || []).length) + 1,
+            });
         } catch (_routeErr) {
             // Nenhum provider configurado → retorna prompt para uso via MCP
             return res.status(200).json({
@@ -659,6 +709,21 @@ export default async function handler(req, res) {
                 note: 'Nenhum provider LLM configurado. Configure pelo menos uma env var (GROQ_API_KEY, GEMINI_API_KEY, etc.) para geração automática.',
             });
         }
+    }
+
+    // ── reset-message ─────────────────────────────────────────
+    if (req.query.__h === 'reset-message') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { application_id } = req.body || {};
+        if (!application_id) return res.status(400).json({ error: 'application_id obrigatório' });
+        const { data: app } = await supabase.from('job_applications')
+            .select('application_message_original').eq('id', application_id).single();
+        if (!app?.application_message_original) return res.status(400).json({ error: 'Sem mensagem original para restaurar' });
+        await supabase.from('job_applications').update({
+            application_message_text: app.application_message_original,
+            updated_at: new Date().toISOString(),
+        }).eq('id', application_id);
+        return res.status(200).json({ message_text: app.application_message_original, ok: true });
     }
 
     // ── duplicate-check ───────────────────────────────────────
