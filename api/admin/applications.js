@@ -817,6 +817,7 @@ export default async function handler(req, res) {
             tipo_contratacao: l.tipo_contratacao || null,
             platform:         l.fonte || null,
             origin_radar_id:  l.id,
+            fit_score:        l.fit_score != null ? parseFloat(l.fit_score) : null,
         }));
         const { data: created, error: createErr } = await supabase
             .from('job_applications').insert(rows).select('id, empresa, vaga, origin_radar_id');
@@ -2838,6 +2839,11 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
                 }
                 if (s.status !== undefined && !VALID_STATUSES.has(s.status)) {
                     return res.status(400).json({ error: `stages: status inválido (${s.status})` });
+                }
+                if (s.scheduled_at !== undefined && s.scheduled_at !== null) {
+                    if (isNaN(new Date(s.scheduled_at).getTime())) {
+                        return res.status(400).json({ error: `stages: scheduled_at inválido (${s.name})` });
+                    }
                 }
             }
             const runningCount = stages.filter(s => s.status === 'running' && s.active !== false).length;
