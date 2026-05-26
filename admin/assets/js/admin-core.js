@@ -1209,7 +1209,7 @@ function renderTimeline(stages) {
                 scheduleUI = `<button onclick="this.nextElementSibling.showPicker()" title="Agendar esta etapa" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:0;margin-left:6px;line-height:1;color:inherit">
                     <i class="fa-regular fa-clock" aria-hidden="true" style="font-size:0.62rem"></i>
                 </button>
-                <input type="datetime-local" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">`;
+                <input type="datetime-local" style="position:fixed;top:-200px;left:-200px;opacity:0;width:1px;height:1px;pointer-events:none" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">`;
             }
         }
 
