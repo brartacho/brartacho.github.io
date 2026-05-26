@@ -1190,40 +1190,36 @@ function renderTimeline(stages) {
             circleClass = 'pending'; lineClass = 'other'; labelClass = 'pending';
         }
 
+        const isScheduleable = s.name !== 'Enviado' && s.name !== 'Aplicado';
         const scheduledAt = s.scheduled_at || '';
         const fmtScheduled = scheduledAt
-            ? new Date(scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            ? new Date(scheduledAt).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
             : '';
-        const gcalBtn = scheduledAt
-            ? `<a href="${buildGCalLink(`${normalizeStageName(s.name)} — ${_openAppTitle || ''}`, scheduledAt)}"
-                  target="_blank" rel="noopener"
-                  class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;margin-left:4px"
-                  title="Adicionar ao Google Agenda">
-                   <i class="fa-brands fa-google" aria-hidden="true"></i>
-               </a>`
-            : '';
+
+        let scheduleUI = '';
+        if (isScheduleable) {
+            if (scheduledAt) {
+                const gcalHref = buildGCalLink(`${normalizeStageName(s.name)} — ${_openAppTitle || ''}`, scheduledAt);
+                scheduleUI = `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:0.65rem;color:var(--cyan);font-weight:400">
+                    📅 ${fmtScheduled}
+                    <a href="${gcalHref}" target="_blank" rel="noopener" title="Adicionar ao Google Agenda" style="color:var(--cyan);opacity:0.75;line-height:1"><i class="fa-brands fa-google" aria-hidden="true" style="font-size:0.6rem"></i></a>
+                    <button onclick="scheduleStage('${_openAppId}','${esc(s.name)}',null)" title="Remover agendamento" style="background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;line-height:1"><i class="fa-solid fa-xmark" style="font-size:0.58rem"></i></button>
+                </span>`;
+            } else {
+                scheduleUI = `<label title="Agendar esta etapa" style="display:inline-flex;align-items:center;cursor:pointer;margin-left:6px;opacity:0.3;line-height:1">
+                    <i class="fa-regular fa-clock" aria-hidden="true" style="font-size:0.62rem"></i>
+                    <input type="datetime-local" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" onchange="scheduleStage('${_openAppId}','${esc(s.name)}',this.value||null)">
+                </label>`;
+            }
+        }
 
         return `<div class="stage-row">
             <div class="stage-icon-col">
                 <div class="stage-circle ${circleClass}">${content}</div>
                 ${!isLast ? `<div class="stage-line ${lineClass}"></div>` : ''}
             </div>
-            <div style="flex:1;padding-bottom:${isLast ? '0' : '10px'}">
-                <div class="stage-label ${labelClass}" style="display:flex;align-items:center;gap:6px">
-                    ${esc(normalizeStageName(s.name))}
-                    ${fmtScheduled ? `<span style="font-size:0.68rem;color:var(--cyan);font-weight:400">📅 ${fmtScheduled}</span>` : ''}
-                    ${gcalBtn}
-                </div>
-                <div style="margin-top:4px;display:flex;align-items:center;gap:4px">
-                    <input type="datetime-local"
-                           value="${esc(scheduledAt ? scheduledAt.slice(0, 16) : '')}"
-                           style="font-size:0.7rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);max-width:170px"
-                           onchange="scheduleStage('${_openAppId}', '${esc(s.name)}', this.value || null)"
-                           title="Agendar esta etapa (opcional)">
-                    ${scheduledAt ? `<button class="btn btn-sm" style="padding:2px 6px;font-size:0.68rem;opacity:0.6"
-                        onclick="scheduleStage('${_openAppId}', '${esc(s.name)}', null)"
-                        title="Remover agendamento"><i class="fa-solid fa-xmark"></i></button>` : ''}
-                </div>
+            <div class="stage-label ${labelClass}" style="display:flex;align-items:center;flex-wrap:wrap">
+                <span>${esc(normalizeStageName(s.name))}</span>${scheduleUI}
             </div>
         </div>`;
     }).join('');

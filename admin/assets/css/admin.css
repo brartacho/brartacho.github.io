@@ -2287,14 +2287,14 @@
         .stage-circle.rejected   { background:#ef4444; color:#fff; }
         .stage-circle.current    { background:#eab308; box-shadow:0 0 8px rgba(234,179,8,0.4); }
         .stage-circle.pending    { border:1px solid #334155; background:transparent; }
-        .stage-line { width:1px; flex:1; min-height:8px; margin:2px 0; }
+        .stage-line { width:1px; flex:1; min-height:12px; margin:2px 0; }
         .stage-line.done-step { background:rgba(255,255,255,0.12); }
         .stage-line.done      { background:#22c55e; }
         .stage-line.rejected  { background:#ef4444; }
         .stage-line.current   { background:linear-gradient(#eab308, #334155); }
         .stage-line.other     { background:#1e2030; }
         .stage-label {
-            font-size:0.72rem; padding:1px 0 4px; line-height:1.3;
+            font-size:0.72rem; padding:1px 0 12px; line-height:1.3;
             transition:opacity 0.15s;
         }
         .stage-label.done-step { color:var(--text-dim); }
