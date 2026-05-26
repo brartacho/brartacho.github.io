@@ -7210,7 +7210,8 @@ async function _rsqPoll(id) {
     }
 }
 
-function cancelRadarSearch() {
+async function cancelRadarSearch() {
+    const reqId = _rsqActiveId;
     clearTimeout(_rsqPollTimer);
     clearInterval(_rsqElapsedTimer);
     _rsqPollTimer = null;
@@ -7219,7 +7220,17 @@ function cancelRadarSearch() {
     _rsqRequestPlats = [];
     _rsqActiveId = null;
     const el = document.getElementById('rsqStatus');
-    if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Monitoramento interrompido — busca continua em segundo plano</span>`;
+    if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-spinner fa-spin"></i> Cancelando…</span>`;
+    if (reqId) {
+        try {
+            await api('POST', '/api/admin/radar?action=cancel-search', { request_id: reqId });
+            if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Busca cancelada</span>`;
+        } catch (_) {
+            if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Monitoramento interrompido</span>`;
+        }
+    } else {
+        if (el) el.innerHTML = `<span class="rsq-badge" style="background:var(--bg-soft);color:var(--text-dim);border:1px solid var(--border)"><i class="fa-solid fa-xmark"></i> Busca cancelada</span>`;
+    }
 }
 
 async function loadRsqHistory() {
