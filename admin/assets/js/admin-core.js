@@ -3893,12 +3893,9 @@ function openNovaVaga(radarLead) {
     document.getElementById('vfEmpresa').focus();
     _populateCvSelect(null);
     onVfPlatformChange();
-    // Auto-gera mensagem ao promover do Radar se plataforma exige mensagem
-    if (radarLead?.fonte && radarLead?.empresa) {
-        const plat = (window._platformSettings || []).find(p => p.fonte === radarLead.fonte);
-        if (plat?.message_required || plat?.char_limit > 0) {
-            setTimeout(() => generateApplicationMessage(), 300);
-        }
+    // Sempre auto-gera mensagem ao promover do Radar
+    if (radarLead?.empresa) {
+        setTimeout(() => generateApplicationMessage(), 300);
     }
 }
 function closeNovaVaga() {
