@@ -1,7 +1,10 @@
 // Scraper do Remotar (remotar.com.br) via Playwright.
-// Site usa Vue.js/Nuxt — requer renderização JS.
-// URL: https://remotar.com.br/vagas?busca=KEYWORD
+// Site Next.js — requer renderização JS.
+// URL de busca: https://remotar.com.br/search/jobs?q=KEYWORD
 // Todas as vagas são remotas (plataforma 100% remota BR).
+//
+// Padrão de links: https://remotar.com.br/job/<id>/<empresa>/<slug>
+// Cards têm classes: job-content-box, job-title, job-detail.
 
 import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
@@ -13,53 +16,32 @@ const BASE_URL = 'https://remotar.com.br';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-// Seletores candidatos para cards de vaga (Remotar usa Vue, classe pode variar)
-const CARD_SELECTORS = [
-    'article[class*="vaga"]',
-    '[class*="vaga-card"]',
-    '[class*="job-card"]',
-    '[class*="card-vaga"]',
-    'article[class*="job"]',
-    '.job-item',
-];
-
 async function extractJobs(page) {
-    return page.evaluate((selectors) => {
-        for (const sel of selectors) {
-            const items = [...document.querySelectorAll(sel)].filter(el =>
-                el.querySelector('a') && el.innerText.trim().length > 10
-            );
-            if (items.length >= 1) {
-                return items.slice(0, 40).map(el => {
-                    const linkEl = el.querySelector('a[href*="/vagas/"], a[href*="/vaga/"], a[href]');
-                    const titleEl = el.querySelector('h1, h2, h3, h4, [class*="title"], [class*="titulo"]');
-                    const companyEl = el.querySelector('[class*="empresa"], [class*="company"], [class*="recrutador"]');
-                    return {
-                        link:    linkEl?.href || null,
-                        title:   titleEl?.textContent?.trim() || el.querySelector('strong')?.textContent?.trim() || null,
-                        company: companyEl?.textContent?.trim() || null,
-                    };
-                }).filter(j => j.link && j.title);
-            }
-        }
+    return page.evaluate(() => {
+        const anchors = [...document.querySelectorAll('a[href*="/job/"]')]
+            .filter(a => /\/job\/\d+\//.test(a.href));
 
-        // Último recurso: todos os links que apontam para /vagas/<slug>
-        const vagaLinks = [...document.querySelectorAll('a[href*="/vagas/"]')]
-            .filter(a => !a.href.endsWith('/vagas') && !a.href.endsWith('/vagas/'));
-        if (vagaLinks.length) {
-            return vagaLinks.slice(0, 40).map(a => {
-                const parent = a.closest('article, li, div[class*="card"], div[class*="vaga"]') || a;
-                const titleEl = parent.querySelector('h1, h2, h3, h4') || a;
-                return {
-                    link:    a.href,
-                    title:   titleEl?.textContent?.trim() || a.textContent?.trim() || null,
-                    company: parent.querySelector('[class*="empresa"], [class*="company"]')?.textContent?.trim() || null,
-                };
-            }).filter(j => j.link && j.title);
-        }
+        const seen = new Set();
+        const out  = [];
+        for (const a of anchors) {
+            if (seen.has(a.href)) continue;
+            seen.add(a.href);
 
-        return [];
-    }, CARD_SELECTORS);
+            const card    = a.closest('article, li, [class*="job-content"], [class*="job-card"], div[class]') || a;
+            const titleEl = card.querySelector('.job-title, h2, h3, h4');
+            const title   = (titleEl?.textContent || a.textContent || '').trim();
+            if (!title) continue;
+
+            // Tenta extrair empresa do slug: /job/<id>/<empresa>/<slug>
+            const match   = a.href.match(/\/job\/\d+\/([^/]+)\//);
+            const slugCo  = match ? match[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null;
+            const compEl  = card.querySelector('[class*="empresa"], [class*="company"], .job-detail');
+            const company = compEl?.textContent?.trim().split('\n')[0] || slugCo || null;
+
+            out.push({ link: a.href, title, company });
+        }
+        return out;
+    });
 }
 
 export async function searchRemotar({ keywords, maxResults = 20 }) {
@@ -84,18 +66,19 @@ export async function searchRemotar({ keywords, maxResults = 20 }) {
             if (results.length >= maxResults) break;
             console.error(`[remotar] Buscando: "${keyword}"`);
 
-            const url = `${BASE_URL}/vagas?busca=${encodeURIComponent(keyword)}`;
+            const url = `${BASE_URL}/search/jobs?q=${encodeURIComponent(keyword)}`;
             try {
-                await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
-            } catch {
-                try {
-                    await page.goto(url, { waitUntil: 'load', timeout: 25_000 });
-                } catch (e) {
-                    console.error(`[remotar] Timeout em "${keyword}": ${e.message}`);
-                    continue;
-                }
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+            } catch (e) {
+                console.error(`[remotar] Timeout em "${keyword}": ${e.message}`);
+                continue;
             }
-            await new Promise(r => setTimeout(r, 2000));
+            try {
+                await page.waitForSelector('a[href*="/job/"]', { timeout: 8_000 });
+            } catch {
+                // Sem resultados ou layout diferente — segue mesmo assim
+            }
+            await new Promise(r => setTimeout(r, 1500));
 
             const jobs = await extractJobs(page);
             console.error(`[remotar] Jobs para "${keyword}": ${jobs.length}`);

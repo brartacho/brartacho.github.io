@@ -1,117 +1,130 @@
-// Scraper do Trampos.co via fetch + Cheerio.
+// Scraper do Trampos.co via Playwright.
 // URL de busca: https://trampos.co/oportunidades?search=KEYWORD
-// Site Rails — server-side rendering, sem necessidade de Playwright.
+// O Trampos é uma SPA (Ember.js) — fetch+cheerio não traz os cards,
+// só a casca da página. Por isso usamos Playwright.
 // Foco em vagas tech/criativas no Brasil.
+//
+// Cards: .opportunity-box com data-opportunity-id; link relativo /oportunidades/<id>.
+// Título em <h4>; localização e logo em divs internas.
 
-import { load } from 'cheerio';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { normalize } from './normalizer.js';
+
+chromium.use(StealthPlugin());
 
 const BASE_URL = 'https://trampos.co';
 
-const HEADERS = {
-    'accept':          'text/html,application/xhtml+xml',
-    'accept-language': 'pt-BR,pt;q=0.9',
-    'user-agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-};
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-async function fetchPage(url) {
-    const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
-}
+async function extractJobs(page) {
+    return page.evaluate(() => {
+        const items = [...document.querySelectorAll('.opportunity-box')];
+        const seen  = new Set();
+        const out   = [];
 
-function extractJobs($) {
-    const results = [];
+        for (const item of items) {
+            const a    = item.querySelector('a[href*="/oportunidades/"]');
+            const href = a?.href;
+            if (!href || seen.has(href)) continue;
+            seen.add(href);
 
-    // Seletores primários (Trampos.co, layout típico de Rails)
-    const candidates = [
-        '.opportunity, .oportunidade, .job-item, .job_listing',
-        'article[class*="opportunity"], article[class*="oportunidade"]',
-        '[class*="opportunity-card"], [class*="job-card"]',
-        '.list-group-item, .media',
-    ];
+            const titleEl = item.querySelector('h4, h3, h2');
+            const title   = (titleEl?.textContent || '').trim();
+            if (!title) continue;
 
-    for (const sel of candidates) {
-        const items = $(sel);
-        if (!items.length) continue;
+            // Empresa: alt do logo, ou — caso ausente — slug do arquivo do logo
+            // (ex: .../artium_solues_logo.jpg → "Artium Solues").
+            const logoImg = item.querySelector('.logo img');
+            const logoAlt = logoImg?.getAttribute('alt') || '';
+            let company = logoAlt.replace(/^Logo\s+(da|do)?\s*/i, '').trim() || null;
+            if (!company && logoImg?.src) {
+                const m = logoImg.src.match(/\/([^/]+?)_logo\.(?:png|jpg|jpeg|svg|webp)/i);
+                if (m) {
+                    company = m[1].replace(/[-_]+/g, ' ')
+                                  .replace(/\b\w/g, c => c.toUpperCase())
+                                  .trim() || null;
+                }
+            }
 
-        items.each((_, el) => {
-            const $el   = $(el);
-            const linkEl = $el.find('a[href*="/oportunidades/"], a[href*="/jobs/"], h2 a, h3 a').first();
-            const link  = linkEl.attr('href');
-            if (!link) return;
+            // .location contém badge .type (ex: "Emprego") + cidade.
+            // Remove o badge e extrai só a localização real.
+            let location = null;
+            const locationEl = item.querySelector('.location');
+            if (locationEl) {
+                const clone = locationEl.cloneNode(true);
+                clone.querySelectorAll('.type').forEach(n => n.remove());
+                location = clone.textContent.replace(/\s+/g, ' ').trim() || null;
+            }
 
-            const fullLink = link.startsWith('http') ? link : `${BASE_URL}${link}`;
-            const title    = linkEl.text().trim()
-                          || $el.find('h1, h2, h3, h4, .title, .name').first().text().trim();
-            const company  = $el.find('.company, .empresa, [class*="company"]').first().text().trim();
-            const location = $el.find('.location, .cidade, [class*="location"]').first().text().trim();
-            const modal    = $el.find('[class*="remot"], [class*="modal"]').first().text().trim();
+            const type = item.getAttribute('data-type') || null;
 
-            if (!title) return;
-            results.push({ fullLink, title, company, location, modal });
-        });
-
-        if (results.length) break;
-    }
-
-    // Fallback: qualquer link para /oportunidades/<slug>
-    if (!results.length) {
-        $('a[href*="/oportunidades/"]').each((_, a) => {
-            const href = $(a).attr('href') || '';
-            if (!href || href.endsWith('/oportunidades') || href.endsWith('/oportunidades/')) return;
-            const fullLink = href.startsWith('http') ? href : `${BASE_URL}${href}`;
-            const title    = $(a).text().trim();
-            if (!title) return;
-            results.push({ fullLink, title, company: null, location: null, modal: null });
-        });
-    }
-
-    return results;
+            out.push({ link: href, title, company, location, type });
+        }
+        return out;
+    });
 }
 
 export async function searchTrampos({ keywords, maxResults = 20 }) {
     const seen    = new Set();
     const results = [];
+    let browser;
 
-    for (const keyword of keywords) {
-        if (results.length >= maxResults) break;
-        console.error(`[trampos] Buscando: "${keyword}"`);
+    try {
+        browser = await chromium.launch({
+            channel: 'chrome',
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+        });
+        const ctx = await browser.newContext({
+            viewport:  { width: 1280, height: 800 },
+            locale:    'pt-BR',
+            userAgent: UA,
+        });
+        const page = await ctx.newPage();
 
-        // Trampos usa /oportunidades com ?search= ou ?q=
-        const urls = [
-            `${BASE_URL}/oportunidades?search=${encodeURIComponent(keyword)}`,
-            `${BASE_URL}/oportunidades?q=${encodeURIComponent(keyword)}`,
-        ];
-
-        let html = null;
-        for (const url of urls) {
-            try {
-                html = await fetchPage(url);
-                break;
-            } catch (e) {
-                console.error(`[trampos] Erro ${url}: ${e.message}`);
-            }
-        }
-        if (!html) continue;
-
-        const $ = load(html);
-        const jobs = extractJobs($);
-        console.error(`[trampos] Jobs para "${keyword}": ${jobs.length}`);
-
-        for (const job of jobs) {
+        for (const keyword of keywords) {
             if (results.length >= maxResults) break;
-            if (!job.fullLink || seen.has(job.fullLink)) continue;
-            seen.add(job.fullLink);
+            console.error(`[trampos] Buscando: "${keyword}"`);
 
-            results.push(normalize({
-                empresa:    job.company || 'Empresa não informada',
-                vaga:       job.title,
-                link_vaga:  job.fullLink,
-                modalidade: job.modal || null,
-                localizacao: job.location || 'Brasil',
-            }, 'trampos'));
+            const url = `${BASE_URL}/oportunidades?search=${encodeURIComponent(keyword)}`;
+            try {
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+            } catch (e) {
+                console.error(`[trampos] Timeout em "${keyword}": ${e.message}`);
+                continue;
+            }
+            try {
+                await page.waitForSelector('.opportunity-box', { timeout: 10_000 });
+            } catch {
+                // Sem resultados — segue
+            }
+            await new Promise(r => setTimeout(r, 1500));
+
+            const jobs = await extractJobs(page);
+            console.error(`[trampos] Jobs para "${keyword}": ${jobs.length}`);
+
+            for (const job of jobs) {
+                if (results.length >= maxResults) break;
+                if (!job.link || seen.has(job.link)) continue;
+                seen.add(job.link);
+
+                results.push(normalize({
+                    empresa:     job.company || 'Empresa não informada',
+                    vaga:        job.title,
+                    link_vaga:   job.link,
+                    localizacao: job.location || 'Brasil',
+                    tipo_contratacao: job.type === 'emprego' ? 'CLT' : (job.type || null),
+                }, 'trampos'));
+            }
+            await new Promise(r => setTimeout(r, 800 + Math.random() * 600));
         }
+
+        await page.close();
+    } catch (e) {
+        console.error(`[trampos] Erro fatal: ${e.message}`);
+    } finally {
+        if (browser) await browser.close().catch(() => {});
     }
 
     console.error(`[trampos] Total coletado: ${results.length}`);

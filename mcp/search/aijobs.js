@@ -1,11 +1,16 @@
-// Scraper do The AI Job Board (theaijobboard.com) via fetch + Cheerio.
-// Site WordPress com WP Job Manager. Server-side rendered, sem Playwright.
-// Focado em vagas de IA/ML (internacional, inglês).
+// Scraper do aijobs.net via fetch + Cheerio.
+// (Migrado de theaijobboard.com, que ficou atrás de Cloudflare 403.)
+// Site server-rendered focado em vagas de IA/ML (internacional, inglês).
+//
+// URL: https://aijobs.net/?kw=KEYWORD
+// O parâmetro kw é aceito pelo servidor, mas o filtro real é feito client-side
+// (a página entrega ~50 vagas em todo carregamento). Filtramos por palavra-chave
+// no título depois de extrair.
 
 import { load } from 'cheerio';
 import { normalize } from './normalizer.js';
 
-const BASE_URL = 'https://theaijobboard.com';
+const BASE_URL = 'https://aijobs.net';
 
 const HEADERS = {
     'accept':          'text/html,application/xhtml+xml',
@@ -19,37 +24,35 @@ async function fetchPage(url) {
     return res.text();
 }
 
-function extractWpJobManagerJobs($) {
-    const results = [];
+function extractJobs($) {
+    const out = [];
+    $('a.stretched-link[href^="/job/"]').each((_, a) => {
+        const $a   = $(a);
+        const href = $a.attr('href') || '';
+        if (!href) return;
 
-    // WP Job Manager: lista ul.job_listings
-    $('ul.job_listings li.job_listing, .job_listings .job_listing').each((_, el) => {
-        const $el      = $(el);
-        const linkEl   = $el.find('.job_listing-clickbox, h3 a, h2 a, a').first();
-        const link     = linkEl.attr('href') || $el.find('a').first().attr('href');
-        const title    = $el.find('.job_listing-title, h3, h2').first().text().trim();
-        const company  = $el.find('.company strong, .company span, .company').first().text().trim();
-        const location = $el.find('.location').first().text().trim();
-        const type     = $el.find('.job-type').first().text().trim();
+        const full = href.startsWith('http') ? href : `${BASE_URL}${href}`;
 
-        if (link && title) results.push({ link, title, company, location, type });
+        // Título: texto do <a> excluindo as labels "Featured"/"Feat."
+        $a.find('.text-bg-primary').remove();
+        const title = $a.text().replace(/\s+/g, ' ').trim();
+        if (!title) return;
+
+        const $card = $a.closest('li');
+        const tags  = $card.find('.text-end span').map((_, s) => $(s).text().trim()).get();
+
+        // O text-end traz: nível, empresa, localização, modo, postado-em
+        const right = $card.find('.text-end').text().replace(/\s+/g, ' ').trim();
+
+        out.push({
+            link:    full,
+            title,
+            company: right.split('|')[1]?.trim() || null,
+            tags:    tags.join(', '),
+            right,
+        });
     });
-
-    if (results.length) return results;
-
-    // Fallback genérico: artigos/posts WP
-    $('article, .entry, .post, .job, .job-listing, [class*="job"]').each((_, el) => {
-        const $el    = $(el);
-        const titleEl = $el.find('h2 a, h1 a, .entry-title a, .job-title a, h3 a').first();
-        const link   = titleEl.attr('href');
-        const title  = titleEl.text().trim() || $el.find('h2, h3').first().text().trim();
-        const company = $el.find('.company, .employer, .company-name, [class*="company"]').first().text().trim();
-        const location = $el.find('.location, [class*="location"]').first().text().trim();
-
-        if (link && title) results.push({ link, title, company, location, type: null });
-    });
-
-    return results;
+    return out;
 }
 
 export async function searchAiJobs({ keywords, maxResults = 20 }) {
@@ -60,42 +63,39 @@ export async function searchAiJobs({ keywords, maxResults = 20 }) {
         if (results.length >= maxResults) break;
         console.error(`[aijobs] Buscando: "${keyword}"`);
 
-        // WP Job Manager usa /jobs/?search_keywords= ; busca geral WP usa /?s=
-        const urls = [
-            `${BASE_URL}/jobs/?search_keywords=${encodeURIComponent(keyword)}&per_page=20`,
-            `${BASE_URL}/?s=${encodeURIComponent(keyword)}&post_type=job_listing`,
-            `${BASE_URL}/?s=${encodeURIComponent(keyword)}`,
-        ];
-
-        let html = null;
-        for (const url of urls) {
-            try {
-                html = await fetchPage(url);
-                break;
-            } catch (e) {
-                console.error(`[aijobs] Erro ${url}: ${e.message}`);
-            }
+        let html;
+        try {
+            html = await fetchPage(`${BASE_URL}/?kw=${encodeURIComponent(keyword)}`);
+        } catch (e) {
+            console.error(`[aijobs] Erro ao buscar "${keyword}": ${e.message}`);
+            continue;
         }
-        if (!html) continue;
 
         const $    = load(html);
-        const jobs = extractWpJobManagerJobs($);
-        console.error(`[aijobs] Jobs para "${keyword}": ${jobs.length}`);
+        const jobs = extractJobs($);
+        console.error(`[aijobs] Jobs no HTML para "${keyword}": ${jobs.length}`);
 
+        // Filtragem client-side: aijobs.net entrega todas as vagas em qualquer kw
+        const kw = keyword.toLowerCase();
+        let matched = 0;
         for (const job of jobs) {
             if (results.length >= maxResults) break;
             if (!job.link || seen.has(job.link)) continue;
+            const hay = `${job.title} ${job.right ?? ''} ${job.tags ?? ''}`.toLowerCase();
+            if (!hay.includes(kw)) continue;
             seen.add(job.link);
+            matched++;
 
             results.push(normalize({
-                empresa:          job.company || 'Empresa não informada',
-                vaga:             job.title,
-                link_vaga:        job.link,
-                modalidade:       'Remota',
-                localizacao:      job.location || 'Worldwide',
-                tipo_contratacao: job.type || null,
+                empresa:     job.company || 'Empresa não informada',
+                vaga:        job.title,
+                link_vaga:   job.link,
+                descricao:   job.tags || null,
+                modalidade:  'Remota',
+                localizacao: 'Worldwide',
             }, 'aijobs'));
         }
+        console.error(`[aijobs] Após filtro "${keyword}": ${matched}`);
     }
 
     console.error(`[aijobs] Total coletado: ${results.length}`);
