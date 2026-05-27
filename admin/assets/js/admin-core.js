@@ -1102,12 +1102,10 @@ function renderDrawerBody(app) {
             <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
             <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
             <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
-            <button class="btn btn-sm" onclick="startVoiceMemo('${app.id}')" title="Adicionar nota por voz (Web Speech API)"><i class="fa-solid fa-microphone"></i></button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
             <button class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
             <button class="btn btn-sm" onclick="openBriefing('${app.id}')" title="Briefing pré-entrevista: dados consolidados da candidatura e vaga"><i class="fa-solid fa-file-lines"></i> Briefing</button>
             <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
-            <button class="btn btn-sm" onclick="openEmailThreads('${app.id}')" title="E-mails vinculados a esta candidatura"><i class="fa-solid fa-envelope"></i> E-mails</button>
             <button class="btn btn-sm" onclick="openMessageTimeline('${app.id}')" title="Timeline de mensagens desta candidatura"><i class="fa-solid fa-timeline"></i> Mensagens</button>
             <button class="btn btn-sm${app.private ? ' active' : ''}" onclick="toggleAppPrivate('${app.id}', ${!app.private})" title="${app.private ? 'Candidatura privada — clique para tornar pública' : 'Tornar privada (modo stealth)'}" style="${app.private ? 'border-color:var(--cyan);color:var(--cyan)' : 'opacity:0.7'}"><i class="fa-solid fa-${app.private ? 'eye-slash' : 'eye'}"></i></button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
@@ -1120,7 +1118,6 @@ function renderDrawerBody(app) {
         <div id="editVagaSection" hidden></div>
         <div id="interviewSection" hidden></div>
         <div id="contextNotesSection" hidden></div>
-        <div id="emailThreadsSection" hidden></div>
         <div id="briefingSection" hidden></div>
         <div id="messagesSection" hidden></div>
     `;
@@ -1344,6 +1341,9 @@ async function openMessageTimeline(appId) {
                     </div>
                 </div>`;
             }).join('') : '<div style="color:var(--text-dim);font-size:0.82rem;padding:8px 0">Nenhuma mensagem registrada.</div>'}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+                <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px;color:var(--cyan)" onclick="generateAvailability()" title="Gerar 3 horários disponíveis para copiar"><i class="fa-solid fa-calendar-plus"></i> Disponibilidade</button>
+            </div>
         </div>`;
     } catch(e) { sec.innerHTML = `<div style="color:var(--danger);padding:12px;font-size:0.8rem">${esc(e.message)}</div>`; }
 }
@@ -3774,9 +3774,8 @@ async function generateApplicationMessage(forceRegenerate) {
             if (resetBtn) resetBtn.style.display = '';
             showToast(extraInstruction ? 'Mensagem regenerada!' : 'Mensagem gerada!');
         } else if (result.prompt) {
-            navigator.clipboard?.writeText(result.prompt).then(() =>
-                showToast('LLM não configurado. Prompt copiado — cole no Claude ou ChatGPT.')
-            ).catch(() => showToast('LLM não configurado. Configure LLM_API_KEY no .env'));
+            navigator.clipboard?.writeText(result.prompt).catch(() => {});
+            _showClaudeCodePastePanel(result.prompt);
         }
     } catch (e) {
         showToast('Erro ao gerar: ' + e.message);
@@ -3784,6 +3783,47 @@ async function generateApplicationMessage(forceRegenerate) {
         btn.innerHTML = origHtml;
         btn.disabled = false;
     }
+}
+
+function _showClaudeCodePastePanel(prompt) {
+    const existing = document.getElementById('claudeCodePastePanel');
+    if (existing) existing.remove();
+
+    const section = document.getElementById('editVagaSection') || document.getElementById('novaVagaForm');
+    if (!section) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'claudeCodePastePanel';
+    panel.style.cssText = 'margin-top:10px;padding:12px;border:1px solid var(--cyan);border-radius:8px;background:rgba(34,211,238,0.05)';
+    panel.innerHTML = `
+        <div style="font-size:0.75rem;font-weight:600;color:var(--cyan);margin-bottom:8px">
+            <i class="fa-solid fa-robot" style="margin-right:6px"></i>LLM não configurado — gere via Claude Code
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:8px">
+            O prompt foi copiado. Peça ao Claude Code para gerar a mensagem e cole o resultado abaixo:
+        </div>
+        <textarea id="claudeCodePasteText" class="mock-input" rows="5"
+            placeholder="Cole aqui a mensagem gerada pelo Claude…"
+            style="resize:vertical;font-size:0.8rem;margin-bottom:8px;width:100%;box-sizing:border-box"></textarea>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="document.getElementById('claudeCodePastePanel').remove()">Cancelar</button>
+            <button class="btn btn-sm" onclick="navigator.clipboard?.readText().then(t=>{document.getElementById('claudeCodePasteText').value=t})" title="Colar da área de transferência"><i class="fa-solid fa-paste"></i> Colar</button>
+            <button class="btn btn-cyan btn-sm" onclick="_applyClaudeCodeMessage()"><i class="fa-solid fa-check"></i> Aplicar</button>
+        </div>`;
+
+    const msgGroup = section.querySelector('.vf-message-group') || section.querySelector('#vfMessageText')?.closest('div');
+    if (msgGroup) msgGroup.after(panel);
+    else section.appendChild(panel);
+    panel.querySelector('textarea')?.focus();
+}
+
+function _applyClaudeCodeMessage() {
+    const text = document.getElementById('claudeCodePasteText')?.value.trim();
+    if (!text) { showToast('Cole a mensagem antes de aplicar.', 'error'); return; }
+    const ta = document.getElementById('vfMessageText');
+    if (ta) { ta.value = text; updateVfCharCount(); }
+    document.getElementById('claudeCodePastePanel')?.remove();
+    showToast('Mensagem aplicada!', 'success');
 }
 
 function openNovaVaga(radarLead) {
@@ -9262,8 +9302,7 @@ function startVoiceMemo(appId) {
         openBriefing, showAdvanceConfidence,
         openVaultUpload, closeVaultUpload, uploadVaultDoc,
         loadVault, downloadVaultDoc, deleteVaultDoc,
-        openEmailThreads, linkEmailThread,
-        generateAvailability, detectRejectionFromThread,
+        generateAvailability,
         toggleVoiceCommand,
     });
 
