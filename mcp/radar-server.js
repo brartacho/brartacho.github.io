@@ -983,7 +983,7 @@ server.registerTool('search_99freelas',
 
 server.registerTool('search_all',
     { title: 'Buscar vagas em todas as plataformas',
-      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed, InfoJobs, Remotive, RemoteOK, We Work Remotely). Deduplica e salva leads acima do score mínimo.',
+      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (17 plataformas: LinkedIn, Gupy, Maringá, Indeed, InfoJobs, Remotive, RemoteOK, We Work Remotely, Remotar, Trampos.co, AI Jobs, JS Remotely, Vagas.com.br, Catho, Jooble, Workana, 99Freelas). Deduplica e salva leads acima do score mínimo.',
       inputSchema: {
           platforms: z.array(z.string()).optional(),
           dry_run:   z.boolean().optional(),
