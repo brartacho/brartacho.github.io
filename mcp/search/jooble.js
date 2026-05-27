@@ -16,8 +16,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 export async function searchJooble({ keywords, location = 'Brasil', maxResults = 20 }) {
     const apiKey = process.env.JOOBLE_API_KEY;
     if (!apiKey) {
-        console.error('[jooble] JOOBLE_API_KEY não definida. Registre em https://jooble.org/api/about e adicione ao .env.local');
-        return [];
+        throw new Error('JOOBLE_API_KEY não configurada. Registre em https://jooble.org/api/about e adicione ao .env.local');
     }
 
     const seen    = new Set();
