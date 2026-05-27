@@ -1020,8 +1020,10 @@ function renderDrawerBody(app) {
 
     const drawerScoreVal = app.fit_score != null ? parseFloat(app.fit_score) : null;
     const chips = [
+        app.site_empresa     ? `<a href="${esc(app.site_empresa.startsWith('http')?app.site_empresa:'https://'+app.site_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-globe"></i> Site</a>` : '',
         app.linkedin_empresa ? `<a href="${esc(app.linkedin_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>` : '',
         app.link_vaga        ? `<a href="${esc(app.link_vaga)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-link"></i> Vaga</a>` : '',
+        app.cidade           ? `<span class="dinfo-chip"><i class="fa-solid fa-location-dot"></i> ${esc(app.cidade)}</span>` : '',
         app.modalidade       ? `<span class="dinfo-chip"><i class="fa-solid fa-map-pin"></i> ${esc(app.modalidade)}</span>` : '',
         app.tipo_contratacao ? `<span class="dinfo-chip"><i class="fa-solid fa-file-contract"></i> ${esc(app.tipo_contratacao)}</span>` : '',
         drawerScoreVal != null ? `<span class="dinfo-chip fit-score-badge score-${drawerScoreVal >= 7 ? 'high' : drawerScoreVal >= 5 ? 'mid' : 'low'}"><i class="fa-solid fa-star" aria-hidden="true"></i> ${drawerScoreVal.toFixed(1)}</span>` : '',
@@ -1873,7 +1875,11 @@ function vagaFormHTML(app) {
                     <input id="vfVaga" class="mock-input" placeholder="Sr QA…" ${v('vaga',200)} autocomplete="off" data-form-type="other">
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div class="form-group" style="margin:0">
+                    <label style="font-size:0.75rem">Site da empresa</label>
+                    <input id="vfSiteEmpresa" class="mock-input" placeholder="empresa.com.br" ${v('site_empresa',300)} autocomplete="off" data-form-type="other">
+                </div>
                 <div class="form-group" style="margin:0">
                     <label style="font-size:0.75rem">LinkedIn empresa</label>
                     <input id="vfLinkedin" class="mock-input" placeholder="linkedin.com/company/…" ${v('linkedin_empresa',300)} autocomplete="off" data-form-type="other">
@@ -1881,6 +1887,12 @@ function vagaFormHTML(app) {
                 <div class="form-group" style="margin:0">
                     <label style="font-size:0.75rem">Link da vaga</label>
                     <input id="vfLinkVaga" class="mock-input" placeholder="linkedin.com/jobs/…" ${v('link_vaga',500)} autocomplete="off" data-form-type="other">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="form-group" style="margin:0">
+                    <label style="font-size:0.75rem">Cidade</label>
+                    <input id="vfCidade" class="mock-input" placeholder="São Paulo, Maringá…" ${v('cidade',100)} autocomplete="off" data-form-type="other">
                 </div>
             </div>
             <div class="form-group" style="margin:0">
@@ -3905,8 +3917,10 @@ function _collectVagaFormData() {
     return {
         empresa:          document.getElementById('vfEmpresa')?.value.trim() || '',
         vaga:             document.getElementById('vfVaga')?.value.trim() || null,
+        site_empresa:     document.getElementById('vfSiteEmpresa')?.value.trim() || null,
         linkedin_empresa: document.getElementById('vfLinkedin')?.value.trim() || null,
         link_vaga:        document.getElementById('vfLinkVaga')?.value.trim() || null,
+        cidade:           document.getElementById('vfCidade')?.value.trim() || null,
         observacoes:      document.getElementById('vfObs')?.value.trim() || null,
         gestor_nome:      document.getElementById('vfGestorNome')?.value.trim() || null,
         gestor_email:     document.getElementById('vfGestorEmail')?.value.trim() || null,
@@ -7436,6 +7450,15 @@ async function loadRsqHistory() {
         el.innerHTML = rows.map(r => {
                 const ago = _timeAgo(r.ran_at);
                 const plat = RSQ_PLAT_NAMES[r.platform] || r.platform;
+                if (r.error_note) {
+                    const shortErr = r.error_note.length > 40 ? r.error_note.slice(0, 40) + '…' : r.error_note;
+                    return `<div class="rsq-hist-row" style="opacity:0.6">
+                        <span class="rsq-hist-plat">${esc(plat)}</span>
+                        <span>${esc(ago)}</span>
+                        <span style="color:#f87171" title="${esc(r.error_note)}"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>${esc(shortErr)}</span>
+                        <span></span>
+                    </div>`;
+                }
                 return `<div class="rsq-hist-row">
                     <span class="rsq-hist-plat">${esc(plat)}</span>
                     <span>${esc(ago)}</span>

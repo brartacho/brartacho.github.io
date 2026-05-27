@@ -200,7 +200,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET' && req.query.action === 'search-history') {
         const { data } = await supabase.from('search_log')
-            .select('id,platform,keywords_used,found_count,new_count,ran_at')
+            .select('id,platform,keywords_used,found_count,new_count,ran_at,error_note')
             .order('ran_at', { ascending: false }).limit(10);
         return res.json(data || []);
     }
