@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/github", "destination": "/?utm_source=github&utm_medium=perfil", "permanent": false }
+  ],
   "crons": [
     {
       "path": "/api/track",
