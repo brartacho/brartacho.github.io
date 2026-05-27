@@ -30,6 +30,9 @@ import { searchRemotar } from './search/remotar.js';
 import { searchTrampos } from './search/trampos.js';
 import { searchAiJobs } from './search/aijobs.js';
 import { searchJsRemotely } from './search/jsremotely.js';
+import { searchVagas } from './search/vagas.js';
+import { searchCatho } from './search/catho.js';
+import { searchJooble } from './search/jooble.js';
 import { clearSession } from './search/session.js';
 
 const SCRAPERS = {
@@ -45,6 +48,9 @@ const SCRAPERS = {
     trampos:        (cfg) => searchTrampos({ keywords: cfg.keywords || ['qa', 'analista de qa'], maxResults: cfg.max_results || 20 }),
     aijobs:         (cfg) => searchAiJobs({ keywords: cfg.keywords || ['qa engineer', 'test automation'], maxResults: cfg.max_results || 20 }),
     jsremotely:     (cfg) => searchJsRemotely({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20 }),
+    vagas:          (cfg) => searchVagas({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    catho:          (cfg) => searchCatho({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    jooble:         (cfg) => searchJooble({ keywords: cfg.keywords || ['analista de qa'], location: cfg.location || 'Brasil', maxResults: cfg.max_results || 20 }),
 };
 
 const url = process.env.SUPABASE_URL;
@@ -827,6 +833,92 @@ server.registerTool('search_jsremotely',
         if (!dry_run) await updatePlatformTimestamp('jsremotely');
 
         return ok({ platform: 'jsremotely', found: leads.length, ...result });
+    });
+
+server.registerTool('search_vagas',
+    { title: 'Buscar vagas no Vagas.com.br',
+      description: 'Scraper do Vagas.com.br via Playwright + stealth (maior board BR). Cloudflare bypass automático.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('vagas');
+        const kw      = keywords || config?.keywords || ['analista de qa'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchVagas({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('vagas', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('vagas');
+
+        return ok({ platform: 'vagas', found: leads.length, ...result });
+    });
+
+server.registerTool('search_catho',
+    { title: 'Buscar vagas no Catho',
+      description: 'Scraper do Catho.com.br via Playwright + stealth. Tenta RSS antes de Playwright. 2º maior board BR.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('catho');
+        const kw      = keywords || config?.keywords || ['analista de qa'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchCatho({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('catho', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('catho');
+
+        return ok({ platform: 'catho', found: leads.length, ...result });
+    });
+
+server.registerTool('search_jooble',
+    { title: 'Buscar vagas no Jooble',
+      description: 'Scraper do Jooble via API (chave gratuita necessária). Requer JOOBLE_API_KEY no ambiente. Cadastro: https://jooble.org/api/about',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          location:    z.string().optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, location, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('jooble');
+        const kw      = keywords || config?.keywords || ['analista de qa'];
+        const loc     = location || config?.location || 'Brasil';
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchJooble({ keywords: kw, location: loc, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('jooble', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('jooble');
+
+        return ok({ platform: 'jooble', found: leads.length, ...result });
     });
 
 server.registerTool('search_all',
