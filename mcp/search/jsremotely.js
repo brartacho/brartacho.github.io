@@ -1,6 +1,12 @@
 // Scraper do JS Remotely (jsremotely.com) via fetch + Cheerio.
-// Site estático focado em vagas JavaScript remote (internacional).
+// Site server-rendered focado em vagas JavaScript remote (internacional).
 // URL: https://jsremotely.com/?keywords=KEYWORD
+//
+// Cards reais: .jobcardStyle1 (20 por página). O título não está em h1-h4,
+// está em <div class="tw-text-lg tw-font-medium">. Links externos apontam
+// para https://javascript.jobs/job/<slug>.
+// jsremotely respeita o parâmetro ?keywords= server-side, mas para garantir
+// também fazemos um filtro client-side leve (case-insensitive).
 
 import { load } from 'cheerio';
 import { normalize } from './normalizer.js';
@@ -20,52 +26,60 @@ async function fetchPage(url) {
 }
 
 function extractJobs($) {
-    const results = [];
+    const out  = [];
+    const seen = new Set();
 
-    // Seletores candidatos para JS Remotely (site estático/simples)
-    const selectors = [
-        '.job, .job-item, [class*="job"]',
-        'article',
-        '.list-item, li[class]',
-    ];
+    $('.jobcardStyle1').each((_, el) => {
+        const $card = $(el);
 
-    for (const sel of selectors) {
-        const items = $(sel).filter((_, el) => $(el).find('a').length > 0);
-        if (!items.length) continue;
+        // Link: âncora interna OU âncora dentro do card para /job/
+        let link =
+            $card.find('a[href*="javascript.jobs/job/"]').first().attr('href') ||
+            $card.find('a[href*="/job/"]').first().attr('href');
+        if (!link) {
+            // Pode estar como ancestral (card envolto pelo <a>)
+            const wrap = $card.closest('a[href]').attr('href');
+            if (wrap) link = wrap;
+        }
+        if (!link) return;
 
-        items.each((_, el) => {
-            const $el    = $(el);
-            const linkEl = $el.find(
-                'a[href*="/jobs/"], a[href*="/job/"], a[href*="jsremotely.com"], h2 a, h3 a, h1 a'
-            ).first();
-            const link    = linkEl.attr('href') || $el.find('a').first().attr('href');
-            const title   = $el.find('h1, h2, h3, h4, .title, [class*="title"]').first().text().trim()
-                         || linkEl.text().trim();
-            const company = $el.find('.company, [class*="company"], [class*="employer"]').first().text().trim();
-            const tags    = $el.find('.tag, [class*="tag"], [class*="tech"]')
-                              .map((_, t) => $(t).text().trim()).get().join(', ');
+        const full = link.startsWith('http') ? link : `${BASE_URL}${link}`;
+        if (seen.has(full)) return;
 
-            if (!link || !title) return;
-            const fullLink = link.startsWith('http') ? link : `${BASE_URL}${link}`;
-            results.push({ fullLink, title, company, tags });
+        // Título: primeiro div com font-medium e texto não-vazio.
+        // Fallback: primeiro div com >= 6 chars que não seja apenas tag/idade.
+        let title = $card.find('.tw-font-medium').first().text().replace(/\s+/g, ' ').trim();
+        if (!title) {
+            $card.find('div').each((_, d) => {
+                const t = $(d).text().replace(/\s+/g, ' ').trim();
+                if (!title && t.length > 6 && !/^(Full Time|Remote|\d+\w+)$/i.test(t)) title = t;
+            });
+        }
+        if (!title) return;
+
+        const tags = $card.find('span').map((_, s) => $(s).text().trim()).get()
+                          .filter(t => t && t.length < 30).slice(0, 6).join(', ');
+
+        seen.add(full);
+        out.push({ link: full, title, tags });
+    });
+
+    // Fallback: se nenhum card foi identificado por classe, varre links diretos
+    if (!out.length) {
+        $('a[href*="javascript.jobs/job/"], a[href*="/job/"]').each((_, a) => {
+            const $a   = $(a);
+            const href = $a.attr('href') || '';
+            if (!href) return;
+            const full = href.startsWith('http') ? href : `${BASE_URL}${href}`;
+            if (seen.has(full)) return;
+            const title = $a.text().replace(/\s+/g, ' ').trim();
+            if (!title || title.length < 4) return;
+            seen.add(full);
+            out.push({ link: full, title, tags: '' });
         });
-
-        if (results.length) break;
     }
 
-    // Último recurso: qualquer link para /jobs/<slug>
-    if (!results.length) {
-        $('a[href*="/jobs/"]').each((_, a) => {
-            const href = $(a).attr('href') || '';
-            if (!href || href === '/jobs' || href === '/jobs/') return;
-            const fullLink = href.startsWith('http') ? href : `${BASE_URL}${href}`;
-            const title    = $(a).text().trim();
-            if (!title) return;
-            results.push({ fullLink, title, company: null, tags: null });
-        });
-    }
-
-    return results;
+    return out;
 }
 
 export async function searchJsRemotely({ keywords, maxResults = 20 }) {
@@ -81,7 +95,6 @@ export async function searchJsRemotely({ keywords, maxResults = 20 }) {
         try {
             html = await fetchPage(url);
         } catch (e) {
-            // Fallback: busca sem parâmetro (pega todos) para filtragem client-side
             try {
                 html = await fetchPage(BASE_URL);
             } catch (e2) {
@@ -97,18 +110,19 @@ export async function searchJsRemotely({ keywords, maxResults = 20 }) {
         const kw = keyword.toLowerCase();
         for (const job of jobs) {
             if (results.length >= maxResults) break;
-            if (!job.fullLink || seen.has(job.fullLink)) continue;
+            if (!job.link || seen.has(job.link)) continue;
 
-            // Filtragem client-side quando buscou todos os jobs
-            const hay = `${job.title} ${job.company ?? ''} ${job.tags ?? ''}`.toLowerCase();
+            // Filtro leve: se o servidor já filtrou, todos batem; se voltou catálogo
+            // completo (ex: fallback sem keyword), corta pelos que mencionam.
+            const hay = `${job.title} ${job.tags ?? ''}`.toLowerCase();
             if (!hay.includes(kw)) continue;
 
-            seen.add(job.fullLink);
+            seen.add(job.link);
             results.push(normalize({
-                empresa:   job.company || 'Empresa não informada',
-                vaga:      job.title,
-                link_vaga: job.fullLink,
-                descricao: job.tags || null,
+                empresa:    'Empresa não informada',
+                vaga:       job.title,
+                link_vaga:  job.link,
+                descricao:  job.tags || null,
                 modalidade: 'Remota',
             }, 'jsremotely'));
         }
