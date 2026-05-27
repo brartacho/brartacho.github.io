@@ -1,6 +1,7 @@
 {
   "redirects": [
-    { "source": "/github", "destination": "/?utm_source=github&utm_medium=perfil", "permanent": false }
+    { "source": "/github",   "destination": "/?utm_source=github&utm_medium=perfil",   "permanent": false },
+    { "source": "/linkedin", "destination": "/?utm_source=linkedin&utm_medium=perfil", "permanent": false }
   ],
   "crons": [
     {
