@@ -2810,6 +2810,14 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
             .single();
 
         if (error) return res.status(500).json({ error: error.message });
+
+        // Atualiza status do lead no Radar para 'promovida'
+        if (origin_radar_id && data) {
+            await supabase.from('vaga_radar')
+                .update({ status: 'promovida', promoted_application_id: data.id })
+                .eq('id', origin_radar_id);
+        }
+
         return res.status(201).json(data);
     }
 
