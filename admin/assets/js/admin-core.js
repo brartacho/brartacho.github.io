@@ -1058,6 +1058,29 @@ function renderDrawerBody(app) {
             <div class="dinfo-obs">${esc(app.observacoes)}</div>
         </div>` : '';
 
+    const msgPreview = app.application_message_text ? (() => {
+        const plat = (window._platformSettings || []).find(p => p.fonte === app.platform);
+        const limit = plat?.char_limit ?? 0;
+        const len = app.application_message_text.length;
+        const overLimit = limit > 0 && len > limit;
+        const countLabel = limit > 0 ? `${len}/${limit}` : `${len}`;
+        const countColor = overLimit ? '#f87171' : 'var(--text-dim)';
+        const sentBadge = app.application_message_sent
+            ? `<span style="font-size:0.68rem;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);color:#4ade80;border-radius:10px;padding:1px 7px">enviada</span>`
+            : `<span style="font-size:0.68rem;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);color:#fb923c;border-radius:10px;padding:1px 7px">não enviada</span>`;
+        return `<div style="padding:10px 12px;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
+                <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim)">Mensagem de candidatura</div>
+                <div style="display:flex;align-items:center;gap:6px">${sentBadge}<span style="font-size:0.68rem;color:${countColor}">${countLabel} chars</span></div>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text);white-space:pre-wrap;word-break:break-word;max-height:80px;overflow:hidden;position:relative" id="drawerMsgPreview">${esc(app.application_message_text)}</div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+                <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px" onclick="navigator.clipboard?.writeText(_applications.find(a=>a.id==='${app.id}')?.application_message_text||'').then(()=>showToast('Mensagem copiada!'))"><i class="fa-solid fa-copy"></i> Copiar</button>
+                <button class="btn btn-sm" style="font-size:0.72rem;padding:3px 8px" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+            </div>
+        </div>`;
+    })() : '';
+
     const syncTs = app.last_synced_at ? new Date(app.last_synced_at).toLocaleString('pt-BR') : null;
     const syncSection = app.platform ? `
         <div class="dinfo-section" style="padding:8px 10px;background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.12);border-radius:6px">
@@ -1082,6 +1105,7 @@ function renderDrawerBody(app) {
             ${cvSection}
             ${recruiterSection}
             ${obsSection}
+            ${msgPreview}
             ${syncSection}
         </div>
 
@@ -1099,14 +1123,14 @@ function renderDrawerBody(app) {
 
         <div class="drawer-actions">
             ${(app.application_message_text && !app.application_message_sent && app.link_vaga) ? `<button class="btn btn-cyan btn-sm" onclick="applyNow('${app.id}')" title="Copiar mensagem, abrir vaga e marcar como enviada"><i class="fa-solid fa-rocket"></i> Aplicar agora</button>` : ''}
-            <button class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
-            <button class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
+            <button id="drawerBtnEdit" class="btn btn-sm" onclick="openEditVaga('${app.id}')"><i class="fa-solid fa-pen"></i> Editar vaga</button>
+            <button id="drawerBtnStages" class="btn btn-sm" onclick="toggleStageManager('${app.id}')"><i class="fa-solid fa-gear"></i> Gerenciar etapas</button>
             <button class="btn btn-sm" onclick="openCalcModal()" title="Comparar CLT vs PJ vs MEI"><i class="fa-solid fa-calculator"></i> Calculadora</button>
             ${(app.result !== 'em_processo' || app.archived) ? `<button class="btn btn-sm" onclick="reopenInRadar('${app.id}')" title="Reabrir esta vaga no Radar para nova avaliação"><i class="fa-solid fa-arrow-rotate-left"></i> Voltar para Radar</button>` : ''}
-            <button class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
-            <button class="btn btn-sm" onclick="openBriefing('${app.id}')" title="Briefing pré-entrevista: dados consolidados da candidatura e vaga"><i class="fa-solid fa-file-lines"></i> Briefing</button>
-            <button class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i></button>
-            <button class="btn btn-sm" onclick="openMessageTimeline('${app.id}')" title="Timeline de mensagens desta candidatura"><i class="fa-solid fa-timeline"></i> Mensagens</button>
+            <button id="drawerBtnInterviews" class="btn btn-sm" onclick="openInterviewPanel('${app.id}')" title="Sessões de entrevista e análise de IA"><i class="fa-solid fa-comments"></i> Entrevistas</button>
+            <button id="drawerBtnBriefing" class="btn btn-sm" onclick="openBriefing('${app.id}')" title="Briefing pré-entrevista: dados consolidados da candidatura e vaga"><i class="fa-solid fa-file-lines"></i> Briefing</button>
+            <button id="drawerBtnNotes" class="btn btn-sm" onclick="openContextNotes('${app.id}')" title="Notas de contexto — insights sobre esta candidatura"><i class="fa-solid fa-note-sticky"></i> Notas</button>
+            <button id="drawerBtnMessages" class="btn btn-sm" onclick="openMessageTimeline('${app.id}')" title="Timeline de mensagens desta candidatura"><i class="fa-solid fa-timeline"></i> Mensagens</button>
             <button class="btn btn-sm${app.private ? ' active' : ''}" onclick="toggleAppPrivate('${app.id}', ${!app.private})" title="${app.private ? 'Candidatura privada — clique para tornar pública' : 'Tornar privada (modo stealth)'}" style="${app.private ? 'border-color:var(--cyan);color:var(--cyan)' : 'opacity:0.7'}"><i class="fa-solid fa-${app.private ? 'eye-slash' : 'eye'}"></i></button>
             <button class="btn btn-sm" style="padding:6px 10px;opacity:0.7" title="${app.archived ? 'Desarquivar candidatura' : 'Arquivar candidatura'}"
                 onclick="toggleArchive('${app.id}', ${app.archived})"><i class="fa-solid fa-${app.archived ? 'box-open' : 'box-archive'}"></i></button>
@@ -1297,9 +1321,10 @@ const _channelColors = { email:'var(--text-soft)', linkedin:'#0a66c2', whatsapp:
 async function openMessageTimeline(appId) {
     const sec = document.getElementById('messagesSection');
     if (!sec) return;
-    if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; return; }
+    if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; _syncDrawerSectionButtons(); return; }
     sec.dataset.appId = appId;
     sec.hidden = false;
+    _syncDrawerSectionButtons();
     sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
     try {
         const r = await apiFetch(`/api/admin/applications?__h=application-messages&application_id=${appId}`);
@@ -1401,6 +1426,21 @@ let _undoStack              = [];
 let _redoStack              = [];
 let _reorderModeSnapshot    = null;
 
+function _syncDrawerSectionButtons() {
+    const map = {
+        stageManagerSection:  'drawerBtnStages',
+        editVagaSection:      'drawerBtnEdit',
+        interviewSection:     'drawerBtnInterviews',
+        briefingSection:      'drawerBtnBriefing',
+        contextNotesSection:  'drawerBtnNotes',
+        messagesSection:      'drawerBtnMessages',
+    };
+    for (const [secId, btnId] of Object.entries(map)) {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.toggle('section-open', !document.getElementById(secId)?.hidden);
+    }
+}
+
 function toggleStageManager(appId) {
     const section = document.getElementById('stageManagerSection');
     if (_stageManagerOpen) {
@@ -1409,6 +1449,7 @@ function toggleStageManager(appId) {
         _sortableInst     = null;
         _undoStack        = [];
         _redoStack        = [];
+        _syncDrawerSectionButtons();
         return;
     }
     // Fecha o form de edição se estiver aberto
@@ -1419,6 +1460,7 @@ function toggleStageManager(appId) {
     renderStageManager(app);
     section.hidden = false;
     _stageManagerOpen = true;
+    _syncDrawerSectionButtons();
 }
 
 function renderStageManager(app) {
@@ -3203,9 +3245,10 @@ async function openContextNotes(appId) {
     const sec = document.getElementById('contextNotesSection');
     if (!sec) return;
     const isOpen = !sec.hidden && sec.dataset.appId === appId;
-    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; return; }
+    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; _syncDrawerSectionButtons(); return; }
     sec.hidden = false;
     sec.dataset.appId = appId;
+    _syncDrawerSectionButtons();
     sec.innerHTML = `<div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <strong style="font-size:0.85rem"><i class="fa-solid fa-note-sticky" style="color:var(--cyan);margin-right:6px"></i>Notas de contexto</strong>
@@ -3302,9 +3345,10 @@ async function openInterviewPanel(appId) {
     const sec = document.getElementById('interviewSection');
     if (!sec) return;
     const isOpen = !sec.hidden && sec.dataset.appId === appId;
-    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; return; }
+    if (isOpen) { sec.hidden = true; sec.dataset.appId = ''; _syncDrawerSectionButtons(); return; }
     sec.hidden = false;
     sec.dataset.appId = appId;
+    _syncDrawerSectionButtons();
     sec.innerHTML = `<div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <strong style="font-size:0.85rem"><i class="fa-solid fa-comments" style="color:var(--cyan);margin-right:6px"></i>Sessões de entrevista</strong>
@@ -3840,6 +3884,7 @@ function openNovaVaga(radarLead) {
         modalidade: radarLead.modalidade,
         tipo_contratacao: radarLead.tipo_contratacao,
         origin_radar_id: radarLead.id,
+        platform: radarLead.fonte || null,
     } : null;
     wrap.innerHTML = vagaFormHTML(prefill);
     wrap.dataset.radarLeadId = radarLead?.id || '';
@@ -3848,6 +3893,13 @@ function openNovaVaga(radarLead) {
     document.getElementById('vfEmpresa').focus();
     _populateCvSelect(null);
     onVfPlatformChange();
+    // Auto-gera mensagem ao promover do Radar se plataforma exige mensagem
+    if (radarLead?.fonte && radarLead?.empresa) {
+        const plat = (window._platformSettings || []).find(p => p.fonte === radarLead.fonte);
+        if (plat?.message_required || plat?.char_limit > 0) {
+            setTimeout(() => generateApplicationMessage(), 300);
+        }
+    }
 }
 function closeNovaVaga() {
     document.getElementById('novaVagaForm')?.remove();
@@ -3921,9 +3973,11 @@ function openEditVaga(appId) {
     section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     _populateCvSelect(app);
     onVfPlatformChange();
+    _syncDrawerSectionButtons();
 }
 function closeEditVaga() {
     document.getElementById('editVagaSection').hidden = true;
+    _syncDrawerSectionButtons();
 }
 async function saveEditVaga(appId) {
     const msg = document.getElementById('vfMsg');
@@ -8568,9 +8622,10 @@ function startVoiceMemo(appId) {
     async function openBriefing(appId) {
         const sec = document.getElementById('briefingSection');
         if (!sec) return;
-        if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; return; }
+        if (!sec.hidden && sec.dataset.appId === appId) { sec.hidden = true; _syncDrawerSectionButtons(); return; }
         sec.dataset.appId = appId;
         sec.hidden = false;
+        _syncDrawerSectionButtons();
         sec.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px"><i class="fa-solid fa-circle-notch fa-spin"></i> Montando briefing…</div>';
         try {
             const r = await apiFetch(`/api/admin/applications?__h=briefing-build&application_id=${appId}`);
