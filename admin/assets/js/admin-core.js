@@ -1819,7 +1819,7 @@ function vagaFormHTML(app) {
     return `
         <div style="border-top:1px solid var(--border-soft);padding-top:12px;display:flex;flex-direction:column;gap:10px">
             <div style="display:flex;align-items:center;gap:8px;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim)">
-                ${app ? 'Editar candidatura' : 'Nova candidatura'} ${radarBadge}
+                ${app?.id ? 'Editar candidatura' : 'Nova candidatura'} ${radarBadge}
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div class="form-group" style="margin:0">
@@ -1937,9 +1937,9 @@ function vagaFormHTML(app) {
 
             <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px">
                 <button class="btn btn-sm" style="opacity:0.6;background:none;border:none;padding:6px 10px"
-                    onclick="${app ? 'closeEditVaga()' : 'closeNovaVaga()'}">Cancelar</button>
-                <button class="btn btn-cyan btn-sm" onclick="${app ? `saveEditVaga('${app.id}')` : 'saveNovaVaga()'}">
-                    <i class="fa-solid fa-check"></i> ${app ? 'Salvar' : 'Criar candidatura'}
+                    onclick="${app?.id ? 'closeEditVaga()' : 'closeNovaVaga()'}">Cancelar</button>
+                <button class="btn btn-cyan btn-sm" onclick="${app?.id ? `saveEditVaga('${app.id}')` : 'saveNovaVaga()'}">
+                    <i class="fa-solid fa-check"></i> ${app?.id ? 'Salvar' : 'Criar candidatura'}
                 </button>
             </div>
             <p id="vfMsg" hidden style="font-size:0.78rem"></p>
@@ -3804,6 +3804,7 @@ function openNovaVaga(radarLead) {
     wrap.innerHTML = vagaFormHTML(prefill);
     wrap.dataset.radarLeadId = radarLead?.id || '';
     document.getElementById('vagasTableWrap').before(wrap);
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     document.getElementById('vfEmpresa').focus();
     _populateCvSelect(null);
     onVfPlatformChange();
@@ -3835,6 +3836,8 @@ async function saveNovaVaga() {
     const msg = document.getElementById('vfMsg');
     const data = _collectVagaFormData();
     if (!data.empresa) { msg.textContent = 'Empresa é obrigatório.'; msg.hidden = false; return; }
+    const radarLeadId = document.getElementById('novaVagaForm')?.dataset.radarLeadId;
+    if (radarLeadId) data.origin_radar_id = radarLeadId;
 
     // N32 — Alerta de overload: >10 candidaturas nas últimas 24h
     const recent = (_applications || []).filter(a => {
