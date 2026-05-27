@@ -7100,6 +7100,26 @@ let _rsqElapsedTimer = null;
 let _rsqStartedAt = null;
 let _rsqActiveId = null;       // ID da busca ativa — evita race condition entre polls
 
+const RSQ_PLAT_NAMES = {
+    linkedin:      'LinkedIn',
+    gupy:          'Gupy',
+    maringa:       'Maringá',
+    indeed:        'Indeed',
+    infojobs:      'InfoJobs',
+    remotive:      'Remotive',
+    remoteok:      'RemoteOK',
+    weworkremotely:'We Work Remotely',
+    remotar:       'Remotar',
+    trampos:       'Trampos.co',
+    aijobs:        'AI Jobs Board',
+    jsremotely:    'JS Remotely',
+    vagas:         'Vagas.com.br',
+    catho:         'Catho',
+    jooble:        'Jooble',
+    workana:       'Workana',
+    '99freelas':   '99Freelas',
+};
+
 function _rsqGetSelectedPlats() {
     return _chipsGetSelected(document.getElementById('rsqPlatforms'));
 }
@@ -7191,7 +7211,7 @@ function _rsqShowStatus(status, extra, res, mcp) {
     if (!el) return;
     el.style.display = '';
 
-    const PLAT_NAMES = { linkedin: 'LinkedIn', gupy: 'Gupy', maringa: 'Maringá', indeed: 'Indeed' };
+    const PLAT_NAMES = RSQ_PLAT_NAMES;
 
     if (status === 'pending') {
         const created = res?.created_at;
@@ -7324,7 +7344,7 @@ async function loadRsqHistory() {
         el.style.display = '';
         el.innerHTML = rows.map(r => {
                 const ago = _timeAgo(r.ran_at);
-                const plat = { linkedin: 'LinkedIn', gupy: 'Gupy', maringa: 'Maringá', indeed: 'Indeed' }[r.platform] || r.platform;
+                const plat = RSQ_PLAT_NAMES[r.platform] || r.platform;
                 return `<div class="rsq-hist-row">
                     <span class="rsq-hist-plat">${esc(plat)}</span>
                     <span>${esc(ago)}</span>
@@ -7971,9 +7991,12 @@ async function showCompanyIntel(leadId, empresa) {
         const body = document.getElementById('companyIntelBody');
         if (!body) return;
         const flags = Array.isArray(intel.red_flags) ? intel.red_flags : [];
+        const hasRealData = !!(intel.situacao || intel.cnpj);
         const flagsHtml = flags.length
             ? `<div style="margin-top:10px;padding:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:6px;font-size:0.78rem;color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Red flags:</strong> ${flags.map(f=>esc(f)).join(', ')}</div>`
-            : `<div style="margin-top:10px;padding:8px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:6px;font-size:0.78rem;color:#4ade80"><i class="fa-solid fa-check-circle"></i> Nenhum red flag detectado</div>`;
+            : hasRealData
+                ? `<div style="margin-top:10px;padding:8px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:6px;font-size:0.78rem;color:#4ade80"><i class="fa-solid fa-check-circle"></i> Nenhum red flag detectado</div>`
+                : `<div style="margin-top:10px;padding:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;font-size:0.78rem;color:var(--text-dim)"><i class="fa-solid fa-circle-question"></i> Não foi possível verificar — CNPJ não encontrado</div>`;
         body.innerHTML = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
                 <div><span style="color:var(--text-dim)">Status CNPJ:</span> <strong>${esc(intel.situacao||'N/D')}</strong></div>
@@ -8670,7 +8693,7 @@ function startVoiceMemo(appId) {
         const { fit_score, gaps, suspicious_flags, advance_confidence, total_concluded, empresa, vaga } = data;
         if (advance_confidence === null && !gaps?.length && !suspicious_flags?.length) { onContinue(); return; }
 
-        const confColor = advance_confidence >= 50 ? '#4ade80' : advance_confidence >= 25 ? '#fb923c' : '#f87171';
+        const confColor = advance_confidence === null ? 'var(--text-dim)' : advance_confidence >= 50 ? '#4ade80' : advance_confidence >= 25 ? '#fb923c' : '#f87171';
         const confText  = advance_confidence !== null ? `${advance_confidence}%` : 'Sem dados históricos';
 
         const overlay = document.createElement('div');
