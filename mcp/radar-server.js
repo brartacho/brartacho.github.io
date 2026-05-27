@@ -23,14 +23,20 @@ import { searchGupy } from './search/gupy.js';
 import { searchMaringa } from './search/maringa.js';
 import { searchIndeed } from './search/indeed.js';
 import { searchInfojobs } from './search/infojobs.js';
+import { searchRemotive } from './search/remotive.js';
+import { searchRemoteOK } from './search/remoteok.js';
+import { searchWeWorkRemotely } from './search/weworkremotely.js';
 import { clearSession } from './search/session.js';
 
 const SCRAPERS = {
-    linkedin:  (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
-    gupy:      (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
-    maringa:   (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
-    indeed:    (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
-    infojobs:  (cfg) => searchInfojobs({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    linkedin:       (cfg) => searchLinkedin({ keywords: cfg.keywords || ['analista de qa'], timeFilter: cfg.time_filter || 'r86400', maxResults: cfg.max_results || 30 }),
+    gupy:           (cfg) => searchGupy({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    maringa:        (cfg) => searchMaringa({ keywords: cfg.keywords || ['qa'], maxResults: cfg.max_results || 15 }),
+    indeed:         (cfg) => searchIndeed({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    infojobs:       (cfg) => searchInfojobs({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
+    remotive:       (cfg) => searchRemotive({ keywords: cfg.keywords || ['qa engineer'], maxResults: cfg.max_results || 20 }),
+    remoteok:       (cfg) => searchRemoteOK({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20 }),
+    weworkremotely: (cfg) => searchWeWorkRemotely({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20, categories: cfg.categories }),
 };
 
 const url = process.env.SUPABASE_URL;
@@ -617,9 +623,95 @@ server.registerTool('search_infojobs',
         return ok({ platform: 'infojobs', found: leads.length, ...result });
     });
 
+server.registerTool('search_remotive',
+    { title: 'Buscar vagas no Remotive',
+      description: 'Consulta API pública do Remotive (remote-only, internacional, predominantemente inglês). Sem autenticação.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('remotive');
+        const kw      = keywords || config?.keywords || ['qa engineer'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchRemotive({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('remotive', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('remotive');
+
+        return ok({ platform: 'remotive', found: leads.length, ...result });
+    });
+
+server.registerTool('search_remoteok',
+    { title: 'Buscar vagas no RemoteOK',
+      description: 'Consulta API pública do RemoteOK (remote-only, internacional). Filtra por keyword no título/descrição/tags.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('remoteok');
+        const kw      = keywords || config?.keywords || ['qa', 'test'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchRemoteOK({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('remoteok', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('remoteok');
+
+        return ok({ platform: 'remoteok', found: leads.length, ...result });
+    });
+
+server.registerTool('search_weworkremotely',
+    { title: 'Buscar vagas no We Work Remotely',
+      description: 'Consulta feeds RSS públicos do We Work Remotely (5 categorias: programming, devops, customer-support, design, all-other). Remote-only, internacional.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          categories:  z.array(z.string()).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, categories, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('weworkremotely');
+        const kw      = keywords || config?.keywords || ['qa', 'test'];
+        const mr      = max_results || config?.max_results || 20;
+        const cats    = categories || config?.categories;
+
+        let leads;
+        try {
+            leads = await searchWeWorkRemotely({ keywords: kw, maxResults: mr, categories: cats });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('weworkremotely', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('weworkremotely');
+
+        return ok({ platform: 'weworkremotely', found: leads.length, ...result });
+    });
+
 server.registerTool('search_all',
     { title: 'Buscar vagas em todas as plataformas',
-      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed, InfoJobs). Deduplica e salva leads acima do score mínimo.',
+      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (LinkedIn, Gupy, Maringá, Indeed, InfoJobs, Remotive, RemoteOK, We Work Remotely). Deduplica e salva leads acima do score mínimo.',
       inputSchema: {
           platforms: z.array(z.string()).optional(),
           dry_run:   z.boolean().optional(),
