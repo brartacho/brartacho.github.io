@@ -12,16 +12,17 @@
   "scripts": {
     "test": "playwright test",
     "jobsync": "node cli/jobsync.mjs",
-    "mcp:setup":   "powershell -ExecutionPolicy Bypass -File scripts/setup-mcp-daemon.ps1",
-    "mcp:start":   "pm2 start ecosystem.config.cjs",
-    "mcp:stop":    "pm2 stop radar-mcp",
+    "mcp:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-mcp-daemon.ps1",
+    "mcp:start": "pm2 start ecosystem.config.cjs",
+    "mcp:stop": "pm2 stop radar-mcp",
     "mcp:restart": "pm2 restart radar-mcp",
-    "mcp:status":  "pm2 status",
-    "mcp:logs":    "pm2 logs radar-mcp --lines 50"
+    "mcp:status": "pm2 status",
+    "mcp:logs": "pm2 logs radar-mcp --lines 50"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "jsonwebtoken": "^9.0.2",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
