@@ -7109,7 +7109,7 @@ function _rsqKeywords() {
 function _rsqSyncPlatforms(profile) {
     const container = document.getElementById('rsqPlatforms');
     if (!container) return;
-    const VALID = new Set(['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs']);
+    const VALID = new Set(['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs', 'remotive', 'remoteok', 'weworkremotely', 'remotar', 'trampos', 'aijobs', 'jsremotely', 'vagas', 'catho', 'jooble', 'workana', '99freelas']);
     const allPlats = Array.isArray(profile?.search_platforms) ? profile.search_platforms : [];
     if (!allPlats.length) {
         _chipsRender(container, [
@@ -7128,7 +7128,7 @@ function _rsqSyncPlatforms(profile) {
             disabled: !VALID.has(p.id),
             hint:     VALID.has(p.id) ? undefined : 'Em breve',
         })),
-        allPlats.filter(p => VALID.has(p.id)).map(p => p.id)
+        allPlats.filter(p => VALID.has(p.id) && p.enabled !== false).map(p => p.id)
     );
 }
 
@@ -7491,11 +7491,23 @@ function renderRadarList(leads) {
         const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
         const FONTE_META = {
-            linkedin:  { icon:'fa-brands fa-linkedin',       label:'LinkedIn' },
-            gupy:      { icon:'fa-solid fa-briefcase',        label:'Gupy' },
-            indeed:    { icon:'fa-solid fa-magnifying-glass', label:'Indeed' },
-            infojobs:  { icon:'fa-solid fa-building',         label:'InfoJobs' },
-            maringa:   { icon:'fa-solid fa-location-dot',     label:'Maringá' },
+            linkedin:       { icon:'fa-brands fa-linkedin',        label:'LinkedIn' },
+            gupy:           { icon:'fa-solid fa-briefcase',         label:'Gupy' },
+            indeed:         { icon:'fa-solid fa-magnifying-glass',  label:'Indeed' },
+            infojobs:       { icon:'fa-solid fa-building',          label:'InfoJobs' },
+            maringa:        { icon:'fa-solid fa-location-dot',      label:'Maringá' },
+            remotive:       { icon:'fa-solid fa-wifi',              label:'Remotive' },
+            remoteok:       { icon:'fa-solid fa-circle-check',      label:'RemoteOK' },
+            weworkremotely: { icon:'fa-solid fa-laptop-house',      label:'We Work Remotely' },
+            remotar:        { icon:'fa-solid fa-house-laptop',      label:'Remotar' },
+            trampos:        { icon:'fa-solid fa-pen-nib',           label:'Trampos.co' },
+            aijobs:         { icon:'fa-solid fa-robot',             label:'AI Jobs Board' },
+            jsremotely:     { icon:'fa-brands fa-js',               label:'JS Remotely' },
+            vagas:          { icon:'fa-solid fa-suitcase',          label:'Vagas.com.br' },
+            catho:          { icon:'fa-solid fa-file-lines',        label:'Catho' },
+            jooble:         { icon:'fa-solid fa-earth-americas',    label:'Jooble' },
+            workana:        { icon:'fa-solid fa-handshake',         label:'Workana' },
+            '99freelas':    { icon:'fa-solid fa-code',              label:'99Freelas' },
         };
         const fm = FONTE_META[l.fonte] || { icon:'fa-solid fa-globe', label: l.fonte || '' };
         const fonteBadge = l.fonte ? `<span class="radar-fonte-badge fonte-${esc(l.fonte)}" title="Plataforma: ${fm.label}"><i class="${fm.icon} fa-fw"></i>${fm.label}</span>` : '';
