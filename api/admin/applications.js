@@ -2806,7 +2806,7 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         const { id } = req.query;
         if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
-        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, stages, result, cv_version_id,
+        const { empresa, vaga, linkedin_empresa, link_vaga, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, private: isPrivate, stages, result, cv_version_id,
                 platform, application_message_text, application_message_sent, auto_filled_fields } = req.body || {};
 
         const patch = {};
@@ -2867,6 +2867,12 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
                 return res.status(400).json({ error: 'archived deve ser boolean' });
             }
             patch.archived = archived;
+        }
+        if (isPrivate !== undefined) {
+            if (typeof isPrivate !== 'boolean') {
+                return res.status(400).json({ error: 'private deve ser boolean' });
+            }
+            patch.private = isPrivate;
         }
         if (result !== undefined) {
             if (!VALID_RESULTS.has(result)) {
