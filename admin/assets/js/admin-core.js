@@ -1020,6 +1020,7 @@ function renderDrawerBody(app) {
 
     const drawerScoreVal = app.fit_score != null ? parseFloat(app.fit_score) : null;
     const chips = [
+        app.site_empresa     ? `<a href="${esc(app.site_empresa.startsWith('http')?app.site_empresa:'https://'+app.site_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-globe"></i> Site</a>` : '',
         app.linkedin_empresa ? `<a href="${esc(app.linkedin_empresa)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>` : '',
         app.link_vaga        ? `<a href="${esc(app.link_vaga)}" target="_blank" rel="noopener" class="dinfo-chip"><i class="fa-solid fa-link"></i> Vaga</a>` : '',
         app.modalidade       ? `<span class="dinfo-chip"><i class="fa-solid fa-map-pin"></i> ${esc(app.modalidade)}</span>` : '',
@@ -1873,7 +1874,11 @@ function vagaFormHTML(app) {
                     <input id="vfVaga" class="mock-input" placeholder="Sr QA…" ${v('vaga',200)} autocomplete="off" data-form-type="other">
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div class="form-group" style="margin:0">
+                    <label style="font-size:0.75rem">Site da empresa</label>
+                    <input id="vfSiteEmpresa" class="mock-input" placeholder="empresa.com.br" ${v('site_empresa',300)} autocomplete="off" data-form-type="other">
+                </div>
                 <div class="form-group" style="margin:0">
                     <label style="font-size:0.75rem">LinkedIn empresa</label>
                     <input id="vfLinkedin" class="mock-input" placeholder="linkedin.com/company/…" ${v('linkedin_empresa',300)} autocomplete="off" data-form-type="other">
@@ -3908,6 +3913,7 @@ function _collectVagaFormData() {
     return {
         empresa:          document.getElementById('vfEmpresa')?.value.trim() || '',
         vaga:             document.getElementById('vfVaga')?.value.trim() || null,
+        site_empresa:     document.getElementById('vfSiteEmpresa')?.value.trim() || null,
         linkedin_empresa: document.getElementById('vfLinkedin')?.value.trim() || null,
         link_vaga:        document.getElementById('vfLinkVaga')?.value.trim() || null,
         observacoes:      document.getElementById('vfObs')?.value.trim() || null,
