@@ -26,6 +26,10 @@ import { searchInfojobs } from './search/infojobs.js';
 import { searchRemotive } from './search/remotive.js';
 import { searchRemoteOK } from './search/remoteok.js';
 import { searchWeWorkRemotely } from './search/weworkremotely.js';
+import { searchRemotar } from './search/remotar.js';
+import { searchTrampos } from './search/trampos.js';
+import { searchAiJobs } from './search/aijobs.js';
+import { searchJsRemotely } from './search/jsremotely.js';
 import { clearSession } from './search/session.js';
 
 const SCRAPERS = {
@@ -37,6 +41,10 @@ const SCRAPERS = {
     remotive:       (cfg) => searchRemotive({ keywords: cfg.keywords || ['qa engineer'], maxResults: cfg.max_results || 20 }),
     remoteok:       (cfg) => searchRemoteOK({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20 }),
     weworkremotely: (cfg) => searchWeWorkRemotely({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20, categories: cfg.categories }),
+    remotar:        (cfg) => searchRemotar({ keywords: cfg.keywords || ['qa', 'analista'], maxResults: cfg.max_results || 20 }),
+    trampos:        (cfg) => searchTrampos({ keywords: cfg.keywords || ['qa', 'analista de qa'], maxResults: cfg.max_results || 20 }),
+    aijobs:         (cfg) => searchAiJobs({ keywords: cfg.keywords || ['qa engineer', 'test automation'], maxResults: cfg.max_results || 20 }),
+    jsremotely:     (cfg) => searchJsRemotely({ keywords: cfg.keywords || ['qa', 'test'], maxResults: cfg.max_results || 20 }),
 };
 
 const url = process.env.SUPABASE_URL;
@@ -707,6 +715,118 @@ server.registerTool('search_weworkremotely',
         if (!dry_run) await updatePlatformTimestamp('weworkremotely');
 
         return ok({ platform: 'weworkremotely', found: leads.length, ...result });
+    });
+
+server.registerTool('search_remotar',
+    { title: 'Buscar vagas no Remotar',
+      description: 'Scraper do Remotar.com.br via Playwright (100% remoto, Brasil). Usa Vue.js — requer renderização JS.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('remotar');
+        const kw      = keywords || config?.keywords || ['qa', 'analista'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchRemotar({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('remotar', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('remotar');
+
+        return ok({ platform: 'remotar', found: leads.length, ...result });
+    });
+
+server.registerTool('search_trampos',
+    { title: 'Buscar vagas no Trampos.co',
+      description: 'Scraper do Trampos.co via Cheerio (vagas tech/criativas Brasil). Server-side rendered.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('trampos');
+        const kw      = keywords || config?.keywords || ['qa', 'analista de qa'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchTrampos({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('trampos', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('trampos');
+
+        return ok({ platform: 'trampos', found: leads.length, ...result });
+    });
+
+server.registerTool('search_aijobs',
+    { title: 'Buscar vagas no AI Jobs Board',
+      description: 'Scraper do TheAIJobBoard.com via Cheerio (WordPress + WP Job Manager). Vagas de IA/ML, remoto, internacional.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('aijobs');
+        const kw      = keywords || config?.keywords || ['qa engineer', 'test automation'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchAiJobs({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('aijobs', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('aijobs');
+
+        return ok({ platform: 'aijobs', found: leads.length, ...result });
+    });
+
+server.registerTool('search_jsremotely',
+    { title: 'Buscar vagas no JS Remotely',
+      description: 'Scraper do JSRemotely.com via Cheerio (vagas JS remote, internacional). Site estático.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('jsremotely');
+        const kw      = keywords || config?.keywords || ['qa', 'test'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchJsRemotely({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('jsremotely', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('jsremotely');
+
+        return ok({ platform: 'jsremotely', found: leads.length, ...result });
     });
 
 server.registerTool('search_all',
