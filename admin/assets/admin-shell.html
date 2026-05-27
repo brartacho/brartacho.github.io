@@ -793,6 +793,53 @@
                             </div>
                         </section>
 
+                        <details class="rsq-filters" id="rsqFiltersDetails">
+                            <summary class="rsq-section-title">
+                                <span><i aria-hidden="true" class="fa-solid fa-sliders"></i> Filtros opcionais <span class="rsq-field-hint">(vazio = sem filtro)</span></span>
+                                <button type="button" class="rsq-filters-clear" onclick="clearRadarFilters(event)">Limpar</button>
+                            </summary>
+
+                            <div class="rsq-field">
+                                <label>Modalidade</label>
+                                <div class="rsq-radio-row" id="rsqFilterModalidade">
+                                    <label><input type="radio" name="rsqFilterModalidade" value="" checked> Qualquer</label>
+                                    <label><input type="radio" name="rsqFilterModalidade" value="Remota"> Remota</label>
+                                    <label><input type="radio" name="rsqFilterModalidade" value="Híbrida"> Híbrida</label>
+                                    <label><input type="radio" name="rsqFilterModalidade" value="Presencial"> Presencial</label>
+                                </div>
+                            </div>
+
+                            <div class="rsq-field">
+                                <label>Tipo de contratação <span class="rsq-field-hint">(múltiplo)</span></label>
+                                <div class="rp-chips" id="rsqFilterContrato"></div>
+                            </div>
+
+                            <div class="rsq-field">
+                                <label>Nível <span class="rsq-field-hint">(múltiplo)</span></label>
+                                <div class="rp-chips" id="rsqFilterNivel"></div>
+                            </div>
+
+                            <div class="rsq-field">
+                                <label>CNH</label>
+                                <div class="rsq-radio-row" id="rsqFilterCnh">
+                                    <label><input type="radio" name="rsqFilterCnh" value="" checked> Indiferente</label>
+                                    <label><input type="radio" name="rsqFilterCnh" value="false"> Não exige</label>
+                                    <label><input type="radio" name="rsqFilterCnh" value="true"> Exige</label>
+                                </div>
+                            </div>
+
+                            <div class="rsq-row-2">
+                                <div class="rsq-field">
+                                    <label>Localização</label>
+                                    <input type="text" id="rsqFilterLocation" placeholder="ex: Maringá, Curitiba">
+                                </div>
+                                <div class="rsq-field">
+                                    <label>Score mínimo</label>
+                                    <input type="number" id="rsqFilterMinScore" min="0" max="100" placeholder="do perfil">
+                                </div>
+                            </div>
+                        </details>
+
                         <hr class="rsq-divider">
 
                         <div class="rsq-cta">

@@ -459,9 +459,10 @@ async function isAlreadyTracked(linkVaga) {
     });
 }
 
-async function ingestLeads(leads, profile, dryRun) {
-    let newCount = 0, duplicateCount = 0, belowMinScore = 0;
-    const minScore = profile.search_min_score ?? 5;
+async function ingestLeads(leads, profile, dryRun, filters = null) {
+    let newCount = 0, duplicateCount = 0, belowMinScore = 0, filteredOut = 0;
+    const filteredByField = {};
+    const minScore = (filters?.min_score ?? profile.search_min_score) ?? 5;
     const created = [];
 
     for (const lead of leads) {
@@ -471,6 +472,8 @@ async function ingestLeads(leads, profile, dryRun) {
 
         const r = scoreVaga(lead, profile);
         if (r.score < minScore) { belowMinScore++; continue; }
+
+        const mismatchField = filters ? matchFilters(lead, r, filters) : null;
 
         if (!dryRun) {
             const row = {
@@ -488,15 +491,69 @@ async function ingestLeads(leads, profile, dryRun) {
                 keywords_match:   r.keywords_match,
                 gaps:             r.gaps_preliminares,
             };
+            if (mismatchField) {
+                row.status          = 'descartada';
+                row.motivo_descarte = `filtro:${mismatchField}`;
+            }
             const { error } = await supabase.from('vaga_radar').insert(row);
-            if (!error) { newCount++; created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score }); }
+            if (error) continue;
+            if (mismatchField) {
+                filteredOut++;
+                filteredByField[mismatchField] = (filteredByField[mismatchField] || 0) + 1;
+            } else {
+                newCount++;
+                created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score });
+            }
         } else {
-            newCount++;
-            created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score, dry_run: true });
+            if (mismatchField) {
+                filteredOut++;
+                filteredByField[mismatchField] = (filteredByField[mismatchField] || 0) + 1;
+            } else {
+                newCount++;
+                created.push({ empresa: lead.empresa, vaga: lead.vaga, score: r.score, dry_run: true });
+            }
         }
     }
 
-    return { newCount, duplicateCount, belowMinScore, created };
+    return { newCount, duplicateCount, belowMinScore, filteredOut, filteredByField, created };
+}
+
+// Compara um lead com os filtros opcionais da requisição.
+// Retorna o nome do primeiro campo que não bate (string) ou null se passa.
+// Hard: location (substring case-insensitive em lead.location ou descricao).
+// Soft: modalidade, tipo_contratacao, nivel, requires_cnh — só descarta
+// quando o valor inferido EXISTE e diverge; null/unknown passa.
+function matchFilters(lead, scoreResult, filters) {
+    if (filters.location) {
+        const target = String(filters.location).toLowerCase();
+        const haystack = `${lead.location ?? ''} ${lead.descricao ?? ''}`.toLowerCase();
+        if (!haystack.includes(target)) return 'location';
+    }
+    if (filters.modalidade && lead.modalidade && lead.modalidade !== filters.modalidade) {
+        return 'modalidade';
+    }
+    if (Array.isArray(filters.tipo_contratacao) && filters.tipo_contratacao.length
+        && lead.tipo_contratacao && !filters.tipo_contratacao.includes(lead.tipo_contratacao)) {
+        return 'tipo_contratacao';
+    }
+    if (Array.isArray(filters.nivel) && filters.nivel.length) {
+        const inferredNivel = lead.nivel
+            || (scoreResult.seniority_inferred && scoreResult.seniority_inferred !== 'unknown'
+                ? scoreResult.seniority_inferred
+                : null);
+        if (inferredNivel) {
+            const lvl = String(inferredNivel).toLowerCase();
+            const wanted = filters.nivel.map(n => String(n).toLowerCase());
+            if (!wanted.some(w => lvl.includes(w) || w.includes(lvl))) return 'nivel';
+        }
+    }
+    if (typeof filters.requires_cnh === 'boolean' && lead.requires_cnh != null) {
+        const raw = String(lead.requires_cnh).toLowerCase().trim();
+        const leadBool = ['true', 'sim', 'yes', '1', 'exige', 'necessária', 'obrigatória']
+            .includes(raw);
+        if (leadBool !== filters.requires_cnh) return 'requires_cnh';
+    }
+    return null;
 }
 
 server.registerTool('search_linkedin',
@@ -983,26 +1040,37 @@ server.registerTool('search_99freelas',
 
 server.registerTool('search_all',
     { title: 'Buscar vagas em todas as plataformas',
-      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (17 plataformas: LinkedIn, Gupy, Maringá, Indeed, InfoJobs, Remotive, RemoteOK, We Work Remotely, Remotar, Trampos.co, AI Jobs, JS Remotely, Vagas.com.br, Catho, Jooble, Workana, 99Freelas). Deduplica e salva leads acima do score mínimo.',
+      description: 'Orquestra a busca em todas as plataformas habilitadas no perfil (17 plataformas: LinkedIn, Gupy, Maringá, Indeed, InfoJobs, Remotive, RemoteOK, We Work Remotely, Remotar, Trampos.co, AI Jobs, JS Remotely, Vagas.com.br, Catho, Jooble, Workana, 99Freelas). Deduplica e salva leads acima do score mínimo. Aceita filtros opcionais (modalidade, tipo_contratacao, nivel, requires_cnh, location, min_score) aplicados no ingest — leads que não batem são salvos com status=descartada e motivo_descarte=filtro:<campo>.',
       inputSchema: {
           platforms: z.array(z.string()).optional(),
           dry_run:   z.boolean().optional(),
+          filters:   z.object({
+              modalidade:       z.enum(['Presencial','Híbrida','Remota']).optional(),
+              tipo_contratacao: z.array(z.string()).optional(),
+              nivel:            z.array(z.string()).optional(),
+              requires_cnh:     z.boolean().optional(),
+              location:         z.string().optional(),
+              min_score:        z.number().int().min(0).max(100).optional(),
+          }).optional(),
       } },
-    async ({ platforms, dry_run = false }) => {
+    async ({ platforms, dry_run = false, filters = null }) => {
         const profile  = await getProfile();
         const allPlats = Array.isArray(profile.search_platforms) ? profile.search_platforms : [];
         const enabled  = allPlats.filter(p => p.enabled && (!platforms || platforms.includes(p.id)));
 
         if (enabled.length === 0) return fail('Nenhuma plataforma habilitada no perfil.');
 
-        const summary = { total_found: 0, total_new: 0, total_duplicates: 0, total_below_min: 0, by_platform: {} };
+        const summary = {
+            total_found: 0, total_new: 0, total_duplicates: 0, total_below_min: 0,
+            total_filtered_out: 0, filtered_by_field: {}, by_platform: {},
+        };
 
         for (const plat of enabled) {
             const scraper = SCRAPERS[plat.id];
             if (!scraper) { console.error(`[search_all] Scraper desconhecido: ${plat.id}`); continue; }
 
             let leads = [];
-            let result = { newCount: 0, duplicateCount: 0, belowMinScore: 0 };
+            let result = { newCount: 0, duplicateCount: 0, belowMinScore: 0, filteredOut: 0, filteredByField: {} };
 
             // --- Busca primária ---
             try {
@@ -1013,7 +1081,7 @@ server.registerTool('search_all',
                 continue;
             }
 
-            result = await ingestLeads(leads, profile, dry_run);
+            result = await ingestLeads(leads, profile, dry_run, filters);
             await logSearch(plat.id, plat.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
 
             // --- Expansão: se poucos leads novos encontrados, tenta keywords mais amplos ---
@@ -1023,12 +1091,16 @@ server.registerTool('search_all',
                 console.error(`[search_all] ${plat.id}: poucos leads (${result.newCount}), expandindo busca…`);
                 try {
                     const expandLeads = await scraper({ ...plat, keywords: expansionKeywords, max_results: plat.max_results || 15 });
-                    const expandResult = await ingestLeads(expandLeads, profile, dry_run);
+                    const expandResult = await ingestLeads(expandLeads, profile, dry_run, filters);
                     await logSearch(plat.id + '_expand', expansionKeywords, expandLeads.length, expandResult.newCount, expandResult.duplicateCount, expandResult.belowMinScore);
                     leads = [...leads, ...expandLeads];
                     result.newCount       += expandResult.newCount;
                     result.duplicateCount += expandResult.duplicateCount;
                     result.belowMinScore  += expandResult.belowMinScore;
+                    result.filteredOut    += expandResult.filteredOut;
+                    for (const [k, v] of Object.entries(expandResult.filteredByField || {})) {
+                        result.filteredByField[k] = (result.filteredByField[k] || 0) + v;
+                    }
                     console.error(`[search_all] ${plat.id} expandido: +${expandResult.newCount} novos`);
                 } catch (e) {
                     console.error(`[search_all] Erro na expansão de ${plat.id}: ${e.message}`);
@@ -1037,11 +1109,21 @@ server.registerTool('search_all',
 
             if (!dry_run) await updatePlatformTimestamp(plat.id);
 
-            summary.total_found      += leads.length;
-            summary.total_new        += result.newCount;
-            summary.total_duplicates += result.duplicateCount;
-            summary.total_below_min  += result.belowMinScore;
-            summary.by_platform[plat.id] = { found: leads.length, new: result.newCount, duplicates: result.duplicateCount, below_min: result.belowMinScore };
+            summary.total_found        += leads.length;
+            summary.total_new          += result.newCount;
+            summary.total_duplicates   += result.duplicateCount;
+            summary.total_below_min    += result.belowMinScore;
+            summary.total_filtered_out += result.filteredOut;
+            for (const [k, v] of Object.entries(result.filteredByField || {})) {
+                summary.filtered_by_field[k] = (summary.filtered_by_field[k] || 0) + v;
+            }
+            summary.by_platform[plat.id] = {
+                found:        leads.length,
+                new:          result.newCount,
+                duplicates:   result.duplicateCount,
+                below_min:    result.belowMinScore,
+                filtered_out: result.filteredOut,
+            };
         }
 
         return ok(summary);
@@ -1299,10 +1381,14 @@ async function processSearchRequest(reqId) {
             .eq('id', data.id);
 
         _activeJobId = data.id;
-        console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})`);
+        console.error(`[radar-mcp] processando search_request ${data.id} (${data.platforms.join(',')})${data.filters ? ' [com filtros]' : ''}`);
 
         const profile = await getProfile();
-        const summary = { total_found: 0, total_new: 0, by_platform: {} };
+        const reqFilters = data.filters && typeof data.filters === 'object' ? data.filters : null;
+        const summary = {
+            total_found: 0, total_new: 0, total_duplicates: 0, total_below_min: 0,
+            total_filtered_out: 0, filtered_by_field: {}, by_platform: {},
+        };
         const donePlatforms = [];
 
         let _cancelledByUser = false;
@@ -1337,11 +1423,23 @@ async function processSearchRequest(reqId) {
                     donePlatforms.push(platId);
                     continue;
                 }
-                const result = await ingestLeads(leads, profile, data.dry_run);
+                const result = await ingestLeads(leads, profile, data.dry_run, reqFilters);
                 await logSearch(platId, cfg.keywords || [], leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
-                summary.by_platform[platId] = { found: leads.length, new: result.newCount };
-                summary.total_found += leads.length;
-                summary.total_new   += result.newCount;
+                summary.by_platform[platId] = {
+                    found:        leads.length,
+                    new:          result.newCount,
+                    duplicates:   result.duplicateCount,
+                    below_min:    result.belowMinScore,
+                    filtered_out: result.filteredOut,
+                };
+                summary.total_found        += leads.length;
+                summary.total_new          += result.newCount;
+                summary.total_duplicates   += result.duplicateCount;
+                summary.total_below_min    += result.belowMinScore;
+                summary.total_filtered_out += result.filteredOut;
+                for (const [k, v] of Object.entries(result.filteredByField || {})) {
+                    summary.filtered_by_field[k] = (summary.filtered_by_field[k] || 0) + v;
+                }
                 donePlatforms.push(platId);
             }
 

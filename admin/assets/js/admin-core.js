@@ -7106,6 +7106,46 @@ function _rsqKeywords() {
     return v ? v.split(',').map(k => k.trim()).filter(Boolean) : null;
 }
 
+// Lê o estado dos filtros opcionais do modal. Retorna objeto compacto
+// (sem chaves vazias) ou null se nada está preenchido. Veja matchFilters em
+// mcp/radar-server.js para a semântica de aplicação (soft/hard).
+function _rsqGetFilters() {
+    const f = {};
+    const modal = document.querySelector('#rsqFilterModalidade input:checked')?.value;
+    if (modal) f.modalidade = modal;
+    const tipo = _chipsGetSelected(document.getElementById('rsqFilterContrato'));
+    if (tipo.length) f.tipo_contratacao = tipo;
+    const niv = _chipsGetSelected(document.getElementById('rsqFilterNivel'));
+    if (niv.length) f.nivel = niv;
+    const cnh = document.querySelector('#rsqFilterCnh input:checked')?.value;
+    if (cnh === 'true' || cnh === 'false') f.requires_cnh = (cnh === 'true');
+    const loc = document.getElementById('rsqFilterLocation')?.value.trim();
+    if (loc) f.location = loc;
+    const ms = parseInt(document.getElementById('rsqFilterMinScore')?.value, 10);
+    if (Number.isFinite(ms)) f.min_score = Math.max(0, Math.min(100, ms));
+    return Object.keys(f).length ? f : null;
+}
+
+function _rsqResetFilters() {
+    const det = document.getElementById('rsqFiltersDetails');
+    if (det) det.open = false;
+    document.querySelectorAll('#rsqFilterModalidade input').forEach(r => { r.checked = (r.value === ''); });
+    document.querySelectorAll('#rsqFilterCnh input').forEach(r => { r.checked = (r.value === ''); });
+    const loc = document.getElementById('rsqFilterLocation'); if (loc) loc.value = '';
+    const ms  = document.getElementById('rsqFilterMinScore'); if (ms)  ms.value  = '';
+    _chipsRender(document.getElementById('rsqFilterContrato'),
+        ['CLT', 'PJ', 'Freelancer', 'Cooperado', 'Temporário', 'Estágio', 'Autônomo'], []);
+    _chipsRender(document.getElementById('rsqFilterNivel'),
+        ['Júnior', 'Pleno', 'Sênior'], []);
+}
+
+function clearRadarFilters(evt) {
+    if (evt) { evt.preventDefault(); evt.stopPropagation(); }
+    _rsqResetFilters();
+    const det = document.getElementById('rsqFiltersDetails');
+    if (det) det.open = true; // mantém aberto após limpar (usuário ainda está mexendo)
+}
+
 function _rsqSyncPlatforms(profile) {
     const container = document.getElementById('rsqPlatforms');
     if (!container) return;
@@ -7153,6 +7193,7 @@ async function requestRadarSearch(btn) {
         keywords:    _rsqKeywords(),
         max_results: parseInt(document.getElementById('rsqMaxResults')?.value) || 20,
         dry_run:     document.getElementById('rsqDryRun')?.checked || false,
+        filters:     _rsqGetFilters(),
     };
     try {
         await withLoading(btn, async () => {
@@ -7170,13 +7211,16 @@ function copyRadarSearchCmd() {
     const platforms = _rsqGetSelectedPlats();
     const keywords  = _rsqKeywords();
     const max       = parseInt(document.getElementById('rsqMaxResults')?.value) || 20;
+    const filters   = _rsqGetFilters();
     let cmd;
     if (platforms.length === 1) {
+        // Scrapers individuais não recebem filters; informa só na primária.
         const kw = keywords ? `, keywords: ${JSON.stringify(keywords)}` : '';
         cmd = `search_${platforms[0]}({ max_results: ${max}${kw} })`;
     } else {
-        const plStr = platforms.length ? `, platforms: ${JSON.stringify(platforms)}` : '';
-        cmd = `search_all({${plStr} })`;
+        const plStr = platforms.length ? `platforms: ${JSON.stringify(platforms)}` : '';
+        const fStr  = filters ? `, filters: ${JSON.stringify(filters)}` : '';
+        cmd = `search_all({ ${plStr}${fStr} })`;
     }
     navigator.clipboard.writeText(cmd)
         .then(() => showToast('Comando copiado!'))
@@ -7257,7 +7301,24 @@ function _rsqShowStatus(status, extra, res, mcp) {
 
     const icons  = { done: 'fa-check', error: 'fa-triangle-exclamation' };
     const labels = { done: extra || 'Concluída!', error: extra || 'Erro na busca' };
-    el.innerHTML = `<span class="rsq-badge rsq-${status}"><i class="fa-solid ${icons[status]}"></i> ${labels[status]}</span>`;
+    const filteredOut = res?.result?.total_filtered_out ?? 0;
+    const filterLink = (status === 'done' && filteredOut > 0)
+        ? ` <a href="#" onclick="_rsqShowFilteredOut(event)" class="rsq-filter-link">ver</a>`
+        : '';
+    el.innerHTML = `<span class="rsq-badge rsq-${status}"><i class="fa-solid ${icons[status]}"></i> ${labels[status]}</span>${filterLink}`;
+}
+
+// Fecha o modal e abre o radar com descartadas visíveis, para o usuário
+// inspecionar leads descartados por filtro (motivo_descarte começa com "filtro:").
+function _rsqShowFilteredOut(evt) {
+    if (evt) evt.preventDefault();
+    closeBuscarModal();
+    if (typeof _radarShowDescartadas !== 'undefined' && !_radarShowDescartadas
+        && typeof toggleRadarShowDescartadas === 'function') {
+        toggleRadarShowDescartadas();
+    } else {
+        loadRadar(true);
+    }
 }
 
 let _rsqPollTimer = null;
@@ -7271,9 +7332,13 @@ async function _rsqPoll(id) {
         ]);
         if (id !== _rsqActiveId) return; // poll obsoleto — outra busca foi disparada
         if (res.status === 'done') {
-            const n = res.result?.total_new ?? 0;
-            _rsqShowStatus('done', `${n} nova${n!==1?'s':''} vaga${n!==1?'s':''}`);
-            showToast(`Busca concluída: ${n} novas vagas`);
+            const n  = res.result?.total_new ?? 0;
+            const fo = res.result?.total_filtered_out ?? 0;
+            const lbl = fo > 0
+                ? `${n} nova${n!==1?'s':''} · ${fo} pelo filtro`
+                : `${n} nova${n!==1?'s':''} vaga${n!==1?'s':''}`;
+            _rsqShowStatus('done', lbl, res);
+            showToast(`Busca concluída: ${n} novas vagas${fo > 0 ? ` (+${fo} descartadas pelo filtro)` : ''}`);
             loadRadar();
             loadRsqHistory();
         } else if (res.status === 'error') {
@@ -7764,6 +7829,7 @@ function closeRadarAdaptarCv() {
 
 function openBuscarModal() {
     document.getElementById('radarBuscarModal').classList.add('open');
+    _rsqResetFilters();
     loadRsqHistory();
 }
 function closeBuscarModal() {

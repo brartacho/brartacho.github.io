@@ -2949,6 +2949,21 @@
         .rsq-history-details .rsq-history::-webkit-scrollbar { width:6px; }
         .rsq-history-details .rsq-history::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
+        /* Filtros opcionais — bloco colapsável entre Configuração e CTA */
+        .rsq-filters { margin-top:6px; padding-top:14px; border-top:1px dashed var(--border); }
+        .rsq-filters > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; padding-bottom:8px; }
+        .rsq-filters > summary::-webkit-details-marker { display:none; }
+        .rsq-filters > summary::after { content:'▾'; transition:transform 0.2s; opacity:0.5; }
+        .rsq-filters:not([open]) > summary::after { transform:rotate(-90deg); }
+        .rsq-filters[open] { display:flex; flex-direction:column; gap:12px; padding-bottom:6px; }
+        .rsq-filters[open] > summary { margin-bottom:4px; }
+        .rsq-filters-clear { margin-left:auto; font-size:0.7rem; padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--text-dim); cursor:pointer; }
+        .rsq-filters-clear:hover { color:var(--cyan); border-color:var(--cyan); }
+        .rsq-radio-row { display:flex; flex-wrap:wrap; gap:10px 14px; padding-top:2px; }
+        .rsq-radio-row > label { display:inline-flex; align-items:center; gap:5px; font-size:0.82rem; cursor:pointer; user-select:none; }
+        .rsq-radio-row input { accent-color:var(--cyan); }
+        .rsq-filter-link { margin-left:8px; font-size:0.78rem; color:var(--cyan); text-decoration:underline; }
+
         /* ── Parte 7: Limpeza otimizada — breakdown e modal ── */
         .radar-stats-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px; font-size:0.78rem; color:var(--text-dim); }
         .radar-stats-row .stat { display:inline-flex; align-items:center; gap:4px; }
