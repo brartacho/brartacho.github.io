@@ -33,6 +33,8 @@ import { searchJsRemotely } from './search/jsremotely.js';
 import { searchVagas } from './search/vagas.js';
 import { searchCatho } from './search/catho.js';
 import { searchJooble } from './search/jooble.js';
+import { searchWorkana } from './search/workana.js';
+import { searchFreelas99 } from './search/freelas99.js';
 import { clearSession } from './search/session.js';
 
 const SCRAPERS = {
@@ -51,6 +53,8 @@ const SCRAPERS = {
     vagas:          (cfg) => searchVagas({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
     catho:          (cfg) => searchCatho({ keywords: cfg.keywords || ['analista de qa'], maxResults: cfg.max_results || 20 }),
     jooble:         (cfg) => searchJooble({ keywords: cfg.keywords || ['analista de qa'], location: cfg.location || 'Brasil', maxResults: cfg.max_results || 20 }),
+    workana:        (cfg) => searchWorkana({ keywords: cfg.keywords || ['qa', 'testes'], maxResults: cfg.max_results || 20 }),
+    '99freelas':    (cfg) => searchFreelas99({ keywords: cfg.keywords || ['qa', 'testes'], maxResults: cfg.max_results || 20 }),
 };
 
 const url = process.env.SUPABASE_URL;
@@ -919,6 +923,62 @@ server.registerTool('search_jooble',
         if (!dry_run) await updatePlatformTimestamp('jooble');
 
         return ok({ platform: 'jooble', found: leads.length, ...result });
+    });
+
+server.registerTool('search_workana',
+    { title: 'Buscar projetos no Workana',
+      description: 'Scraper do Workana.com via Cheerio (freelance TI, Brasil/LATAM). Retorna projetos na categoria it-programming.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('workana');
+        const kw      = keywords || config?.keywords || ['qa', 'testes'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchWorkana({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('workana', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('workana');
+
+        return ok({ platform: 'workana', found: leads.length, ...result });
+    });
+
+server.registerTool('search_99freelas',
+    { title: 'Buscar projetos no 99Freelas',
+      description: 'Scraper do 99Freelas.com.br via Cheerio (freelance 100% brasileiro). Retorna projetos de tecnologia.',
+      inputSchema: {
+          keywords:    z.array(z.string()).optional(),
+          max_results: z.number().int().min(1).max(30).optional(),
+          dry_run:     z.boolean().optional(),
+      } },
+    async ({ keywords, max_results, dry_run = false }) => {
+        const profile = await getProfile();
+        const config  = await getSearchPlatformConfig('99freelas');
+        const kw      = keywords || config?.keywords || ['qa', 'testes'];
+        const mr      = max_results || config?.max_results || 20;
+
+        let leads;
+        try {
+            leads = await searchFreelas99({ keywords: kw, maxResults: mr });
+        } catch (e) {
+            return fail(e.message);
+        }
+
+        const result = await ingestLeads(leads, profile, dry_run);
+        await logSearch('99freelas', kw, leads.length, result.newCount, result.duplicateCount, result.belowMinScore);
+        if (!dry_run) await updatePlatformTimestamp('99freelas');
+
+        return ok({ platform: '99freelas', found: leads.length, ...result });
     });
 
 server.registerTool('search_all',
