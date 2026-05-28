@@ -30,7 +30,7 @@ function dateRange(from, to) {
     return { f, t };
 }
 
-const TEXT_MAX = { empresa: 200, vaga: 200, linkedin_empresa: 300, link_vaga: 500, site_empresa: 300, observacoes: 500, gestor_nome: 100, gestor_email: 120, modalidade: 20, tipo_contratacao: 20 };
+const TEXT_MAX = { empresa: 200, vaga: 200, linkedin_empresa: 300, link_vaga: 500, site_empresa: 300, cidade: 100, observacoes: 500, gestor_nome: 100, gestor_email: 120, modalidade: 20, tipo_contratacao: 20 };
 
 const VALID_MODALIDADE       = new Set(['Presencial', 'Híbrida', 'Remota']);
 const VALID_TIPO_CONTRATACAO = new Set(['CLT', 'PJ', 'Freelancer']);
@@ -2766,7 +2766,7 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
 
     // POST — cria candidatura manual
     if (req.method === 'POST') {
-        const { empresa, vaga, linkedin_empresa, link_vaga, site_empresa, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, cv_version_id,
+        const { empresa, vaga, linkedin_empresa, link_vaga, site_empresa, cidade, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, cv_version_id,
                 platform, origin_radar_id, application_message_text, application_message_sent, auto_filled_fields } = req.body || {};
 
         const emp = clean(empresa, TEXT_MAX.empresa);
@@ -2783,6 +2783,12 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
             return res.status(400).json({ error: `tipo_contratacao inválido (${tipo_contratacao})` });
         }
 
+        let radarFitScore = null;
+        if (origin_radar_id) {
+            const { data: rl } = await supabase.from('vaga_radar').select('fit_score').eq('id', origin_radar_id).single();
+            if (rl?.fit_score != null) radarFitScore = parseFloat(rl.fit_score);
+        }
+
         const { data, error } = await supabase
             .from('job_applications')
             .insert({
@@ -2790,6 +2796,8 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
                 vaga:             clean(vaga, TEXT_MAX.vaga),
                 linkedin_empresa: clean(linkedin_empresa, TEXT_MAX.linkedin_empresa),
                 link_vaga:        clean(link_vaga, TEXT_MAX.link_vaga),
+                site_empresa:     clean(site_empresa, TEXT_MAX.site_empresa) || null,
+                cidade:           clean(cidade, TEXT_MAX.cidade) || null,
                 observacoes:      clean(observacoes, TEXT_MAX.observacoes),
                 gestor_nome:      clean(gestor_nome, TEXT_MAX.gestor_nome),
                 gestor_email:     clean(gestor_email, TEXT_MAX.gestor_email),
@@ -2798,9 +2806,9 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
                 tipo_contratacao: tipo_contratacao || null,
                 cv_version_id:    cv_version_id || null,
                 gestor_phone:     clean(gestor_phone, 30) || null,
-                site_empresa:     clean(site_empresa, TEXT_MAX.site_empresa) || null,
                 platform:         platform ? clean(platform, 40) : null,
                 origin_radar_id:  origin_radar_id || null,
+                fit_score:        radarFitScore,
                 application_message_text:  application_message_text ? clean(application_message_text, 5000) : null,
                 application_message_sent:  Boolean(application_message_sent),
                 auto_filled_fields:        Array.isArray(auto_filled_fields) ? auto_filled_fields : [],
@@ -2811,6 +2819,14 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
             .single();
 
         if (error) return res.status(500).json({ error: error.message });
+
+        // Atualiza status do lead no Radar para 'promovida'
+        if (origin_radar_id && data) {
+            await supabase.from('vaga_radar')
+                .update({ status: 'promovida', promoted_application_id: data.id })
+                .eq('id', origin_radar_id);
+        }
+
         return res.status(201).json(data);
     }
 
@@ -2819,7 +2835,7 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         const { id } = req.query;
         if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
-        const { empresa, vaga, linkedin_empresa, link_vaga, site_empresa, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, private: isPrivate, stages, result, cv_version_id,
+        const { empresa, vaga, linkedin_empresa, link_vaga, site_empresa, cidade, observacoes, gestor_nome, gestor_email, gestor_phone, data_envio, modalidade, tipo_contratacao, archived, private: isPrivate, stages, result, cv_version_id,
                 platform, application_message_text, application_message_sent, auto_filled_fields } = req.body || {};
 
         const patch = {};
@@ -2832,6 +2848,7 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
         if (linkedin_empresa !== undefined) patch.linkedin_empresa = clean(linkedin_empresa, TEXT_MAX.linkedin_empresa);
         if (link_vaga        !== undefined) patch.link_vaga        = clean(link_vaga, TEXT_MAX.link_vaga);
         if (site_empresa     !== undefined) patch.site_empresa     = clean(site_empresa, TEXT_MAX.site_empresa) || null;
+        if (cidade           !== undefined) patch.cidade           = clean(cidade, TEXT_MAX.cidade) || null;
         if (observacoes      !== undefined) patch.observacoes      = clean(observacoes, TEXT_MAX.observacoes);
         if (gestor_nome      !== undefined) patch.gestor_nome      = clean(gestor_nome, TEXT_MAX.gestor_nome);
         if (gestor_email     !== undefined) patch.gestor_email     = clean(gestor_email, TEXT_MAX.gestor_email);

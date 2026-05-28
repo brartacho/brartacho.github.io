@@ -408,15 +408,17 @@ async function getSearchPlatformConfig(platformId) {
     return platforms.find(p => p.id === platformId) || null;
 }
 
-async function logSearch(platform, keywordsUsed, foundCount, newCount, duplicateCount, belowMinScore) {
-    await supabase.from('search_log').insert({
+async function logSearch(platform, keywordsUsed, foundCount, newCount, duplicateCount, belowMinScore, errorNote = null) {
+    const row = {
         platform,
         keywords_used:         keywordsUsed,
         found_count:           foundCount,
         new_count:             newCount,
         duplicate_count:       duplicateCount,
         below_min_score_count: belowMinScore,
-    });
+    };
+    if (errorNote) row.error_note = errorNote;
+    await supabase.from('search_log').insert(row);
 }
 
 async function updatePlatformTimestamp(platformId) {
@@ -1010,6 +1012,8 @@ server.registerTool('search_all',
             } catch (e) {
                 console.error(`[search_all] Erro em ${plat.id}: ${e.message}`);
                 summary.by_platform[plat.id] = { error: e.message };
+                await logSearch(plat.id, plat.keywords || [], 0, 0, 0, 0, e.message);
+                if (!dry_run) await updatePlatformTimestamp(plat.id);
                 continue;
             }
 
