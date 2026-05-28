@@ -7585,10 +7585,10 @@ function renderRadarList(leads) {
     const list = document.getElementById('radarList');
     const count = document.getElementById('radarCount');
 
-    // Apply filters
+    // Apply filters — 'promovida' e 'descartada' ficam ocultas por padrão
     let filtered = _radarShowDescartadas
         ? leads
-        : leads.filter(l => l.status !== 'descartada');
+        : leads.filter(l => l.status !== 'descartada' && l.status !== 'promovida');
     if (_radarSearchQuery) {
         const q = _radarSearchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         filtered = filtered.filter(l => {
