@@ -7574,6 +7574,7 @@ let _radarFonteFilter = new Set(); // vazio = todas
 let _radarModFilter   = new Set(); // vazio = qualquer
 let _radarSortKey     = 'score';
 let _radarShowDescartadas = false;
+let _radarShowPromovidas  = false;
 let _radarFiltersOpen = false;
 let _radarSelecting = false;
 let _radarSelected  = new Set();
@@ -7585,10 +7586,12 @@ function renderRadarList(leads) {
     const list = document.getElementById('radarList');
     const count = document.getElementById('radarCount');
 
-    // Apply filters — 'promovida' e 'descartada' ficam ocultas por padrão
-    let filtered = _radarShowDescartadas
-        ? leads
-        : leads.filter(l => l.status !== 'descartada' && l.status !== 'promovida');
+    // Apply filters — 'promovida' e 'descartada' ficam ocultas por padrão, toggles independentes
+    let filtered = leads.filter(l => {
+        if (l.status === 'descartada') return _radarShowDescartadas;
+        if (l.status === 'promovida')  return _radarShowPromovidas;
+        return true;
+    });
     if (_radarSearchQuery) {
         const q = _radarSearchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         filtered = filtered.filter(l => {
@@ -7687,7 +7690,6 @@ function _updateRadarFilterBadge() {
     const badge = document.getElementById('radarFiltersBadge');
     if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-flex' : 'none'; }
 }
-// Mantém o botão Descartadas em sincronia se o radarShowAll interno for alterado
 function _syncDescartadasBtn() {
     const btn = document.getElementById('radarShowDescartadasBtn');
     if (!btn) return;
@@ -7698,20 +7700,24 @@ function _syncDescartadasBtn() {
 }
 function toggleRadarShowDescartadas() {
     _radarShowDescartadas = !_radarShowDescartadas;
-    const btn = document.getElementById('radarShowDescartadasBtn');
-    if (btn) {
-        btn.classList.toggle('active', _radarShowDescartadas);
-        btn.innerHTML = _radarShowDescartadas
-            ? '<i class="fa-solid fa-eye"></i> Descartadas'
-            : '<i class="fa-solid fa-eye-slash"></i> Descartadas';
-    }
-    // Se ainda não carregou os leads com descartadas, recarrega
+    _syncDescartadasBtn();
     const temDescartadas = _radarLeads.some(l => l.status === 'descartada');
     if (_radarShowDescartadas && !temDescartadas) {
         loadRadar(true);
     } else {
         renderRadarList(_radarLeads);
     }
+}
+function toggleRadarShowPromovidas() {
+    _radarShowPromovidas = !_radarShowPromovidas;
+    const btn = document.getElementById('radarShowPromovidasBtn');
+    if (btn) {
+        btn.classList.toggle('active', _radarShowPromovidas);
+        btn.innerHTML = _radarShowPromovidas
+            ? '<i class="fa-solid fa-eye"></i> Promovidas'
+            : '<i class="fa-solid fa-eye-slash"></i> Promovidas';
+    }
+    renderRadarList(_radarLeads);
 }
 function setRadarSearch(val) {
     _radarSearchQuery = (val || '').trim();
