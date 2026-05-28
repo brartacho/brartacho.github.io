@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { requireAdmin, cors } from '../_lib/auth.js';
 import { getSupabase, BUCKET } from '../_lib/supabase.js';
 import { DEFAULT_STAGES } from '../_lib/stages.js';
-import { buildMessagePrompt, parseMessageResponse } from '../_lib/message-prompt.js';
+import { buildMessagePrompt, parseMessageResponse, buildTemplateMessage } from '../_lib/message-prompt.js';
 import { calcCLT, calcPJ, calcMEI } from '../_lib/tax-calc.js';
 import { providerStats } from '../_lib/llm-router.js';
 
@@ -700,13 +700,25 @@ export default async function handler(req, res) {
                 history_count: ((existingApp?.application_message_history || []).length) + 1,
             });
         } catch (_routeErr) {
-            // Nenhum provider configurado → retorna prompt para uso via MCP
+            // Nenhum provider configurado → gera mensagem por template (sem LLM)
+            const message_text = buildTemplateMessage({ empresa, vaga, keywords_match, positioning, charLimit, profile: profile || {} });
+
+            if (application_id && message_text) {
+                const history = Array.isArray(existingApp?.application_message_history) ? existingApp.application_message_history : [];
+                const historyEntry = { ts: new Date().toISOString(), text: message_text, length: message_text.length, source: 'template' };
+                const isFirst = !existingApp?.application_message_original;
+                const patch = { application_message_history: [...history, historyEntry].slice(-10), updated_at: new Date().toISOString() };
+                if (isFirst || !existingApp?.application_message_text) patch.application_message_text = message_text;
+                if (isFirst) patch.application_message_original = message_text;
+                await supabase.from('job_applications').update(patch).eq('id', application_id);
+            }
+
             return res.status(200).json({
-                message_text: null,
-                prompt,
+                message_text,
+                char_count: message_text?.length ?? 0,
                 char_limit: charLimit,
-                provider: 'mcp',
-                note: 'Nenhum provider LLM configurado. Configure pelo menos uma env var (GROQ_API_KEY, GEMINI_API_KEY, etc.) para geração automática.',
+                provider: 'template',
+                prompt,
             });
         }
     }
