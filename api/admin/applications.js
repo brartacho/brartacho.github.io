@@ -2783,6 +2783,12 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
             return res.status(400).json({ error: `tipo_contratacao inválido (${tipo_contratacao})` });
         }
 
+        let radarFitScore = null;
+        if (origin_radar_id) {
+            const { data: rl } = await supabase.from('vaga_radar').select('fit_score').eq('id', origin_radar_id).single();
+            if (rl?.fit_score != null) radarFitScore = parseFloat(rl.fit_score);
+        }
+
         const { data, error } = await supabase
             .from('job_applications')
             .insert({
@@ -2802,6 +2808,7 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
                 gestor_phone:     clean(gestor_phone, 30) || null,
                 platform:         platform ? clean(platform, 40) : null,
                 origin_radar_id:  origin_radar_id || null,
+                fit_score:        radarFitScore,
                 application_message_text:  application_message_text ? clean(application_message_text, 5000) : null,
                 application_message_sent:  Boolean(application_message_sent),
                 auto_filled_fields:        Array.isArray(auto_filled_fields) ? auto_filled_fields : [],
