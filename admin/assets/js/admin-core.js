@@ -3954,6 +3954,10 @@ async function saveNovaVaga() {
 
     try {
         await api('POST', '/api/admin/applications', data);
+        if (radarLeadId) {
+            const idx = _radarLeads.findIndex(l => l.id === radarLeadId);
+            if (idx !== -1) _radarLeads[idx] = { ..._radarLeads[idx], status: 'promovida' };
+        }
         closeNovaVaga();
         await loadApplications();
         showToast('Candidatura criada.');

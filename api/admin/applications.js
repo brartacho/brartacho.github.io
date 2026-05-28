@@ -837,7 +837,7 @@ export default async function handler(req, res) {
 
         // mark leads as promoted
         const promotedIds = leads.map(l => l.id);
-        await supabase.from('vaga_radar').update({ status: 'promovida' }).in('id', promotedIds);
+        await supabase.from('vaga_radar').update({ status: 'promovida', updated_at: new Date().toISOString() }).in('id', promotedIds);
 
         return res.status(201).json({ created: created ?? [], count: (created ?? []).length });
     }
@@ -2822,9 +2822,10 @@ Formato JSON com 3 blocos. Cada bloco: 4 objetivos concisos e acionáveis.
 
         // Atualiza status do lead no Radar para 'promovida'
         if (origin_radar_id && data) {
-            await supabase.from('vaga_radar')
-                .update({ status: 'promovida', promoted_application_id: data.id })
+            const { error: radarErr } = await supabase.from('vaga_radar')
+                .update({ status: 'promovida', promoted_application_id: data.id, updated_at: new Date().toISOString() })
                 .eq('id', origin_radar_id);
+            if (radarErr) console.error('[radar] falha ao marcar lead como promovida:', radarErr.message);
         }
 
         return res.status(201).json(data);
