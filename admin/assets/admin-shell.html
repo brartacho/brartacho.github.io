@@ -740,14 +740,9 @@
                         <span class="radar-switch-label">Incluir promovidas/descartadas</span>
                     </label>
                 </div>
-                <div class="radar-filter-group">
-                    <button class="radar-fonte-chip active" data-val="all" onclick="setRadarFonteFilter('all',this)">Todas</button>
-                    <button class="radar-fonte-chip" data-val="linkedin" onclick="setRadarFonteFilter('linkedin',this)">LinkedIn</button>
-                    <button class="radar-fonte-chip" data-val="gupy" onclick="setRadarFonteFilter('gupy',this)">Gupy</button>
-                    <button class="radar-fonte-chip" data-val="maringa" onclick="setRadarFonteFilter('maringa',this)">Maringá</button>
-                    <button class="radar-fonte-chip" data-val="indeed" onclick="setRadarFonteFilter('indeed',this)">Indeed</button>
-                    <button class="radar-fonte-chip" data-val="infojobs" onclick="setRadarFonteFilter('infojobs',this)">InfoJobs</button>
-                    <button class="radar-fonte-chip" data-val="radar-mcp" onclick="setRadarFonteFilter('radar-mcp',this)">MCP</button>
+                <div class="radar-filter-group radar-fonte-wrap">
+                    <div class="radar-fonte-chips" id="radarFonteChips"></div>
+                    <div class="radar-fonte-dropdown" id="radarFonteDropdown" hidden></div>
                 </div>
                 <div class="radar-filter-group">
                     <button class="radar-mod-chip active" data-val="all" onclick="setRadarModFilter('all',this)">Qualquer</button>

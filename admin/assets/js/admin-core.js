@@ -7576,6 +7576,30 @@ let _radarSearchQuery = '';
 let _radarMinScore = 0;
 let _radarFonteFilter = new Set(); // vazio = todas
 let _radarModFilter   = new Set(); // vazio = qualquer
+const RADAR_FONTE_TOP_N = 6;       // chips visíveis antes do "Mais"
+const FONTE_META = {
+    linkedin:       { icon:'fa-brands fa-linkedin',        label:'LinkedIn' },
+    gupy:           { icon:'fa-solid fa-briefcase',         label:'Gupy' },
+    indeed:         { icon:'fa-solid fa-magnifying-glass',  label:'Indeed' },
+    infojobs:       { icon:'fa-solid fa-building',          label:'InfoJobs' },
+    maringa:        { icon:'fa-solid fa-location-dot',      label:'Maringá' },
+    remotive:       { icon:'fa-solid fa-wifi',              label:'Remotive' },
+    remoteok:       { icon:'fa-solid fa-circle-check',      label:'RemoteOK' },
+    weworkremotely: { icon:'fa-solid fa-laptop-house',      label:'We Work Remotely' },
+    remotar:        { icon:'fa-solid fa-house-laptop',      label:'Remotar' },
+    trampos:        { icon:'fa-solid fa-pen-nib',           label:'Trampos.co' },
+    aijobs:         { icon:'fa-solid fa-robot',             label:'AI Jobs Board' },
+    jsremotely:     { icon:'fa-brands fa-js',               label:'JS Remotely' },
+    vagas:          { icon:'fa-solid fa-suitcase',          label:'Vagas.com.br' },
+    catho:          { icon:'fa-solid fa-file-lines',        label:'Catho' },
+    jooble:         { icon:'fa-solid fa-earth-americas',    label:'Jooble' },
+    workana:        { icon:'fa-solid fa-handshake',         label:'Workana' },
+    '99freelas':    { icon:'fa-solid fa-code',              label:'99Freelas' },
+    'radar-mcp':    { icon:'fa-solid fa-plug',              label:'MCP' },
+};
+function _fonteMeta(fonte) {
+    return FONTE_META[fonte] || { icon:'fa-solid fa-globe', label: fonte || '' };
+}
 let _radarSortKey     = 'score';
 let _radarShowDescartadas = false;
 let _radarShowPromovidas  = false;
@@ -7591,11 +7615,14 @@ function renderRadarList(leads) {
     const count = document.getElementById('radarCount');
 
     // Apply filters — 'promovida' e 'descartada' ficam ocultas por padrão, toggles independentes
-    let filtered = leads.filter(l => {
+    const statusFiltered = leads.filter(l => {
         if (l.status === 'descartada') return _radarShowDescartadas;
         if (l.status === 'promovida')  return _radarShowPromovidas;
         return true;
     });
+    // Chips de plataforma são dinâmicos, baseados nas fontes presentes nos leads ativos
+    renderRadarFonteChips(statusFiltered);
+    let filtered = statusFiltered;
     if (_radarSearchQuery) {
         const q = _radarSearchQuery.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         filtered = filtered.filter(l => {
@@ -7634,26 +7661,7 @@ function renderRadarList(leads) {
         const pos = l.positioning ? `<p class="radar-pos">${esc(l.positioning)}</p>` : '';
         const suspFlags = Array.isArray(l.suspicious_flags) ? l.suspicious_flags : [];
         const suspBadge = suspFlags.length ? `<span class="radar-chip suspicious" title="${esc(suspFlags.join(', '))}"><i class="fa-solid fa-triangle-exclamation"></i> suspeita</span>` : '';
-        const FONTE_META = {
-            linkedin:       { icon:'fa-brands fa-linkedin',        label:'LinkedIn' },
-            gupy:           { icon:'fa-solid fa-briefcase',         label:'Gupy' },
-            indeed:         { icon:'fa-solid fa-magnifying-glass',  label:'Indeed' },
-            infojobs:       { icon:'fa-solid fa-building',          label:'InfoJobs' },
-            maringa:        { icon:'fa-solid fa-location-dot',      label:'Maringá' },
-            remotive:       { icon:'fa-solid fa-wifi',              label:'Remotive' },
-            remoteok:       { icon:'fa-solid fa-circle-check',      label:'RemoteOK' },
-            weworkremotely: { icon:'fa-solid fa-laptop-house',      label:'We Work Remotely' },
-            remotar:        { icon:'fa-solid fa-house-laptop',      label:'Remotar' },
-            trampos:        { icon:'fa-solid fa-pen-nib',           label:'Trampos.co' },
-            aijobs:         { icon:'fa-solid fa-robot',             label:'AI Jobs Board' },
-            jsremotely:     { icon:'fa-brands fa-js',               label:'JS Remotely' },
-            vagas:          { icon:'fa-solid fa-suitcase',          label:'Vagas.com.br' },
-            catho:          { icon:'fa-solid fa-file-lines',        label:'Catho' },
-            jooble:         { icon:'fa-solid fa-earth-americas',    label:'Jooble' },
-            workana:        { icon:'fa-solid fa-handshake',         label:'Workana' },
-            '99freelas':    { icon:'fa-solid fa-code',              label:'99Freelas' },
-        };
-        const fm = FONTE_META[l.fonte] || { icon:'fa-solid fa-globe', label: l.fonte || '' };
+        const fm = _fonteMeta(l.fonte);
         const fonteBadge = l.fonte ? `<span class="radar-fonte-badge fonte-${esc(l.fonte)}" title="Plataforma: ${fm.label}"><i class="${fm.icon} fa-fw"></i>${fm.label}</span>` : '';
         const revFit = l.reverse_fit_score != null ? `<span title="Fit reverso (empresa → você)" style="font-size:0.62rem;color:var(--text-dim);margin-top:2px;display:block;text-align:center">rev ${Number(l.reverse_fit_score).toFixed(1)}</span>` : '';
         const aln = l.alignment_score != null ? `<span title="Alinhamento de valores" style="font-size:0.62rem;color:#a78bfa;margin-top:1px;display:block;text-align:center">val ${Number(l.alignment_score).toFixed(1)}</span>` : '';
@@ -7744,19 +7752,84 @@ function setRadarMinScore(val) {
     renderRadarList(_radarLeads);
     _updateRadarFilterBadge();
 }
-function setRadarFonteFilter(val, btn) {
+let _radarFonteDropdownOpen = false;
+
+// Renderiza chips de plataforma dinamicamente a partir das fontes presentes nos leads.
+// Top N visíveis (por contagem) + botão "Mais" com dropdown para o restante.
+function renderRadarFonteChips(baseLeads) {
+    const wrap = document.getElementById('radarFonteChips');
+    const dd   = document.getElementById('radarFonteDropdown');
+    if (!wrap) return;
+
+    const counts = new Map();
+    for (const l of baseLeads) {
+        const f = l.fonte || '';
+        if (f) counts.set(f, (counts.get(f) || 0) + 1);
+    }
+    const fontes = [...counts.entries()].sort((a, b) =>
+        b[1] !== a[1] ? b[1] - a[1] : _fonteMeta(a[0]).label.localeCompare(_fonteMeta(b[0]).label, 'pt-BR')
+    );
+
+    const top  = fontes.slice(0, RADAR_FONTE_TOP_N);
+    const rest = fontes.slice(RADAR_FONTE_TOP_N);
+
+    const chip = (f, n) => {
+        const m = _fonteMeta(f);
+        const active = _radarFonteFilter.has(f) ? ' active' : '';
+        return `<button class="radar-fonte-chip${active}" data-val="${esc(f)}" onclick="setRadarFonteFilter('${esc(f)}');event.stopPropagation()" title="${esc(m.label)}"><i class="${m.icon} fa-fw"></i> ${esc(m.label)} <span class="rfc-count">${n}</span></button>`;
+    };
+
+    let html = `<button class="radar-fonte-chip${_radarFonteFilter.size === 0 ? ' active' : ''}" data-val="all" onclick="setRadarFonteFilter('all');event.stopPropagation()">Todas</button>`;
+    html += top.map(([f, n]) => chip(f, n)).join('');
+    if (rest.length) {
+        const hidden = rest.filter(([f]) => _radarFonteFilter.has(f)).length;
+        html += `<button class="radar-fonte-more${_radarFonteDropdownOpen ? ' active' : ''}" id="radarFonteMoreBtn" onclick="toggleRadarFonteDropdown(event)">Mais${hidden ? ` <span class="rfc-count">${hidden}</span>` : ''} <i class="fa-solid fa-chevron-down fa-fw"></i></button>`;
+    }
+    wrap.innerHTML = html;
+
+    if (dd) {
+        if (!rest.length) _radarFonteDropdownOpen = false;
+        dd.innerHTML = rest.map(([f, n]) => {
+            const m = _fonteMeta(f);
+            const active = _radarFonteFilter.has(f) ? ' active' : '';
+            return `<button class="rfd-item${active}" data-val="${esc(f)}" onclick="setRadarFonteFilter('${esc(f)}');event.stopPropagation()"><i class="${m.icon} fa-fw"></i> <span class="rfd-label">${esc(m.label)}</span> <span class="rfc-count">${n}</span></button>`;
+        }).join('');
+        dd.hidden = !(_radarFonteDropdownOpen && rest.length);
+    }
+}
+
+function toggleRadarFonteDropdown(ev) {
+    if (ev) ev.stopPropagation();
+    _radarFonteDropdownOpen = !_radarFonteDropdownOpen;
+    const dd  = document.getElementById('radarFonteDropdown');
+    const btn = document.getElementById('radarFonteMoreBtn');
+    if (dd)  dd.hidden = !_radarFonteDropdownOpen;
+    if (btn) btn.classList.toggle('active', _radarFonteDropdownOpen);
+    if (_radarFonteDropdownOpen) {
+        setTimeout(() => document.addEventListener('click', _closeRadarFonteDropdown), 0);
+    } else {
+        document.removeEventListener('click', _closeRadarFonteDropdown);
+    }
+}
+
+function _closeRadarFonteDropdown(ev) {
+    const dd  = document.getElementById('radarFonteDropdown');
+    const btn = document.getElementById('radarFonteMoreBtn');
+    if (ev && dd && (dd.contains(ev.target) || (btn && btn.contains(ev.target)))) return;
+    _radarFonteDropdownOpen = false;
+    if (dd)  dd.hidden = true;
+    if (btn) btn.classList.remove('active');
+    document.removeEventListener('click', _closeRadarFonteDropdown);
+}
+
+function setRadarFonteFilter(val) {
     if (val === 'all') {
         _radarFonteFilter.clear();
     } else {
         if (_radarFonteFilter.has(val)) _radarFonteFilter.delete(val);
         else _radarFonteFilter.add(val);
     }
-    // Sincroniza visual: "Todas" ativo só quando nada selecionado
-    document.querySelectorAll('.radar-fonte-chip').forEach(b => {
-        const v = b.getAttribute('data-val');
-        b.classList.toggle('active', v === 'all' ? _radarFonteFilter.size === 0 : _radarFonteFilter.has(v));
-    });
-    renderRadarList(_radarLeads);
+    renderRadarList(_radarLeads); // re-renderiza lista + chips (sincroniza estados active)
     _updateRadarFilterBadge();
 }
 function setRadarModFilter(val, btn) {
