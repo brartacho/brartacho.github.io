@@ -1081,6 +1081,31 @@ body.menu-open #content-wrapper {
     font-family: var(--font-mono);
 }
 
+/* 12b. CERTIFICADOS — link inline nos edu-entries
+============================================================ */
+.edu-cert-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--cyan);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s ease;
+}
+
+.edu-cert-link:hover {
+    opacity: 0.75;
+}
+
+
 /* 13. PROJETOS — BENTO
 ============================================================ */
 .projects-bento {
