@@ -7916,7 +7916,10 @@ async function bulkDiscardRadar() {
     const motivo = await showPrompt('Descartar leads', 'Motivo (opcional)');
     if (motivo === null) return;
     try {
-        await api('PUT', '/api/admin/radar?action=bulk-discard', { ids, motivo_descarte: motivo || '' });
+        const BATCH = 50;
+        for (let i = 0; i < ids.length; i += BATCH) {
+            await api('PUT', '/api/admin/radar?action=bulk-discard', { ids: ids.slice(i, i + BATCH), motivo_descarte: motivo || '' });
+        }
         showToast(`${ids.length} lead${ids.length > 1 ? 's' : ''} descartado${ids.length > 1 ? 's' : ''}.`);
         toggleRadarSelectMode();
         loadRadar();
@@ -7929,8 +7932,13 @@ async function bulkPromoteRadar() {
     const n = ids.length;
     if (!confirm(`Promover ${n} lead${n > 1 ? 's' : ''} como candidatura${n > 1 ? 's' : ''}?\n(Sem mensagem personalizada — edite depois em cada candidatura.)`)) return;
     try {
-        const res = await api('POST', '/api/admin/applications?__h=batch-promote', { lead_ids: ids });
-        showToast(`${res.count} candidatura${res.count > 1 ? 's' : ''} criada${res.count > 1 ? 's' : ''}.`);
+        const BATCH = 20;
+        let total = 0;
+        for (let i = 0; i < ids.length; i += BATCH) {
+            const res = await api('POST', '/api/admin/applications?__h=batch-promote', { lead_ids: ids.slice(i, i + BATCH) });
+            total += res.count ?? 0;
+        }
+        showToast(`${total} candidatura${total > 1 ? 's' : ''} criada${total > 1 ? 's' : ''}.`);
         toggleRadarSelectMode();
         loadRadar();
         loadApplications();
