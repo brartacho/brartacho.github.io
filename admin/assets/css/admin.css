@@ -2867,10 +2867,10 @@
             padding:8px 12px; gap:8px; align-items:center; z-index:1000;
             box-shadow:0 4px 24px rgba(0,0,0,0.7);
         }
-        .radar-bulk-bar .btn-sm {
+        .radar-bulk-bar .btn-sm:not(.btn-cyan):not(.btn-danger) {
             background:#2a2d35; border:1px solid var(--border); color:var(--text);
         }
-        .radar-bulk-bar .btn-sm:hover {
+        .radar-bulk-bar .btn-sm:not(.btn-cyan):not(.btn-danger):hover {
             background:#33363f;
         }
 
