@@ -7,6 +7,9 @@ repomix-output.xml
 # PDFs com dados pessoais ficam no Supabase Storage privado, nunca no git
 /*.pdf
 
+# Diploma original com dados pessoais — nunca publicar, só a versão redigida
+certificados/diploma-biomedicina.jpg
+
 # Cobre .env, .env.local, .env.development.local, .env.production.local etc
 .env
 .env.*

@@ -1,7 +1,8 @@
 {
   "redirects": [
     { "source": "/github",   "destination": "/?utm_source=github&utm_medium=perfil",   "permanent": false },
-    { "source": "/linkedin", "destination": "/?utm_source=linkedin&utm_medium=perfil", "permanent": false }
+    { "source": "/linkedin", "destination": "/?utm_source=linkedin&utm_medium=perfil", "permanent": false },
+    { "source": "/certificados/diploma-biomedicina.jpg", "destination": "/404", "permanent": false }
   ],
   "crons": [
     {
