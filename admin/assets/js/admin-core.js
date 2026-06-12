@@ -4079,6 +4079,8 @@ document.addEventListener('click', e => {
 function switchTab(name) {
     // Guard: aba inexistente ou bloqueada no demo
     if (!ADMIN_TABS.some(t => t.key === name)) return;
+    const isDemo = window.ADMIN_CONFIG?.mode === 'demo';
+    if (isDemo && !ADMIN_TABS.find(t => t.key === name)?.demoEligible) return;
     const _enabled = window.ADMIN_CONFIG?.enabledTabs;
     if (Array.isArray(_enabled) && _enabled.length > 0 && !_enabled.includes(name)) return;
 
@@ -6970,22 +6972,32 @@ const ADMIN_TABS = [
 ];
 
 function renderAdminTabs() {
+    const isDemo = window.ADMIN_CONFIG?.mode === 'demo';
+    const enabledTabs = window.ADMIN_CONFIG?.enabledTabs;
+    let tabs = ADMIN_TABS;
+    if (isDemo) {
+        // Filtra para abas demo-elegíveis; depois aplica enabledTabs se configurado
+        tabs = ADMIN_TABS.filter(t => t.demoEligible);
+        if (Array.isArray(enabledTabs) && enabledTabs.length > 0) {
+            tabs = tabs.filter(t => enabledTabs.includes(t.key));
+        }
+    }
+
     const desktopBar = document.querySelector('.app-tabs');
     const mobileBar  = document.getElementById('mobileBottomNav');
     const maisMenu   = document.getElementById('maisMenu');
     const activeKey  = _activeTab || 'cvs';
 
-    // Desktop: todas as abas
     if (desktopBar) {
-        desktopBar.innerHTML = ADMIN_TABS.map(t => `
+        desktopBar.innerHTML = tabs.map(t => `
             <button class="tab-btn${t.key === activeKey ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
                 <i class="fa-solid ${t.icon}"></i> ${t.label}
             </button>`).join('');
     }
 
     // Mobile: abas primárias + botão "Mais" com overflow
-    const primary  = ADMIN_TABS.filter(t => !t.mobileOverflow);
-    const overflow = ADMIN_TABS.filter(t => t.mobileOverflow);
+    const primary  = tabs.filter(t => !t.mobileOverflow);
+    const overflow = tabs.filter(t => t.mobileOverflow);
     const overflowActive = overflow.some(t => t.key === activeKey);
 
     if (mobileBar) {

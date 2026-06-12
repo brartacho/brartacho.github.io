@@ -88,26 +88,6 @@ function revealApp() {
     if (app)    app.style.display    = 'block';
     if (replay) replay.classList.add('visible');
 
-    // Renderiza as abas (idempotente). Necessário no demo porque loadAll() do prod
-    // é o ponto que normalmente chama renderAdminTabs.
-    if (typeof renderAdminTabs === 'function') renderAdminTabs();
-
-    // Filtra abas conforme configuração do admin de produção. Aplica em ambos os bars
-    // (desktop .tab-btn + mobile .mobile-nav-btn) — usam a mesma chave data-tab.
-    const enabledTabs = window.ADMIN_CONFIG?.enabledTabs;
-    if (Array.isArray(enabledTabs) && enabledTabs.length > 0) {
-        document.querySelectorAll('.tab-btn[data-tab], .mobile-nav-btn[data-tab], .mais-menu-btn[data-tab]').forEach(btn => {
-            btn.style.display = enabledTabs.includes(btn.dataset.tab) ? '' : 'none';
-        });
-        // Oculta botão "Mais" se nenhuma aba de overflow estiver habilitada
-        const maisBtn = document.querySelector('.mobile-nav-mais');
-        if (maisBtn) {
-            const anyOverflow = [...document.querySelectorAll('.mais-menu-btn[data-tab]')]
-                .some(b => b.style.display !== 'none');
-            maisBtn.style.display = anyOverflow ? '' : 'none';
-        }
-    }
-
     // Painel "Configurar Demo" é exclusivo do prod — oculta no demo
     const demoPanel = document.getElementById('demoSettingsPanel');
     if (demoPanel) demoPanel.style.display = 'none';
