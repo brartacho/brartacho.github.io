@@ -7606,6 +7606,7 @@ let _radarShowPromovidas  = false;
 let _radarFiltersOpen = false;
 let _radarSelecting = false;
 let _radarSelected  = new Set();
+let _radarFilteredLeads = [];
 let _adaptarCvLeadId = null;
 let _cvVersionsList  = [];
 
@@ -7641,6 +7642,8 @@ function renderRadarList(leads) {
     if (_radarSortKey === 'score') filtered = [...filtered].sort((a,b) => (b.fit_score??-1) - (a.fit_score??-1));
     else if (_radarSortKey === 'date') filtered = [...filtered].sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
     else if (_radarSortKey === 'empresa') filtered = [...filtered].sort((a,b) => (a.empresa||'').localeCompare(b.empresa||'','pt-BR'));
+    _radarFilteredLeads = filtered;
+    if (_radarSelecting) _renderRadarBulkBar();
     // Update count
     if (count) count.textContent = filtered.length !== leads.length ? `(${filtered.length}/${leads.length})` : (leads.length ? `(${leads.length})` : '');
 
@@ -7868,6 +7871,17 @@ function toggleRadarSelect(id) {
     renderRadarList(_radarLeads);
     _renderRadarBulkBar();
 }
+function selectAllRadar() {
+    const total = _radarFilteredLeads.length;
+    const allSelected = total > 0 && _radarFilteredLeads.every(l => _radarSelected.has(l.id));
+    if (allSelected) {
+        _radarFilteredLeads.forEach(l => _radarSelected.delete(l.id));
+    } else {
+        _radarFilteredLeads.forEach(l => _radarSelected.add(l.id));
+    }
+    renderRadarList(_radarLeads);
+    _renderRadarBulkBar();
+}
 function _renderRadarBulkBar() {
     let bar = document.getElementById('radar-bulk-bar');
     if (!bar) {
@@ -7876,16 +7890,24 @@ function _renderRadarBulkBar() {
         bar.className = 'radar-bulk-bar';
         document.body.appendChild(bar);
     }
-    if (!_radarSelecting || _radarSelected.size === 0) {
+    if (!_radarSelecting) {
         bar.style.display = 'none';
         return;
     }
     const n = _radarSelected.size;
+    const total = _radarFilteredLeads.length;
+    const allSelected = total > 0 && _radarFilteredLeads.every(l => _radarSelected.has(l.id));
+    const selectAllLabel = allSelected
+        ? `<i class="fa-solid fa-square-minus"></i> Desmarcar tudo`
+        : `<i class="fa-solid fa-square-check"></i> Selecionar tudo (${total})`;
     bar.style.display = 'flex';
     bar.innerHTML = `
-        <span style="font-size:0.8rem;color:var(--text-soft);margin-right:4px">${n} selecionado${n > 1 ? 's' : ''}</span>
+        <button class="btn btn-sm" onclick="selectAllRadar()">${selectAllLabel}</button>
+        ${n > 0 ? `
+        <span style="font-size:0.8rem;color:var(--text-soft);margin-left:4px;margin-right:4px">${n} selecionado${n > 1 ? 's' : ''}</span>
         <button class="btn btn-cyan btn-sm" onclick="bulkPromoteRadar()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Promover selecionados</button>
         <button class="btn btn-danger btn-sm" onclick="bulkDiscardRadar()"><i class="fa-solid fa-ban"></i> Descartar selecionados</button>
+        ` : ''}
         <button class="btn btn-sm" onclick="toggleRadarSelectMode()" style="margin-left:auto">Cancelar</button>
     `;
 }
