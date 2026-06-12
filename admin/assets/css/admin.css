@@ -2863,9 +2863,15 @@
         /* ── Radar bulk action bar ── */
         .radar-bulk-bar {
             display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
-            background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px;
+            background:#1a1d23; border:1px solid var(--border); border-radius:8px;
             padding:8px 12px; gap:8px; align-items:center; z-index:1000;
-            box-shadow:0 4px 20px rgba(0,0,0,0.4);
+            box-shadow:0 4px 24px rgba(0,0,0,0.7);
+        }
+        .radar-bulk-bar .btn-sm {
+            background:#2a2d35; border:1px solid var(--border); color:var(--text);
+        }
+        .radar-bulk-bar .btn-sm:hover {
+            background:#33363f;
         }
 
         /* ───────── Refresh radar UI/UX (parte 1-7) ───────── */
