@@ -555,7 +555,8 @@ setInterval(_updateRefreshTs, 5000);
 
 // ─── GESTÃO DE VAGAS ──────────────────────────────────────
 let _applications = [];
-let _vagasFilter           = 'all';
+let _vagasFilter           = 'em-processo';
+let _kanbanShowFinalizadas = false;
 let _vagasModalidadeFilter = 'all';
 let _vagasTipoFilter       = 'all';
 let _vagasFiltersOpen      = false;
@@ -8437,6 +8438,10 @@ function renderKanban(apps) {
 
     const active = apps.filter(a => !a.archived);
 
+    const finalizadasCount = active.filter(a => a.result === 'recusado' || a.result === 'aprovado').length;
+    const countEl = document.getElementById('kanbanFinalizadasCount');
+    if (countEl) countEl.textContent = finalizadasCount;
+
     // Índice 0 = "Enviado" (etapa zero). Colunas numéricas começam no índice 1.
     // Calcula max de etapas descontando o Enviado (mínimo 4, máximo 8 colunas numeradas)
     const maxProcessStages = active.reduce((max, app) => {
@@ -8447,7 +8452,9 @@ function renderKanban(apps) {
 
     const ordinal = n => n + 'ª';
     const STAGE_COLS = Array.from({ length: numStageCols }, (_, i) => `${ordinal(i + 1)} Etapa`);
-    const COLS = ['Enviado', ...STAGE_COLS, 'Recusado', 'Aprovado'];
+    const COLS = _kanbanShowFinalizadas
+        ? ['Enviado', ...STAGE_COLS, 'Recusado', 'Aprovado']
+        : ['Enviado', ...STAGE_COLS];
 
     const getStageInfo = app => {
         if (app.result === 'recusado') return { col: 'Recusado', stageName: null };
@@ -8485,17 +8492,29 @@ function renderKanban(apps) {
                 <span class="kanban-col-count">${items.length}</span>
             </div>
             <div class="kanban-cards" id="kcol-${esc(colKey)}">
-                ${items.map(a => `
-                <div class="kanban-card" onclick="openDrawer('${a.id}')">
+                ${items.map(a => {
+                    const resultClass = a.result === 'recusado' ? ' kanban-card--recusado'
+                                      : a.result === 'aprovado'  ? ' kanban-card--aprovado'
+                                      : '';
+                    return `
+                <div class="kanban-card${resultClass}" onclick="openDrawer('${a.id}')">
                     <div class="kanban-card-empresa">${esc(a.empresa)}</div>
                     <div class="kanban-card-vaga">${esc(a.vaga || '')}</div>
                     ${a._stageName ? `<span class="kanban-stage-badge">${esc(a._stageName)}</span>` : ''}
                     ${a.modalidade ? `<span class="radar-chip" style="font-size:0.68rem;margin-top:4px">${esc(a.modalidade)}</span>` : ''}
-                </div>`).join('')}
+                </div>`;
+                }).join('')}
                 ${items.length === 0 ? '<div style="font-size:0.75rem;color:var(--text-dim);padding:8px;text-align:center">—</div>' : ''}
             </div>
         </div>`;
     }).join('');
+}
+
+function toggleKanbanFinalizadas() {
+    _kanbanShowFinalizadas = !_kanbanShowFinalizadas;
+    const btn = document.getElementById('kanbanFinalizadasBtn');
+    if (btn) btn.classList.toggle('active', _kanbanShowFinalizadas);
+    renderKanban(_applications);
 }
 
 // ── Triagem swipe (item D) ───────────────────────────────

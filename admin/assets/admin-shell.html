@@ -397,8 +397,8 @@
                 <div id="vagasFiltersPanel" class="collapsed">
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div class="vagas-filters" id="vagasFilters">
-                            <button class="vagas-filter-chip active" data-filter="all" onclick="setVagasFilter('all',this)">Todas</button>
-                            <button class="vagas-filter-chip" data-filter="em-processo" onclick="setVagasFilter('em-processo',this)">Em processo</button>
+                            <button class="vagas-filter-chip" data-filter="all" onclick="setVagasFilter('all',this)">Todas</button>
+                            <button class="vagas-filter-chip active" data-filter="em-processo" onclick="setVagasFilter('em-processo',this)">Em processo</button>
                             <button class="vagas-filter-chip" data-filter="aprovado" onclick="setVagasFilter('aprovado',this)">Aprovado</button>
                             <button class="vagas-filter-chip" data-filter="recusado" onclick="setVagasFilter('recusado',this)">Recusado</button>
                             <button class="vagas-filter-chip" data-filter="arquivadas" onclick="setVagasFilter('arquivadas',this)" style="opacity:0.7"><i aria-hidden="true" class="fa-solid fa-box-archive" style="font-size:0.7em"></i> Arquivadas</button>
@@ -471,6 +471,12 @@
 
             <!-- ─── KANBAN ──────────────────────────────────── -->
             <div id="vagasKanbanView" style="display:none">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <button class="btn btn-sm" id="kanbanFinalizadasBtn" onclick="toggleKanbanFinalizadas()">
+                        <i aria-hidden="true" class="fa-solid fa-flag-checkered"></i>
+                        Finalizadas (<span id="kanbanFinalizadasCount">0</span>)
+                    </button>
+                </div>
                 <div id="kanbanBoard" class="kanban-board"></div>
             </div><!-- /vagasKanbanView -->
 
