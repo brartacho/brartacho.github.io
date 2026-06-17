@@ -30,6 +30,36 @@ function jsonArr(v, max = 60) {
     return v.filter((x) => typeof x === 'string').map((x) => clean(x, 120)).filter(Boolean).slice(0, max);
 }
 
+// Normaliza o objeto `filters` da requisição de busca. Aceita campos opcionais
+// e elimina chaves vazias. Retorna null se nenhum filtro útil foi informado.
+function sanitizeFilters(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const out = {};
+    if (typeof raw.modalidade === 'string' && VALID_MODALIDADE.has(raw.modalidade)) {
+        out.modalidade = raw.modalidade;
+    }
+    if (Array.isArray(raw.tipo_contratacao)) {
+        const tipos = raw.tipo_contratacao.filter((t) => typeof t === 'string' && VALID_TIPO.has(t));
+        if (tipos.length) out.tipo_contratacao = tipos;
+    }
+    if (Array.isArray(raw.nivel)) {
+        const niveis = raw.nivel.map((n) => clean(n, 40)).filter(Boolean).slice(0, 6);
+        if (niveis.length) out.nivel = niveis;
+    }
+    if (typeof raw.requires_cnh === 'boolean') {
+        out.requires_cnh = raw.requires_cnh;
+    }
+    if (typeof raw.location === 'string') {
+        const loc = clean(raw.location, 120);
+        if (loc) out.location = loc;
+    }
+    if (Number.isFinite(raw.min_score)) {
+        const s = Math.max(0, Math.min(100, Math.round(raw.min_score)));
+        out.min_score = s;
+    }
+    return Object.keys(out).length ? out : null;
+}
+
 async function loadProfile(supabase) {
     const { data } = await supabase
         .from('candidate_profile')
@@ -173,7 +203,7 @@ export default async function handler(req, res) {
     // FILA DE BUSCA — search_requests
     // ---------------------------------------------------------
     if (req.method === 'POST' && req.query.action === 'request-search') {
-        const { platforms, keywords, max_results, dry_run } = req.body || {};
+        const { platforms, keywords, max_results, dry_run, filters } = req.body || {};
         if (!Array.isArray(platforms) || !platforms.length)
             return res.status(400).json({ error: 'platforms obrigatório' });
         const validPlats = new Set(['linkedin', 'gupy', 'maringa', 'indeed', 'infojobs', 'remotive', 'remoteok', 'weworkremotely', 'remotar', 'trampos', 'aijobs', 'jsremotely', 'vagas', 'catho', 'jooble', 'workana', '99freelas']);
@@ -182,8 +212,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Nenhuma plataforma válida' });
         const kw = Array.isArray(keywords) ? keywords.map(k => String(k).trim()).filter(Boolean).slice(0, 20) : null;
         const mr = Number.isInteger(max_results) && max_results > 0 ? Math.min(max_results, 50) : null;
+        const cleanFilters = sanitizeFilters(filters);
         const { data, error } = await supabase.from('search_requests')
-            .insert({ platforms: filteredPlats, keywords: kw, max_results: mr, dry_run: !!dry_run })
+            .insert({ platforms: filteredPlats, keywords: kw, max_results: mr, dry_run: !!dry_run, filters: cleanFilters })
             .select('id').single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json({ id: data.id });
